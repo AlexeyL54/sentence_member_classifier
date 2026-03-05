@@ -1,0 +1,21 @@
+model/
+outputs/
+text/
+dist/
+predictor.out
+
+modelling/models/
+
+src/back/onnxruntime-win-x64
+
+# Python-generated files
+modelling/__pycache__/
+modelling/*.py[oc]
+modelling/build/
+modelling/dist/
+modelling/wheels/
+modelling/*.egg-info
+
+# Virtual environments
+modelling/.venv
+
