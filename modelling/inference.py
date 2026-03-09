@@ -36,6 +36,16 @@ class CircumstancePredictor:
         except Exception as e:
             raise RuntimeError(f"Error loading model: {e}")
 
+    def preprocess_text(self, text: str) -> str:
+        """Предобработка текста перед токенизацией"""
+        # Заменяем множественные пробелы на один
+        text = re.sub(r'\s+', ' ', text)
+        # Убираем пробелы перед знаками препинания
+        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
+        # Добавляем пробел после знаков препинания, если его нет (для корректного разделения на предложения)
+        text = re.sub(r'([.,!?;:])([^\s])', r'\1 \2', text)
+        return text.strip()
+
     def tokenize_with_offsets(self, text: str):
         """Токенизация с сохранением позиций в исходном тексте"""
         encoding = self.tokenizer(
@@ -71,19 +81,32 @@ class CircumstancePredictor:
         results = []
         tokens = self.tokenizer.convert_ids_to_tokens(input_ids[0].cpu().numpy())
 
+        print(f"\nDebug - Sentence: {sentence}")
+        print("Token | Label | is_subword | start-end")
+        
         for i, (token, pred, offset) in enumerate(zip(tokens, predictions, offsets)):
             # Пропускаем специальные токены и паддинг
             if token in [
                 self.tokenizer.cls_token,
                 self.tokenizer.sep_token,
                 self.tokenizer.pad_token,
+                self.tokenizer.unk_token,
             ]:
                 continue
 
             if offset[0] == offset[1] == 0:  # Специальные токены
                 continue
 
+            # Проверяем, является ли токен знаком препинания
+            if token in [",", ".", "!", "?", ";", ":", "-", "(", ")", "'", '"', "``", "''"]:
+                # Пропускаем знаки препинания
+                continue
+
             label = Config.ID2LABEL.get(pred, "O")
+            
+            # Добавляем отладочный вывод
+            is_subword = token.startswith("##")
+            print(f"{token:15} | {label:15} | {is_subword} | {offset[0]}-{offset[1]}")
 
             results.append(
                 {
@@ -91,14 +114,48 @@ class CircumstancePredictor:
                     "label": label,
                     "start": offset[0],
                     "end": offset[1],
-                    "is_subword": token.startswith("##"),
+                    "is_subword": is_subword,
                 }
             )
 
         return results
 
+    def _label_to_type(self, label: str) -> str:
+        """Преобразование метки в читаемый тип"""
+        label_to_type = {
+            "O": "не_является_членом_предложения",
+            "B-MANNER": "обстоятельство_образа_действия",
+            "I-MANNER": "обстоятельство_образа_действия",
+            "B-TIME": "обстоятельство_времени",
+            "I-TIME": "обстоятельство_времени",
+            "B-DEGREE": "обстоятельство_степени",
+            "I-DEGREE": "обстоятельство_степени",
+            "B-CONDITION": "обстоятельство_условия",
+            "I-CONDITION": "обстоятельство_условия",
+            "B-CAUSE": "обстоятельство_причины",
+            "I-CAUSE": "обстоятельство_причины",
+            "B-CONCESSION": "обстоятельство_уступки",
+            "I-CONCESSION": "обстоятельство_уступки",
+            "B-LOCATION": "обстоятельство_места",
+            "I-LOCATION": "обстоятельство_места",
+            "B-PURPOSE": "обстоятельство_цели",
+            "I-PURPOSE": "обстоятельство_цели",
+            "B-SUBJECT": "подлежащее",
+            "I-SUBJECT": "подлежащее",
+            "B-PREDICATE": "сказуемое",
+            "I-PREDICATE": "сказуемое",
+            "B-DEFINITION": "определение",
+            "I-DEFINITION": "определение",
+            "B-ADDITION": "дополнение",
+            "I-ADDITION": "дополнение",
+        }
+        return label_to_type.get(label, "неизвестно")
+
     def extract_circumstances(self, text: str) -> List[Dict]:
-        """Извлечение обстоятельств из текста"""
+        """Извлечение всех членов предложения из текста"""
+        # Предобработка текста
+        text = self.preprocess_text(text)
+        
         sentences = self._split_into_sentences(text)
 
         all_results = []
@@ -113,16 +170,29 @@ class CircumstancePredictor:
                 predictions, sentence, sentence_start
             )
 
+            # Также создаем список всех токенов с их классификацией
+            all_tokens = []
+            for pred in predictions:
+                token_info = {
+                    "text": self._clean_token(pred["token"]),
+                    "label": pred["label"],
+                    "type": self._label_to_type(pred["label"]),
+                    "start": pred["start"] + sentence_start,
+                    "end": pred["end"] + sentence_start,
+                    "is_subword": pred["is_subword"],
+                }
+                all_tokens.append(token_info)
+
             all_results.append(
                 {
                     "sentence": sentence,
-                    "tokens": [p["token"] for p in predictions],
-                    "entities": entities,
+                    "tokens": all_tokens,  # Все токены с классификацией
+                    "entities": entities,  # Сгруппированные сущности (только не-O)
                 }
             )
 
             # Обновляем смещение для следующего предложения
-            sentence_start += len(sentence) + 1  # +1 для пробела/знака препинания
+            sentence_start += len(sentence) + 1
 
         return all_results
 
@@ -133,72 +203,129 @@ class CircumstancePredictor:
         sentences = re.split(sentence_endings, text.strip())
         return [s.strip() for s in sentences if s.strip()]
 
+    def analyze_sentence_structure(self, text: str) -> Dict:
+        """Полный анализ структуры предложения"""
+        results = self.extract_circumstances(text)
+
+        if not results:
+            return {}
+
+        sentence_data = results[0]
+
+        # Классифицируем найденные сущности
+        structure = {
+            "sentence": sentence_data["sentence"],
+            "main_parts": {"subject": [], "predicate": []},
+            "secondary_parts": {"addition": [], "definition": []},
+            "circumstances": [],
+        }
+
+        for entity in sentence_data.get("entities", []):
+            entity_type = entity["type"].lower()
+
+            if entity_type == "subject":
+                structure["main_parts"]["subject"].append(entity)
+            elif entity_type == "predicate":
+                structure["main_parts"]["predicate"].append(entity)
+            elif entity_type == "addition":
+                structure["secondary_parts"]["addition"].append(entity)
+            elif entity_type == "definition":
+                structure["secondary_parts"]["definition"].append(entity)
+            elif entity_type in [
+                "manner",
+                "time",
+                "location",
+                "cause",
+                "purpose",
+                "condition",
+                "concession",
+                "degree",
+            ]:
+                structure["circumstances"].append(entity)
+
+        return structure
+
     def _group_entities_with_offsets(
-        self, predictions: List[Dict], sentence: str, sentence_offset: int = 0
-    ) -> List[Dict]:
+    self, predictions: List[Dict], sentence: str, sentence_offset: int = 0
+) -> List[Dict]:
         """Группировка сущностей с использованием позиций в тексте"""
         entities = []
-        current_entity = None
+        
+        # Карта для преобразования меток в читаемые типы
+        label_to_type = {
+            "O": "не_является_членом_предложения",
+            "MANNER": "обстоятельство_образа_действия",
+            "TIME": "обстоятельство_времени",
+            "DEGREE": "обстоятельство_степени",
+            "CONDITION": "обстоятельство_условия",
+            "CAUSE": "обстоятельство_причины",
+            "CONCESSION": "обстоятельство_уступки",
+            "LOCATION": "обстоятельство_места",
+            "PURPOSE": "обстоятельство_цели",
+            "SUBJECT": "подлежащее",
+            "PREDICATE": "сказуемое",
+            "DEFINITION": "определение",
+            "ADDITION": "дополнение",
+        }
 
-        for pred in predictions:
+        i = 0
+        while i < len(predictions):
+            pred = predictions[i]
             label = pred["label"]
-            start = pred["start"] + sentence_offset
-            end = pred["end"] + sentence_offset
-            token = pred["token"]
-
+            
+            # Пропускаем O-метки
+            if label == "O":
+                i += 1
+                continue
+                
             if label.startswith("B-"):
                 # Начало новой сущности
-                if current_entity:
-                    entities.append(current_entity)
-
                 entity_type = label[2:]
-                current_entity = {
-                    "text": self._clean_token(token),
-                    "type": entity_type,
+                start = pred["start"] + sentence_offset
+                end = pred["end"] + sentence_offset
+                
+                # Начинаем с первого токена
+                entity_text = self._clean_token(pred["token"])
+                entity_tokens = [entity_text]
+                
+                # Смотрим следующие токены с I- той же сущности
+                j = i + 1
+                while j < len(predictions):
+                    next_pred = predictions[j]
+                    next_label = next_pred["label"]
+                    
+                    # Если это I- той же сущности
+                    if next_label.startswith("I-") and next_label[2:] == entity_type:
+                        clean_token = self._clean_token(next_pred["token"])
+                        entity_tokens.append(clean_token)
+                        
+                        # Проверяем, является ли токен субтокеном
+                        if next_pred["is_subword"]:
+                            entity_text += clean_token
+                        else:
+                            entity_text += " " + clean_token
+                        
+                        end = next_pred["end"] + sentence_offset
+                        j += 1
+                    else:
+                        break
+                
+                # Создаем сущность
+                entity = {
+                    "text": entity_text,
+                    "type": label_to_type.get(entity_type, entity_type.lower()),
+                    "original_type": entity_type,
                     "start": start,
                     "end": end,
                     "label": label,
-                    "tokens": [self._clean_token(token)],
+                    "tokens": entity_tokens,
                 }
-
-            elif label.startswith("I-"):
-                # Продолжение сущности
-                if current_entity and label[2:] == current_entity["type"]:
-                    # Проверяем, что токены идут подряд
-                    if start == current_entity["end"]:
-                        # Субтокен - соединяем без пробела
-                        if pred["is_subword"]:
-                            current_entity["text"] += self._clean_token(token)
-                        else:
-                            current_entity["text"] += " " + self._clean_token(token)
-                        current_entity["end"] = end
-                        current_entity["tokens"].append(self._clean_token(token))
-                    else:
-                        # Разрыв - заканчиваем текущую и начинаем новую
-                        entities.append(current_entity)
-                        entity_type = label[2:]
-                        current_entity = {
-                            "text": self._clean_token(token),
-                            "type": entity_type,
-                            "start": start,
-                            "end": end,
-                            "label": label,
-                            "tokens": [self._clean_token(token)],
-                        }
-                else:
-                    # Несоответствие меток
-                    if current_entity:
-                        entities.append(current_entity)
-                    current_entity = None
-
-            elif label == "O" and current_entity:
-                # Конец сущности
-                entities.append(current_entity)
-                current_entity = None
-
-        # Добавляем последнюю сущность
-        if current_entity:
-            entities.append(current_entity)
+                
+                entities.append(entity)
+                i = j  # Продолжаем с последнего необработанного токена
+            else:
+                # Если встретили I- без B- (ошибка модели), пропускаем
+                i += 1
 
         return entities
 
@@ -213,7 +340,7 @@ class CircumstancePredictor:
             self.tokenizer.unk_token,
         ]:
             return ""
-        return token.replace("##", "")
+        return token
 
     def process_file(self, input_file: str, output_file: str = "") -> Dict:
         """Обработка текстового файла"""

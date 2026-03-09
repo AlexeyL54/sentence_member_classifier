@@ -7,6 +7,7 @@ predictor.out
 modelling/models/
 
 src/back/onnxruntime-win-x64
+src/front/compile_flags.txt
 
 # Python-generated files
 modelling/__pycache__/

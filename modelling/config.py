@@ -6,19 +6,18 @@ import os
 class Config:
     # Модель
     MODEL_NAME = "DeepPavlov/rubert-base-cased"
-    # MODEL_NAME = "cointegrated/rubert-tiny"
-    NUM_LABELS = 17
+    NUM_LABELS = 25
     MAX_LEN = 128
     BATCH_SIZE = 8
     LEARNING_RATE = 2e-5
-    EPOCHS = 60
+    EPOCHS = 10
     DROPOUT = 0.1
 
     # CRF (опционально)
     USE_CRF = True
 
     # Пути
-    BASE_DIR = "/home/alexey/programming/python/adverbial_detector_bertV2"
+    BASE_DIR = os.getcwd()
     MODEL_SAVE_PATH = os.path.join(BASE_DIR, "models/bert_ner_model")
     TOKENIZER_SAVE_PATH = os.path.join(BASE_DIR, "models/tokenizer")
     ONNX_SAVE_PATH = os.path.join(BASE_DIR, "models/bert_ner_model.onnx")
@@ -45,7 +44,20 @@ class Config:
         "I-LOCATION",
         "B-PURPOSE",
         "I-PURPOSE",
+        "B-SUBJECT",
+        "I-SUBJECT",
+        "B-PREDICATE",
+        "I-PREDICATE",
+        "B-DEFINITION",
+        "I-DEFINITION",
+        "B-ADDITION",
+        "I-ADDITION",
     ]
+
+    # Проверяем соответствие количества меток
+    assert len(LABEL_LIST) == NUM_LABELS, (
+        f"LABEL_LIST length ({len(LABEL_LIST)}) != NUM_LABELS ({NUM_LABELS})"
+    )
 
     # Map меток
     LABEL2ID = {label: i for i, label in enumerate(LABEL_LIST)}
@@ -79,6 +91,23 @@ class Config:
                 "sep": "[SEP]",
                 "mask": "[MASK]",
             },
+            "sentence_parts": {
+                "circumstances": [
+                    "MANNER",
+                    "TIME",
+                    "DEGREE",
+                    "CONDITION",
+                    "CAUSE",
+                    "CONCESSION",
+                    "LOCATION",
+                    "PURPOSE",
+                ],
+                "main_parts": ["SUBJECT", "PREDICATE"],
+                "secondary_parts": [
+                    "ADDITION",
+                    "DEFINITION",
+                ],
+            },
         }
 
         os.makedirs(os.path.dirname(cls.MODEL_SAVE_PATH), exist_ok=True)
@@ -94,6 +123,7 @@ class Config:
         """Загрузка конфигурации обучения из файла"""
         if os.path.exists(cls.TRAIN_CONFIG_PATH):
             with open(cls.TRAIN_CONFIG_PATH, "r", encoding="utf-8") as f:
+                print(f"Opening {cls.TRAIN_CONFIG_PATH}")
                 config_data = json.load(f)
 
             # Обновляем параметры из файла
@@ -102,7 +132,6 @@ class Config:
             cls.LEARNING_RATE = config_data.get("learning_rate", cls.LEARNING_RATE)
             cls.MAX_LEN = config_data.get("max_len", cls.MAX_LEN)
             cls.MODEL_NAME = config_data.get("model_name", cls.MODEL_NAME)
-            cls.USE_CRF = config_data.get("use_crf", cls.USE_CRF)
 
             print(f"Loaded train config from {cls.TRAIN_CONFIG_PATH}")
         else:

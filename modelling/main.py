@@ -95,16 +95,92 @@ def show_info():
     print("=" * 60)
 
 
+def analyze_structure():
+    """Анализ структуры предложения"""
+    from inference import CircumstancePredictor
+
+    try:
+        predictor = CircumstancePredictor()
+        print("✓ Model loaded successfully")
+        print("Type 'exit' to quit\n")
+    except Exception as e:
+        print(f"✗ Error loading model: {e}")
+        return
+
+    while True:
+        try:
+            text = input("\nEnter sentence: ").strip()
+
+            if text.lower() in ["exit", "quit", "q"]:
+                break
+
+            if not text:
+                continue
+
+            structure = predictor.analyze_sentence_structure(text)
+
+            print("\n" + "=" * 60)
+            print("SENTENCE STRUCTURE ANALYSIS")
+            print("=" * 60)
+            print(f"Sentence: {structure['sentence']}\n")
+
+            if structure["main_parts"]["subject"]:
+                print("Подлежащее:")
+                for subj in structure["main_parts"]["subject"]:
+                    print(f"  • {subj['text']}")
+
+            if structure["main_parts"]["predicate"]:
+                print("\nСказуемое:")
+                for pred in structure["main_parts"]["predicate"]:
+                    print(f"  • {pred['text']}")
+
+            if structure["secondary_parts"]["object"]:
+                print("\nДополнение:")
+                for obj in structure["secondary_parts"]["object"]:
+                    print(f"  • {obj['text']}")
+
+            if structure["secondary_parts"]["attribute"]:
+                print("\nОпределение:")
+                for attr in structure["secondary_parts"]["attribute"]:
+                    print(f"  • {attr['text']}")
+
+            if structure["circumstances"]:
+                print("\nОбстоятельства:")
+                for circ in structure["circumstances"]:
+                    print(f"  • {circ['text']} ({circ['type']})")
+
+            print("=" * 60)
+
+        except KeyboardInterrupt:
+            print("\n\nExiting...")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+
+
+def get_dataset_stats():
+    """Получение статистики по датасету"""
+    from dataset import DataProcessor
+    from config import Config
+
+    try:
+        texts, labels = DataProcessor.load_dataset(Config.DATASET_PATH)
+        DataProcessor.get_statistics(texts, labels)
+    except Exception as e:
+        print(f"Error loading dataset: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="BERT-based Circumstance Detection",
+        description="BERT-based Sentence Part Detection",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s --train                    Train the model
   %(prog)s --predict                  Interactive prediction mode
+  %(prog)s --analyze                  Analyze sentence structure
   %(prog)s --file input.txt           Process text file
-  %(prog)s --file input.txt --output result.json  Save results to JSON
+  %(prog)s --stats                    Show dataset statistics
   %(prog)s --labels                   List all supported labels
   %(prog)s --info                     Show project information
         """,
@@ -114,11 +190,15 @@ Examples:
     parser.add_argument(
         "--predict", action="store_true", help="Interactive prediction mode"
     )
+    parser.add_argument(
+        "--analyze", action="store_true", help="Analyze sentence structure"
+    )
     parser.add_argument("--file", type=str, help="Process text file")
     parser.add_argument("--output", type=str, help="Output file for processing results")
     parser.add_argument(
         "--labels", action="store_true", help="List all supported labels"
     )
+    parser.add_argument("--stats", action="store_true", help="Show dataset statistics")
     parser.add_argument("--info", action="store_true", help="Show project information")
 
     args = parser.parse_args()
@@ -127,10 +207,14 @@ Examples:
         train_model()
     elif args.predict:
         predict_interactive()
+    elif args.analyze:
+        analyze_structure()
     elif args.file:
         predict_file(args.file, args.output)
     elif args.labels:
         list_labels()
+    elif args.stats:
+        get_dataset_stats()
     elif args.info:
         show_info()
     else:
