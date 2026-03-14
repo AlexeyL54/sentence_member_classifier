@@ -2,14 +2,15 @@ import torch
 import json
 import os
 import re
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 from config import Config
 
 
 class CircumstancePredictor:
-    def __init__(self, model_path=Config.MODEL_SAVE_PATH):
+    def __init__(self, model_path=Config.MODEL_SAVE_PATH, debug=False):
         self.device = Config.DEVICE
+        self.debug = debug  # Флаг для отладочного вывода
 
         # Загрузка токенизатора
         tokenizer_path = os.path.join(model_path, "tokenizer")
@@ -33,59 +34,86 @@ class CircumstancePredictor:
             self.model.to(self.device)
             self.model.eval()
             print(f"✓ Model loaded from {model_path}")
+
+            # Загружаем метаданные для маппинга меток
+            self.load_metadata(model_path)
+
         except Exception as e:
             raise RuntimeError(f"Error loading model: {e}")
+
+    def load_metadata(self, model_path):
+        """Загрузка метаданных модели"""
+        metadata_path = os.path.join(model_path, "metadata.json")
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                self.metadata = json.load(f)
+        else:
+            self.metadata = None
 
     def preprocess_text(self, text: str) -> str:
         """Предобработка текста перед токенизацией"""
         # Заменяем множественные пробелы на один
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\s+", " ", text)
         # Убираем пробелы перед знаками препинания
-        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
-        # Добавляем пробел после знаков препинания, если его нет (для корректного разделения на предложения)
-        text = re.sub(r'([.,!?;:])([^\s])', r'\1 \2', text)
+        text = re.sub(r"\s+([.,!?;:])", r"\1", text)
         return text.strip()
 
-    def tokenize_with_offsets(self, text: str):
-        """Токенизация с сохранением позиций в исходном тексте"""
+    def predict_sentence(
+        self, sentence: str
+    ) -> Tuple[List[Dict], List[Tuple[int, int]]]:
+        """
+        Предсказание для одного предложения
+
+        Returns:
+            - список токенов с предсказаниями
+            - список позиций (start, end) для каждого токена в исходном тексте
+        """
+        # Токенизация с offsets
         encoding = self.tokenizer(
-            text,
+            sentence,
             add_special_tokens=True,
             max_length=Config.MAX_LEN,
             padding="max_length",
             truncation=True,
             return_attention_mask=True,
             return_tensors="pt",
-            return_offsets_mapping=True,  # Важно для группировки!
+            return_offsets_mapping=True,
         )
-        return encoding
-
-    def predict_sentence(self, sentence: str) -> List[Dict]:
-        """Предсказание для одного предложения с правильной обработкой"""
-        # Токенизация с offsets
-        encoding = self.tokenize_with_offsets(sentence)
 
         input_ids = encoding["input_ids"].to(self.device)
         attention_mask = encoding["attention_mask"].to(self.device)
-        offsets = encoding["offset_mapping"][0].cpu().numpy()
+        offset_mapping = encoding["offset_mapping"][0].cpu().numpy()
 
         # Предсказание
         with torch.no_grad():
             outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
             logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
-            predictions = torch.argmax(logits, dim=-1)
 
-        predictions = predictions[0].cpu().numpy()
+            # Если есть CRF, используем его для декодирования
+            if hasattr(self.model, "crf") and self.model.crf is not None:
+                mask = attention_mask.bool()
+                predictions = self.model.crf.decode(logits, mask=mask)
+                predictions = torch.tensor(predictions)[0]
+            else:
+                predictions = torch.argmax(logits, dim=-1)[0]
 
-        # Обработка результатов
-        results = []
+        predictions = predictions.cpu().numpy()
         tokens = self.tokenizer.convert_ids_to_tokens(input_ids[0].cpu().numpy())
 
-        print(f"\nDebug - Sentence: {sentence}")
-        print("Token | Label | is_subword | start-end")
-        
-        for i, (token, pred, offset) in enumerate(zip(tokens, predictions, offsets)):
-            # Пропускаем специальные токены и паддинг
+        # Собираем результаты
+        results = []
+        valid_offsets = []
+
+        # Отладочный вывод
+        if self.debug:
+            print(f"\nDebug - Sentence: {sentence}")
+            print(f"{'Token':15} | {'Label':15} | {'is_subword':10} | {'start-end':10}")
+            print("-" * 60)
+
+        for i, (token, pred, offset) in enumerate(
+            zip(tokens, predictions, offset_mapping)
+        ):
+            # Пропускаем специальные токены
             if token in [
                 self.tokenizer.cls_token,
                 self.tokenizer.sep_token,
@@ -94,253 +122,348 @@ class CircumstancePredictor:
             ]:
                 continue
 
-            if offset[0] == offset[1] == 0:  # Специальные токены
-                continue
-
-            # Проверяем, является ли токен знаком препинания
-            if token in [",", ".", "!", "?", ";", ":", "-", "(", ")", "'", '"', "``", "''"]:
-                # Пропускаем знаки препинания
+            # Пропускаем токены с нулевым смещением (padding)
+            if offset[0] == offset[1] == 0:
                 continue
 
             label = Config.ID2LABEL.get(pred, "O")
-            
-            # Добавляем отладочный вывод
             is_subword = token.startswith("##")
-            print(f"{token:15} | {label:15} | {is_subword} | {offset[0]}-{offset[1]}")
+
+            # Для субтокенов убираем ##
+            clean_token = token[2:] if is_subword else token
+
+            # Отладочный вывод
+            if self.debug:
+                print(
+                    f"{token:15} | {label:15} | {str(is_subword):10} | {offset[0]}-{offset[1]}"
+                )
 
             results.append(
                 {
-                    "token": token,
+                    "token": clean_token,
+                    "full_token": token,
                     "label": label,
-                    "start": offset[0],
-                    "end": offset[1],
                     "is_subword": is_subword,
+                    "position": i,
                 }
             )
+            valid_offsets.append((offset[0], offset[1]))
 
-        return results
+        if self.debug:
+            print("-" * 60)
 
-    def _label_to_type(self, label: str) -> str:
-        """Преобразование метки в читаемый тип"""
-        label_to_type = {
-            "O": "не_является_членом_предложения",
-            "B-MANNER": "обстоятельство_образа_действия",
-            "I-MANNER": "обстоятельство_образа_действия",
-            "B-TIME": "обстоятельство_времени",
-            "I-TIME": "обстоятельство_времени",
-            "B-DEGREE": "обстоятельство_степени",
-            "I-DEGREE": "обстоятельство_степени",
-            "B-CONDITION": "обстоятельство_условия",
-            "I-CONDITION": "обстоятельство_условия",
-            "B-CAUSE": "обстоятельство_причины",
-            "I-CAUSE": "обстоятельство_причины",
-            "B-CONCESSION": "обстоятельство_уступки",
-            "I-CONCESSION": "обстоятельство_уступки",
-            "B-LOCATION": "обстоятельство_места",
-            "I-LOCATION": "обстоятельство_места",
-            "B-PURPOSE": "обстоятельство_цели",
-            "I-PURPOSE": "обстоятельство_цели",
-            "B-SUBJECT": "подлежащее",
-            "I-SUBJECT": "подлежащее",
-            "B-PREDICATE": "сказуемое",
-            "I-PREDICATE": "сказуемое",
-            "B-DEFINITION": "определение",
-            "I-DEFINITION": "определение",
-            "B-ADDITION": "дополнение",
-            "I-ADDITION": "дополнение",
-        }
-        return label_to_type.get(label, "неизвестно")
+        return results, valid_offsets
 
-    def extract_circumstances(self, text: str) -> List[Dict]:
-        """Извлечение всех членов предложения из текста"""
-        # Предобработка текста
-        text = self.preprocess_text(text)
-        
-        sentences = self._split_into_sentences(text)
+    def _should_merge_words(self, word1: Dict, word2: Dict) -> bool:
+        """
+        Определяет, должны ли два слова быть объединены в одну сущность
 
-        all_results = []
-        sentence_start = 0
+        Правила BIO разметки:
+        - B- (Begin) - начало новой сущности
+        - I- (Inside) - продолжение текущей сущности
+        - O - вне сущности
 
-        for sentence in sentences:
-            # Предсказание для предложения
-            predictions = self.predict_sentence(sentence)
+        Объединяем только если:
+        1. Второе слово имеет I- префикс (продолжение)
+        2. И базовый тип совпадает с первым словом
+        3. И расстояние между словами минимально (только пробелы)
+        """
+        if not word1 or not word2:
+            return False
 
-            # Группировка в сущности с учетом смещения
-            entities = self._group_entities_with_offsets(
-                predictions, sentence, sentence_start
-            )
+        label1 = word1["main_label"]
+        label2 = word2["main_label"]
 
-            # Также создаем список всех токенов с их классификацией
-            all_tokens = []
-            for pred in predictions:
-                token_info = {
-                    "text": self._clean_token(pred["token"]),
-                    "label": pred["label"],
-                    "type": self._label_to_type(pred["label"]),
-                    "start": pred["start"] + sentence_start,
-                    "end": pred["end"] + sentence_start,
-                    "is_subword": pred["is_subword"],
-                }
-                all_tokens.append(token_info)
+        # Получаем базовые типы без BIO префиксов
+        base1 = label1[2:] if label1.startswith(("B-", "I-")) else label1
+        base2 = label2[2:] if label2.startswith(("B-", "I-")) else label2
 
-            all_results.append(
+        # Проверяем расстояние между словами (в символах)
+        distance = word2["start"] - word1["end"]
+
+        # Объединяем ТОЛЬКО если:
+        # 1. Второе слово имеет I- префикс (продолжение текущей сущности)
+        # 2. Базовые типы совпадают
+        # 3. Расстояние небольшое (только пробелы, не более 1-2 пробелов)
+        # 4. Не O-метки
+        return (
+            label2.startswith("I-")  # Ключевое изменение: только I- префикс!
+            and base1 == base2
+            and base1 != "O"
+            and distance < 3  # максимум 2 пробела
+        )
+
+    def _group_into_phrases(self, words: List[Dict]) -> List[Dict]:
+        """
+        Группировка слов в фразы (составные члены предложения)
+        с соблюдением BIO разметки
+        """
+        if not words:
+            return []
+
+        phrases = []
+        current_phrase = None
+
+        for word in words:
+            # Пропускаем знаки препинания как отдельные слова
+            if word["text"] in [",", ".", "!", "?", ";", ":", "-", "(", ")"]:
+                continue
+
+            label = word["main_label"]
+
+            # Если это начало новой сущности (B- префикс) или первое слово
+            if label.startswith("B-") or current_phrase is None:
+                # Завершаем предыдущую фразу, если она есть
+                if current_phrase is not None:
+                    phrases.append(current_phrase)
+
+                # Начинаем новую фразу
+                current_phrase = word.copy()
+                current_phrase["text"] = word["text"]
+                current_phrase["words"] = [word]
+
+            # Если это продолжение сущности (I- префикс) и есть текущая фраза
+            elif label.startswith("I-") and current_phrase is not None:
+                # Проверяем, что базовый тип совпадает с текущей фразой
+                current_base = (
+                    current_phrase["main_label"][2:]
+                    if current_phrase["main_label"].startswith(("B-", "I-"))
+                    else current_phrase["main_label"]
+                )
+                word_base = label[2:] if label.startswith(("B-", "I-")) else label
+
+                if current_base == word_base and self._should_merge_words(
+                    current_phrase, word
+                ):
+                    # Продолжаем текущую фразу
+                    current_phrase["text"] += " " + word["text"]
+                    current_phrase["end"] = word["end"]
+                    current_phrase["words"].append(word)
+                else:
+                    # Если типы не совпадают, начинаем новую фразу
+                    phrases.append(current_phrase)
+                    current_phrase = word.copy()
+                    current_phrase["text"] = word["text"]
+                    current_phrase["words"] = [word]
+
+            else:
+                # Для O-меток или других случаев
+                if current_phrase is not None:
+                    phrases.append(current_phrase)
+                    current_phrase = None
+
+        # Добавляем последнюю фразу
+        if current_phrase is not None:
+            phrases.append(current_phrase)
+
+        return phrases
+
+    def _group_into_words(
+        self, tokens: List[Dict], offsets: List[Tuple[int, int]]
+    ) -> List[Dict]:
+        """
+        Группировка субтокенов в полные слова с сохранением BIO-разметки
+        """
+        words = []
+        current_word = None
+        current_start = None
+        current_end = None
+        current_labels = []
+        current_tokens = []
+
+        for i, (token_info, (start, end)) in enumerate(zip(tokens, offsets)):
+            if token_info["is_subword"] and current_word is not None:
+                # Субтокен - добавляем к текущему слову
+                current_word += token_info["token"]
+                current_end = end
+                current_labels.append(token_info["label"])
+                current_tokens.append(token_info)
+            else:
+                # Новое слово
+                if current_word is not None:
+                    # Сохраняем предыдущее слово
+                    main_label = self._get_main_label(current_labels)
+                    words.append(
+                        {
+                            "text": current_word,
+                            "start": current_start,
+                            "end": current_end,
+                            "labels": current_labels,
+                            "main_label": main_label,
+                            "has_b_prefix": any(
+                                l.startswith("B-") for l in current_labels
+                            ),  # Важно для определения начала
+                            "tokens": current_tokens,
+                        }
+                    )
+
+                # Начинаем новое слово
+                current_word = token_info["token"]
+                current_start = start
+                current_end = end
+                current_labels = [token_info["label"]]
+                current_tokens = [token_info]
+
+        # Добавляем последнее слово
+        if current_word is not None:
+            main_label = self._get_main_label(current_labels)
+            words.append(
                 {
-                    "sentence": sentence,
-                    "tokens": all_tokens,  # Все токены с классификацией
-                    "entities": entities,  # Сгруппированные сущности (только не-O)
+                    "text": current_word,
+                    "start": current_start,
+                    "end": current_end,
+                    "labels": current_labels,
+                    "main_label": main_label,
+                    "has_b_prefix": any(l.startswith("B-") for l in current_labels),
+                    "tokens": current_tokens,
                 }
             )
 
-            # Обновляем смещение для следующего предложения
-            sentence_start += len(sentence) + 1
+        return words
 
-        return all_results
+    def _get_main_label(self, labels: List[str]) -> str:
+        """
+        Определение основной метки для слова на основе меток его токенов
 
-    def _split_into_sentences(self, text: str) -> List[str]:
-        """Простое разделение на предложения"""
-        # Более надежное разделение
-        sentence_endings = r"(?<=[.!?])\s+"
-        sentences = re.split(sentence_endings, text.strip())
-        return [s.strip() for s in sentences if s.strip()]
+        BIO схема: если есть B-*, используем его, иначе первый I-* или O
+        """
+        for label in labels:
+            if label.startswith("B-"):
+                return label
+        for label in labels:
+            if label.startswith("I-"):
+                return label
+        return labels[0] if labels else "O"
 
-    def analyze_sentence_structure(self, text: str) -> Dict:
-        """Полный анализ структуры предложения"""
-        results = self.extract_circumstances(text)
+    def _label_to_russian(self, label: str) -> str:
+        """Преобразование метки в русское название"""
 
-        if not results:
-            return {}
+        # Убираем BIO префикс
+        base_label = label[2:] if label.startswith(("B-", "I-")) else label
 
-        sentence_data = results[0]
-
-        # Классифицируем найденные сущности
-        structure = {
-            "sentence": sentence_data["sentence"],
-            "main_parts": {"subject": [], "predicate": []},
-            "secondary_parts": {"addition": [], "definition": []},
-            "circumstances": [],
-        }
-
-        for entity in sentence_data.get("entities", []):
-            entity_type = entity["type"].lower()
-
-            if entity_type == "subject":
-                structure["main_parts"]["subject"].append(entity)
-            elif entity_type == "predicate":
-                structure["main_parts"]["predicate"].append(entity)
-            elif entity_type == "addition":
-                structure["secondary_parts"]["addition"].append(entity)
-            elif entity_type == "definition":
-                structure["secondary_parts"]["definition"].append(entity)
-            elif entity_type in [
-                "manner",
-                "time",
-                "location",
-                "cause",
-                "purpose",
-                "condition",
-                "concession",
-                "degree",
-            ]:
-                structure["circumstances"].append(entity)
-
-        return structure
-
-    def _group_entities_with_offsets(
-    self, predictions: List[Dict], sentence: str, sentence_offset: int = 0
-) -> List[Dict]:
-        """Группировка сущностей с использованием позиций в тексте"""
-        entities = []
-        
-        # Карта для преобразования меток в читаемые типы
-        label_to_type = {
-            "O": "не_является_членом_предложения",
-            "MANNER": "обстоятельство_образа_действия",
-            "TIME": "обстоятельство_времени",
-            "DEGREE": "обстоятельство_степени",
-            "CONDITION": "обстоятельство_условия",
-            "CAUSE": "обстоятельство_причины",
-            "CONCESSION": "обстоятельство_уступки",
-            "LOCATION": "обстоятельство_места",
-            "PURPOSE": "обстоятельство_цели",
+        # Маппинг на русский
+        mapping = {
+            "O": "не является членом предложения",
+            "ADVERBIAL": "обстоятельство",
             "SUBJECT": "подлежащее",
             "PREDICATE": "сказуемое",
             "DEFINITION": "определение",
             "ADDITION": "дополнение",
         }
 
-        i = 0
-        while i < len(predictions):
-            pred = predictions[i]
-            label = pred["label"]
-            
-            # Пропускаем O-метки
-            if label == "O":
-                i += 1
+        return mapping.get(base_label, base_label.lower())
+
+    def analyze_sentence(self, text: str) -> Dict:
+        """Анализ одного предложения"""
+        # Получаем предсказания для токенов
+        tokens, offsets = self.predict_sentence(text)
+
+        # Группируем токены в слова
+        words = self._group_into_words(tokens, offsets)
+
+        # Группируем слова в фразы
+        phrases = self._group_into_phrases(words)
+
+        # Формируем структуру предложения
+        structure = {
+            "sentence": text,
+            "subject": [],
+            "predicate": [],
+            "adverbial": [],
+            "addition": [],
+            "definition": [],
+            "phrases": phrases,  # все фразы с деталями
+        }
+
+        # Распределяем по категориям
+        for phrase in phrases:
+            label = phrase["main_label"]
+            russian_type = self._label_to_russian(label)
+
+            if russian_type is None:  # O-метки пропускаем
                 continue
-                
-            if label.startswith("B-"):
-                # Начало новой сущности
-                entity_type = label[2:]
-                start = pred["start"] + sentence_offset
-                end = pred["end"] + sentence_offset
-                
-                # Начинаем с первого токена
-                entity_text = self._clean_token(pred["token"])
-                entity_tokens = [entity_text]
-                
-                # Смотрим следующие токены с I- той же сущности
-                j = i + 1
-                while j < len(predictions):
-                    next_pred = predictions[j]
-                    next_label = next_pred["label"]
-                    
-                    # Если это I- той же сущности
-                    if next_label.startswith("I-") and next_label[2:] == entity_type:
-                        clean_token = self._clean_token(next_pred["token"])
-                        entity_tokens.append(clean_token)
-                        
-                        # Проверяем, является ли токен субтокеном
-                        if next_pred["is_subword"]:
-                            entity_text += clean_token
-                        else:
-                            entity_text += " " + clean_token
-                        
-                        end = next_pred["end"] + sentence_offset
-                        j += 1
-                    else:
-                        break
-                
-                # Создаем сущность
-                entity = {
-                    "text": entity_text,
-                    "type": label_to_type.get(entity_type, entity_type.lower()),
-                    "original_type": entity_type,
-                    "start": start,
-                    "end": end,
-                    "label": label,
-                    "tokens": entity_tokens,
+
+            phrase_info = {
+                "text": phrase["text"],
+                "type": russian_type,
+                "start": phrase["start"],
+                "end": phrase["end"],
+                "label": label,
+            }
+
+            # Добавляем в соответствующую категорию
+            if russian_type == "подлежащее":
+                structure["subject"].append(phrase_info)
+            elif russian_type == "сказуемое":
+                structure["predicate"].append(phrase_info)
+            elif russian_type == "обстоятельство":
+                structure["adverbial"].append(phrase_info)
+            elif russian_type == "дополнение":
+                structure["addition"].append(phrase_info)
+            elif russian_type == "определение":
+                structure["definition"].append(phrase_info)
+
+        return structure
+
+    def analyze_sentence_structure(self, text: str) -> Dict:
+        """Анализ структуры предложения (для совместимости)"""
+        return self.analyze_sentence(text)
+
+    def extract_circumstances(self, text: str) -> List[Dict]:
+        """Извлечение всех членов предложения из текста (для совместимости)"""
+        # Предобработка текста
+        text = self.preprocess_text(text)
+
+        # Разделяем на предложения
+        sentences = self._split_into_sentences(text)
+
+        all_results = []
+
+        for sentence in sentences:
+            structure = self.analyze_sentence(sentence)
+
+            # Собираем все найденные члены предложения
+            entities = []
+            for category in [
+                "subject",
+                "predicate",
+                "adverbial",
+                "addition",
+                "definition",
+            ]:
+                for item in structure[category]:
+                    entities.append(
+                        {
+                            "text": item["text"],
+                            "type": item["type"],
+                        }
+                    )
+
+            all_results.append(
+                {
+                    "sentence": sentence,
+                    "entities": entities,
                 }
-                
-                entities.append(entity)
-                i = j  # Продолжаем с последнего необработанного токена
-            else:
-                # Если встретили I- без B- (ошибка модели), пропускаем
-                i += 1
+            )
 
-        return entities
+        return all_results
 
-    def _clean_token(self, token: str) -> str:
-        """Очистка токена от специальных символов"""
-        if token.startswith("##"):
-            return token[2:]
-        if token in [
-            self.tokenizer.cls_token,
-            self.tokenizer.sep_token,
-            self.tokenizer.pad_token,
-            self.tokenizer.unk_token,
-        ]:
-            return ""
-        return token
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """Разделение на предложения"""
+        sentences = []
+        current = []
+
+        for char in text:
+            current.append(char)
+            if char in ".!?":
+                sentences.append("".join(current).strip())
+                current = []
+
+        # Добавляем последнее предложение, если оно не закончилось знаком препинания
+        if current:
+            sentences.append("".join(current).strip())
+
+        return [s for s in sentences if s]
 
     def process_file(self, input_file: str, output_file: str = "") -> Dict:
         """Обработка текстового файла"""
@@ -353,14 +476,14 @@ class CircumstancePredictor:
         with open(input_file, "r", encoding="utf-8") as f:
             text = f.read()
 
-        # Извлечение обстоятельств
+        # Извлечение членов предложения
         results = self.extract_circumstances(text)
 
         # Формирование результата
         output_data = {
             "input_file": input_file,
             "total_sentences": len(results),
-            "total_circumstances": sum(len(r["entities"]) for r in results),
+            "total_entities": sum(len(r["entities"]) for r in results),
             "results": results,
         }
 
@@ -373,6 +496,6 @@ class CircumstancePredictor:
 
         # Статистика
         print(f"\nProcessed {len(results)} sentences")
-        print(f"Found {output_data['total_circumstances']} circumstances")
+        print(f"Found {output_data['total_entities']} entities")
 
         return output_data

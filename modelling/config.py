@@ -5,8 +5,8 @@ import os
 
 class Config:
     # Модель
-    MODEL_NAME = "DeepPavlov/rubert-base-cased"
-    NUM_LABELS = 25
+    MODEL_NAME = "ai-forever/rubert-base"
+    NUM_LABELS = 11
     MAX_LEN = 128
     BATCH_SIZE = 8
     LEARNING_RATE = 2e-5
@@ -25,32 +25,18 @@ class Config:
     TRAIN_CONFIG_PATH = os.path.join(BASE_DIR, "data/train_config.json")
     VOCAB_PATH = os.path.join(BASE_DIR, "models/vocab.txt")
 
-    # Классы для NER (BIO-схема)
+    # Классы для NER (BIO-схема) - объединяем все обстоятельства в ADVERBIAL
     LABEL_LIST = [
         "O",
-        "B-MANNER",
-        "I-MANNER",
-        "B-TIME",
-        "I-TIME",
-        "B-DEGREE",
-        "I-DEGREE",
-        "B-CONDITION",
-        "I-CONDITION",
-        "B-CAUSE",
-        "I-CAUSE",
-        "B-CONCESSION",
-        "I-CONCESSION",
-        "B-LOCATION",
-        "I-LOCATION",
-        "B-PURPOSE",
-        "I-PURPOSE",
-        "B-SUBJECT",
+        "B-ADVERBIAL",  # Все обстоятельства (время, место, причина и т.д.)
+        "I-ADVERBIAL",
+        "B-SUBJECT",  # Подлежащее
         "I-SUBJECT",
-        "B-PREDICATE",
+        "B-PREDICATE",  # Сказуемое
         "I-PREDICATE",
-        "B-DEFINITION",
+        "B-DEFINITION",  # Определение
         "I-DEFINITION",
-        "B-ADDITION",
+        "B-ADDITION",  # Дополнение
         "I-ADDITION",
     ]
 
@@ -75,6 +61,15 @@ class Config:
     @classmethod
     def save_metadata(cls):
         """Сохранение метаданных модели"""
+        # Группируем метки по их типу - теперь каждая группа соответствует классу!
+        sentence_parts = {
+            "ADVERBIAL": "обстоятельство",
+            "SUBJECT": "подлежащее",
+            "PREDICATE": "сказуемое",
+            "DEFINITION": "определение",
+            "ADDITION": "дополнение",
+        }
+
         metadata = {
             "model_type": "bert_ner",
             "model_name": cls.MODEL_NAME,
@@ -91,23 +86,7 @@ class Config:
                 "sep": "[SEP]",
                 "mask": "[MASK]",
             },
-            "sentence_parts": {
-                "circumstances": [
-                    "MANNER",
-                    "TIME",
-                    "DEGREE",
-                    "CONDITION",
-                    "CAUSE",
-                    "CONCESSION",
-                    "LOCATION",
-                    "PURPOSE",
-                ],
-                "main_parts": ["SUBJECT", "PREDICATE"],
-                "secondary_parts": [
-                    "ADDITION",
-                    "DEFINITION",
-                ],
-            },
+            "sentence_parts": sentence_parts,  # Простой словарь: класс -> русское название
         }
 
         os.makedirs(os.path.dirname(cls.MODEL_SAVE_PATH), exist_ok=True)
