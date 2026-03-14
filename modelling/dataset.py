@@ -63,7 +63,7 @@ class CircumstanceDataset(Dataset):
 
         # Получаем список токенов
         tokens = self.tokenizer.convert_ids_to_tokens(tokenized["input_ids"][0])
-        
+
         aligned_labels = []
         previous_word_id = None
         previous_label = None
@@ -71,9 +71,23 @@ class CircumstanceDataset(Dataset):
 
         for i, word_id in enumerate(word_ids):
             token = tokens[i]
-            
+
             # Проверяем, является ли токен знаком препинания
-            if token in [",", ".", "!", "?", ";", ":", "-", "(", ")", "'", '"', "``", "''"]:
+            if token in [
+                ",",
+                ".",
+                "!",
+                "?",
+                ";",
+                ":",
+                "-",
+                "(",
+                ")",
+                "'",
+                '"',
+                "``",
+                "''",
+            ]:
                 aligned_labels.append(-100)
                 previous_word_id = None
                 previous_label = None
@@ -90,7 +104,9 @@ class CircumstanceDataset(Dataset):
                 # Новое слово
                 if word_id < len(original_labels):
                     label = original_labels[word_id]
-                    aligned_labels.append(Config.LABEL2ID.get(label, Config.LABEL2ID["O"]))
+                    aligned_labels.append(
+                        Config.LABEL2ID.get(label, Config.LABEL2ID["O"])
+                    )
                     previous_label = label
                     # Запоминаем BIO-префикс для субтокенов
                     if label.startswith("B-"):
@@ -106,7 +122,9 @@ class CircumstanceDataset(Dataset):
                 # Субтокен того же слова
                 if previous_label and previous_label != "O" and previous_bio_prefix:
                     # Для субтокенов используем I- префикс
-                    aligned_labels.append(Config.LABEL2ID.get(previous_bio_prefix, Config.LABEL2ID["O"]))
+                    aligned_labels.append(
+                        Config.LABEL2ID.get(previous_bio_prefix, Config.LABEL2ID["O"])
+                    )
                 else:
                     aligned_labels.append(Config.LABEL2ID["O"])
 
@@ -175,13 +193,12 @@ class DataProcessor:
         return True
 
     @staticmethod
-
     def validate_bio_scheme(labels):
         """Проверка корректности BIO-схемы в датасете"""
         errors = []
         for i, label in enumerate(labels):
             if label.startswith("I-"):
-                if i == 0 or not labels[i-1].endswith(label[2:]):
+                if i == 0 or not labels[i - 1].endswith(label[2:]):
                     errors.append(f"Position {i}: I- without preceding B-: {label}")
         return errors
 
@@ -199,32 +216,22 @@ class DataProcessor:
         print("\nDataset Statistics:")
         print("-" * 40)
 
-        # Группировка по типам
-        categories = {
-            "Circumstances": [
-                "MANNER",
-                "TIME",
-                "DEGREE",
-                "CONDITION",
-                "CAUSE",
-                "CONCESSION",
-                "LOCATION",
-                "PURPOSE",
-            ],
-            "Main Parts": ["SUBJECT", "PREDICATE"],
-            "Secondary Parts": [
-                "ADDITION",
-                "DEFINITION",
-            ],
+        # Группируем по базовым классам (без BIO префиксов)
+        classes = {
+            "ADVERBIAL": "Обстоятельство",
+            "SUBJECT": "Подлежащее",
+            "PREDICATE": "Сказуемое",
+            "DEFINITION": "Определение",
+            "ADDITION": "Дополнение",
         }
 
-        for category, tags in categories.items():
-            print(f"\n{category}:")
-            for tag in tags:
-                b_count = stats.get(f"B-{tag}", 0)
-                i_count = stats.get(f"I-{tag}", 0)
-                if b_count > 0 or i_count > 0:
-                    print(f"  {tag}: B={b_count}, I={i_count}")
+        for class_name, class_display in classes.items():
+            b_count = stats.get(f"B-{class_name}", 0)
+            i_count = stats.get(f"I-{class_name}", 0)
+            if b_count > 0 or i_count > 0:
+                print(f"\n{class_display}:")
+                print(f"  B-{class_name}: {b_count}")
+                print(f"  I-{class_name}: {i_count}")
 
         print(f"\nO tags: {stats.get('O', 0)}")
         print("-" * 40)

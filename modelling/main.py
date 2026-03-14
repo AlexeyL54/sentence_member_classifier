@@ -15,7 +15,7 @@ def predict_interactive():
     from inference import CircumstancePredictor
 
     try:
-        predictor = CircumstancePredictor()
+        predictor = CircumstancePredictor(debug=True)
         print("✓ Model loaded successfully")
         print("Type 'exit' to quit\n")
     except Exception as e:
@@ -100,7 +100,7 @@ def analyze_structure():
     from inference import CircumstancePredictor
 
     try:
-        predictor = CircumstancePredictor()
+        predictor = CircumstancePredictor(debug=True)
         print("✓ Model loaded successfully")
         print("Type 'exit' to quit\n")
     except Exception as e:
@@ -124,30 +124,31 @@ def analyze_structure():
             print("=" * 60)
             print(f"Sentence: {structure['sentence']}\n")
 
-            if structure["main_parts"]["subject"]:
+            # Просто выводим каждую категорию, если она есть
+            if structure["subject"]:
                 print("Подлежащее:")
-                for subj in structure["main_parts"]["subject"]:
-                    print(f"  • {subj['text']}")
+                for item in structure["subject"]:
+                    print(f"  • {item['text']}")
 
-            if structure["main_parts"]["predicate"]:
+            if structure["predicate"]:
                 print("\nСказуемое:")
-                for pred in structure["main_parts"]["predicate"]:
-                    print(f"  • {pred['text']}")
+                for item in structure["predicate"]:
+                    print(f"  • {item['text']}")
 
-            if structure["secondary_parts"]["object"]:
+            if structure["addition"]:
                 print("\nДополнение:")
-                for obj in structure["secondary_parts"]["object"]:
-                    print(f"  • {obj['text']}")
+                for item in structure["addition"]:
+                    print(f"  • {item['text']}")
 
-            if structure["secondary_parts"]["attribute"]:
+            if structure["definition"]:
                 print("\nОпределение:")
-                for attr in structure["secondary_parts"]["attribute"]:
-                    print(f"  • {attr['text']}")
+                for item in structure["definition"]:
+                    print(f"  • {item['text']}")
 
-            if structure["circumstances"]:
-                print("\nОбстоятельства:")
-                for circ in structure["circumstances"]:
-                    print(f"  • {circ['text']} ({circ['type']})")
+            if structure["adverbial"]:
+                print("\nОбстоятельство:")
+                for item in structure["adverbial"]:
+                    print(f"  • {item['text']}")
 
             print("=" * 60)
 
