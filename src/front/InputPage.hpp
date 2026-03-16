@@ -21,14 +21,14 @@ public:
 
 private:
     // Методы построения интерфейса (вызываются из конструктора)
-    void setupMainLayout();    ///< Главный вертикальный layout окна
-    void setupContentRow();    ///< Горизонтальная строка для контента (колонки)
-    void setupContentColumn(); ///< Колонка контента с отступами и вертикальным layout
-    void setupIntroText();     ///< Поясняющий текст вверху страницы
-    void setupInputChoice();   ///< Радиокнопки «С клавиатуры» / «С файла» и стек страниц
-    void setupKeyboardPage();  ///< Страница: поле ввода текста + кнопка «Анализировать»
-    void setupFilePage();      ///< Страница: путь к файлу + «Выбрать файл» + «Анализировать»
-    void setupConnections();   ///< Сигналы: выбор файла, переключение страниц по радиокнопкам
+    void setupMainLayout();    // Главный вертикальный layout окна
+    void setupContentRow();    // Горизонтальная строка для контента (колонки)
+    void setupContentColumn(); // Колонка контента с отступами и вертикальным layout
+    void setupIntroText();     // Поясняющий текст вверху страницы
+    void setupInputChoice();   // Радиокнопки «С клавиатуры» / «С файла» и стек страниц
+    void setupKeyboardPage();  // Страница: поле ввода текста + кнопка «Анализировать»
+    void setupFilePage();      // Страница: путь к файлу + «Выбрать файл» + «Анализировать»
+    void setupConnections();   // Сигналы: выбор файла, переключение страниц по радиокнопкам
 
     // Layout-ы и контейнеры
     QVBoxLayout *mainLayout = nullptr;
