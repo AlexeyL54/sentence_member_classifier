@@ -4,6 +4,7 @@
 #include <QButtonGroup>
 #include <QTextEdit>
 #include <QWidget>
+#include <MainWindow.hpp>
 
 class ResultPage : public QWidget {
   Q_OBJECT
