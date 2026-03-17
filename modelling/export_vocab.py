@@ -1,11 +1,10 @@
 # export_vocab.py
 from transformers import AutoTokenizer
+from config import Config
 import os
 
 
-def export_bert_vocab(
-    model_name="DeepPavlov/rubert-base-cased", output_path="models/vocab.txt"
-):
+def export_bert_vocab(model_name=Config.MODEL_NAME, output_path=Config.VOCAB_PATH):
     """Экспорт словаря BERT в файл"""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -19,7 +18,7 @@ def export_bert_vocab(
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as f:
-        for token, token_id in sorted_vocab:
+        for token, _ in sorted_vocab:
             f.write(token + "\n")
 
     print(f"Vocabulary exported to {output_path}")
@@ -35,6 +34,4 @@ def export_bert_vocab(
 
 
 if __name__ == "__main__":
-    export_bert_vocab(
-        model_name="DeepPavlov/rubert-base-cased", output_path="models/vocab.txt"
-    )
+    export_bert_vocab(model_name=Config.MODEL_NAME, output_path=Config.VOCAB_PATH)

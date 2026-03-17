@@ -1,4 +1,5 @@
 import json
+from typing import Optional, List
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -9,6 +10,15 @@ import os
 
 class CircumstanceDataset(Dataset):
     def __init__(self, texts, labels=None, tokenizer=None, max_len=Config.MAX_LEN):
+        """
+        Инициализация датасета.
+        
+        Args:
+            texts: Список текстов
+            labels: Список последовательностей меток (опционально)
+            tokenizer: Токенизатор (если None, загружается из Config)
+            max_len: Максимальная длина последовательности
+        """
         self.texts = texts
         self.labels = labels
         # Используем AutoTokenizer, который загружает быстрый токенизатор если доступен
@@ -20,9 +30,19 @@ class CircumstanceDataset(Dataset):
             print("Warning: Using slow tokenizer. Word ids may not be available.")
 
     def __len__(self):
+        """Возвращает количество примеров в датасете."""
         return len(self.texts)
 
     def __getitem__(self, idx):
+        """
+        Получение элемента датасета по индексу.
+        
+        Args:
+            idx: Индекс элемента
+            
+        Returns:
+            Словарь с тензорами input_ids, attention_mask и опционально labels
+        """
         text = self.texts[idx]
 
         # Токенизация с использованием encode_plus для совместимости
@@ -55,7 +75,18 @@ class CircumstanceDataset(Dataset):
         return item
 
     def align_labels_with_tokens(self, text, original_labels, tokenized):
-        """Выравниваем метки с субтокенами BERT"""
+        """
+        Выравнивание меток с субтокенами BERT.
+        
+        Args:
+            text: Исходный текст
+            original_labels: Исходные метки для слов
+            tokenized: Результат токенизации
+            
+        Returns:
+            Список ID меток для каждого токена
+        """
+        # Получаем word_ids
         if hasattr(tokenized, "word_ids") and callable(tokenized.word_ids):
             word_ids = tokenized.word_ids()
         else:
@@ -69,69 +100,100 @@ class CircumstanceDataset(Dataset):
         previous_label = None
         previous_bio_prefix = None
 
-        for i, word_id in enumerate(word_ids):
+        for i, word_id in enumerate(word_ids): # type: ignore
             token = tokens[i]
-
-            # Проверяем, является ли токен знаком препинания
-            if token in [
-                ",",
-                ".",
-                "!",
-                "?",
-                ";",
-                ":",
-                "-",
-                "(",
-                ")",
-                "'",
-                '"',
-                "``",
-                "''",
-            ]:
+            
+            # Обработка специальных случаев
+            if self._should_ignore_token(token, word_id):
                 aligned_labels.append(-100)
-                previous_word_id = None
-                previous_label = None
-                previous_bio_prefix = None
+                previous_word_id, previous_label, previous_bio_prefix = None, None, None
                 continue
-
-            if word_id is None:
-                # Специальные токены - всегда игнорируем
-                aligned_labels.append(-100)
-                previous_word_id = None
-                previous_label = None
-                previous_bio_prefix = None
-            elif word_id != previous_word_id:
-                # Новое слово
-                if word_id < len(original_labels):
-                    label = original_labels[word_id]
-                    aligned_labels.append(
-                        Config.LABEL2ID.get(label, Config.LABEL2ID["O"])
-                    )
-                    previous_label = label
-                    # Запоминаем BIO-префикс для субтокенов
-                    if label.startswith("B-"):
-                        previous_bio_prefix = "I-" + label[2:]
-                    else:
-                        previous_bio_prefix = None
-                else:
-                    aligned_labels.append(Config.LABEL2ID["O"])
-                    previous_label = "O"
-                    previous_bio_prefix = None
+                
+            # Обработка нового слова
+            if word_id != previous_word_id:
+                label_id, previous_label, previous_bio_prefix = self._process_new_word(
+                    word_id, original_labels
+                )
+                aligned_labels.append(label_id)
                 previous_word_id = word_id
+            # Обработка субтокена
             else:
-                # Субтокен того же слова
-                if previous_label and previous_label != "O" and previous_bio_prefix:
-                    # Для субтокенов используем I- префикс
-                    aligned_labels.append(
-                        Config.LABEL2ID.get(previous_bio_prefix, Config.LABEL2ID["O"])
-                    )
-                else:
-                    aligned_labels.append(Config.LABEL2ID["O"])
+                label_id = self._process_subtoken(previous_label, previous_bio_prefix)
+                aligned_labels.append(label_id)
 
         return aligned_labels
 
-    def _get_word_ids_fallback(self, text, token_ids):
-        """Альтернативный метод получения word_ids для медленных токенизаторов"""
+    def _should_ignore_token(self, token, word_id):
+        """
+        Проверяет, нужно ли игнорировать токен.
+        
+        Args:
+            token: Токен для проверки
+            word_id: ID слова для токена
+            
+        Returns:
+            True если токен нужно игнорировать (пометить как -100)
+        """
+        punctuation_tokens = [
+            ",", ".", "!", "?", ";", ":", "-",
+            "(", ")", "'", '"', "``", "''"
+        ]
+        return (token in punctuation_tokens) or (word_id is None)
+
+    def _process_new_word(self, word_id, original_labels):
+        """
+        Обработка нового слова.
+        
+        Args:
+            word_id: ID текущего слова
+            original_labels: Исходные метки для слов
+            
+        Returns:
+            tuple: (label_id, previous_label, previous_bio_prefix)
+                - label_id: ID метки для текущего токена
+                - previous_label: строковое представление метки
+                - previous_bio_prefix: BIO-префикс для субтокенов (I-метка)
+        """
+        if word_id < len(original_labels):
+            label = original_labels[word_id]
+            label_id = Config.LABEL2ID.get(label, Config.LABEL2ID["O"])
+            
+            # Определяем BIO-префикс для субтокенов
+            if label.startswith("B-"):
+                bio_prefix = "I-" + label[2:]
+            else:
+                bio_prefix = None
+                
+            return label_id, label, bio_prefix
+        else:
+            return Config.LABEL2ID["O"], "O", None
+
+    def _process_subtoken(self, previous_label, previous_bio_prefix):
+        """
+        Обработка субтокена (продолжения слова).
+        
+        Args:
+            previous_label: Метка предыдущего токена
+            previous_bio_prefix: BIO-префикс для текущей сущности
+            
+        Returns:
+            ID метки для субтокена
+        """
+        if previous_label and previous_label != "O" and previous_bio_prefix:
+            return Config.LABEL2ID.get(previous_bio_prefix, Config.LABEL2ID["O"])
+        return Config.LABEL2ID["O"]
+
+    def _get_word_ids_fallback(self, text, token_ids) -> List[Optional[int]]:
+        """
+        Альтернативный метод получения word_ids для медленных токенизаторов.
+        
+        Args:
+            text: Исходный текст (не используется, оставлен для совместимости)
+            token_ids: ID токенов
+            
+        Returns:
+            Список ID слов
+        """
         # Конвертируем токены обратно в текст для анализа
         tokens = self.tokenizer.convert_ids_to_tokens(token_ids)
 
@@ -139,7 +201,7 @@ class CircumstanceDataset(Dataset):
         word_id = -1
         in_special = False
 
-        for i, token in enumerate(tokens):
+        for _, token in enumerate(tokens):
             if token in [
                 self.tokenizer.cls_token,
                 self.tokenizer.sep_token,
@@ -163,11 +225,20 @@ class CircumstanceDataset(Dataset):
 class DataProcessor:
     @staticmethod
     def convert_to_bio_format(tokens, tags):
-        """Конвертация тегов в BIO формат для новых категорий"""
+        """
+        Конвертация тегов в BIO формат для новых категорий.
+        
+        Args:
+            tokens: Список токенов
+            tags: Список тегов без BIO-разметки
+            
+        Returns:
+            Список тегов в BIO-формате
+        """
         bio_tags = []
         prev_tag = "O"
 
-        for i, tag in enumerate(tags):
+        for _, tag in enumerate(tags):
             if tag == "O":
                 bio_tags.append("O")
                 prev_tag = "O"
@@ -183,7 +254,15 @@ class DataProcessor:
 
     @staticmethod
     def validate_labels(labels):
-        """Проверка корректности меток"""
+        """
+        Проверка корректности меток.
+        
+        Args:
+            labels: Список меток для проверки
+            
+        Returns:
+            True если все метки валидны
+        """
         valid_labels = set(Config.LABEL_LIST)
         invalid_labels = set(labels) - valid_labels
 
@@ -194,7 +273,15 @@ class DataProcessor:
 
     @staticmethod
     def validate_bio_scheme(labels):
-        """Проверка корректности BIO-схемы в датасете"""
+        """
+        Проверка корректности BIO-схемы в датасете.
+        
+        Args:
+            labels: Список меток для проверки
+            
+        Returns:
+            Список ошибок (пустой если ошибок нет)
+        """
         errors = []
         for i, label in enumerate(labels):
             if label.startswith("I-"):
@@ -204,10 +291,19 @@ class DataProcessor:
 
     @staticmethod
     def get_statistics(texts, labels):
-        """Получение статистики по меткам в датасете"""
+        """
+        Получение статистики по меткам в датасете.
+        
+        Args:
+            texts: Список текстов
+            labels: Список последовательностей меток
+            
+        Returns:
+            Словарь со статистикой по меткам
+        """
         stats = {}
 
-        for text, label_seq in zip(texts, labels):
+        for _, label_seq in zip(texts, labels):
             for label in label_seq:
                 if label not in stats:
                     stats[label] = 0
@@ -240,7 +336,16 @@ class DataProcessor:
 
     @staticmethod
     def split_into_sentences(text, language="russian"):
-        """Разделение текста на предложения"""
+        """
+        Разделение текста на предложения.
+        
+        Args:
+            text: Исходный текст
+            language: Язык для токенизации
+            
+        Returns:
+            Список предложений
+        """
         try:
             nltk.data.find("tokenizers/punkt")
         except LookupError:
@@ -262,7 +367,21 @@ class DataProcessor:
 
     @staticmethod
     def load_dataset(filepath):
-        """Загрузка размеченного датасета"""
+        """
+        Загрузка размеченного датасета.
+        
+        Args:
+            filepath: Путь к файлу с датасетом
+            
+        Returns:
+            Tuple:
+                - список текстов
+                - список последовательностей меток
+                
+        Raises:
+            FileNotFoundError: Если файл не найден
+            ValueError: Если нет валидных данных
+        """
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Dataset file not found: {filepath}")
 
@@ -292,7 +411,13 @@ class DataProcessor:
 
     @staticmethod
     def save_dataset(filepath, data):
-        """Сохранение датасета в файл"""
+        """
+        Сохранение датасета в файл.
+        
+        Args:
+            filepath: Путь для сохранения
+            data: Данные для сохранения
+        """
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
         with open(filepath, "w", encoding="utf-8") as f:
@@ -302,7 +427,16 @@ class DataProcessor:
 
     @staticmethod
     def prepare_sequences(sentences, max_seq_length=Config.MAX_LEN):
-        """Подготовка последовательностей для модели"""
+        """
+        Подготовка последовательностей для модели.
+        
+        Args:
+            sentences: Список предложений
+            max_seq_length: Максимальная длина последовательности
+            
+        Returns:
+            Список словарей с input_ids, attention_mask и текстом
+        """
         tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 
         sequences = []

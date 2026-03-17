@@ -1,9 +1,17 @@
+"""
+Модуль для обучения модели распознавания обстоятельств в тексте.
+
+Содержит класс Trainer для управления процессом обучения,
+функции для подготовки данных и точку входа в программу.
+"""
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 import random
+from typing import Tuple, List
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 
 from config import Config
@@ -11,11 +19,36 @@ from dataset import CircumstanceDataset, DataProcessor
 
 
 class Trainer:
+    """
+    Класс для обучения и оценки модели токенизации.
+
+    Предоставляет методы для обучения одной эпохи, оценки на валидационной выборке,
+    полного цикла обучения, сохранения модели и экспорта в ONNX формат.
+    """
+
     def __init__(self, model, device=Config.DEVICE):
+        """
+        Инициализация тренера.
+
+        Args:
+            model: Модель для обучения
+            device: Устройство для вычислений (cpu/cuda)
+        """
         self.model = model.to(device)
         self.device = device
 
     def train_epoch(self, dataloader, optimizer, scheduler):
+        """
+        Обучение модели на одной эпохе.
+
+        Args:
+            dataloader: DataLoader с тренировочными данными
+            optimizer: Оптимизатор
+            scheduler: Планировщик learning rate
+
+        Returns:
+            float: Среднее значение функции потерь за эпоху
+        """
         self.model.train()
         total_loss = 0
 
@@ -43,7 +76,19 @@ class Trainer:
 
         return total_loss / len(dataloader)
 
-    def evaluate(self, dataloader):
+    def evaluate(self, dataloader) -> Tuple[float, List[int], List[int]]:
+        """
+        Оценка модели на валидационной выборке.
+
+        Args:
+            dataloader: DataLoader с валидационными данными
+
+        Returns:
+            Tuple[float, List[int], List[int]]:
+                - Среднее значение функции потерь
+                - Список предсказанных меток
+                - Список истинных меток
+        """
         self.model.eval()
         total_loss = 0
         predictions = []
@@ -81,6 +126,14 @@ class Trainer:
         return avg_loss, predictions, true_labels
 
     def train(self, train_dataloader, val_dataloader, epochs=Config.EPOCHS):
+        """
+        Полный цикл обучения модели.
+
+        Args:
+            train_dataloader: DataLoader с тренировочными данными
+            val_dataloader: DataLoader с валидационными данными
+            epochs: Количество эпох обучения
+        """
         # Оптимизатор
         optimizer = optim.AdamW(self.model.parameters(), lr=Config.LEARNING_RATE)
 
@@ -101,7 +154,7 @@ class Trainer:
             print(f"Train Loss: {train_loss:.4f}")
 
             # Валидация
-            val_loss, predictions, true_labels = self.evaluate(val_dataloader)
+            val_loss, _, _ = self.evaluate(val_dataloader)
             print(f"Val Loss: {val_loss:.4f}")
 
             # Сохранение лучшей модели
@@ -111,7 +164,12 @@ class Trainer:
                 print(f"✓ Best model saved! Loss: {val_loss:.4f}")
 
     def save_model(self, path=Config.MODEL_SAVE_PATH):
-        """Сохранение модели и токенизатора"""
+        """
+        Сохранение модели и токенизатора.
+
+        Args:
+            path: Путь для сохранения модели
+        """
         os.makedirs(path, exist_ok=True)
 
         # Сохраняем модель
@@ -129,7 +187,12 @@ class Trainer:
         print(f"✓ Tokenizer saved to {tokenizer_path}")
 
     def export_to_onnx(self, onnx_path=Config.ONNX_SAVE_PATH):
-        """Экспорт модели в ONNX формат"""
+        """
+        Экспорт модели в ONNX формат.
+
+        Args:
+            onnx_path: Путь для сохранения ONNX модели
+        """
         self.model.eval()
 
         # Пример входных данных
@@ -155,8 +218,25 @@ class Trainer:
         print(f"✓ ONNX model exported to {onnx_path}")
 
 
-def train_val_split(texts, labels, val_size=0.2, seed=42):
-    """Разделение данных на train и val"""
+def train_val_split(
+    texts: List[str], labels: List[List[str]], val_size: float = 0.2, seed: int = 42
+) -> Tuple[List[str], List[str], List[List[str]], List[List[str]]]:
+    """
+    Разделение данных на обучающую и валидационную выборки.
+
+    Args:
+        texts: Список текстов
+        labels: Список последовательностей меток
+        val_size: Доля валидационной выборки (от 0 до 1)
+        seed: Seed для воспроизводимости
+
+    Returns:
+        Tuple:
+            - Обучающие тексты
+            - Валидационные тексты
+            - Обучающие метки
+            - Валидационные метки
+    """
     n_samples = len(texts)
     indices = list(range(n_samples))
 
@@ -177,10 +257,30 @@ def train_val_split(texts, labels, val_size=0.2, seed=42):
     return train_texts, val_texts, train_labels, val_labels
 
 
-def main():
-    # Загрузка конфигурации
-    Config.load_train_config()
+def load_and_prepare_data(dataset_path: str) -> Tuple[List[str], List[List[str]]]:
+    """
+    Загрузка и подготовка данных для обучения.
 
+    Args:
+        dataset_path: Путь к файлу с датасетом
+
+    Returns:
+        Tuple[List[str], List[List[str]]]: Тексты и соответствующие метки
+
+    Raises:
+        Exception: Если не удалось загрузить данные
+    """
+    print(f"\nLoading dataset from {dataset_path}")
+    try:
+        texts, labels = DataProcessor.load_dataset(dataset_path)
+        return texts, labels
+    except Exception as e:
+        print(f"Error loading dataset: {e}")
+        raise
+
+
+def display_training_configuration() -> None:
+    """Вывод конфигурации обучения в консоль."""
     print("=" * 60)
     print("TRAINING CONFIGURATION")
     print("=" * 60)
@@ -193,12 +293,87 @@ def main():
     print(f"Use CRF: {Config.USE_CRF}")
     print("=" * 60)
 
+
+def create_datasets_and_loaders(
+    train_texts: List[str],
+    train_labels: List[List[str]],
+    val_texts: List[str],
+    val_labels: List[List[str]],
+    tokenizer,
+) -> Tuple[DataLoader, DataLoader]:
+    """
+    Создание датасетов и DataLoader'ов для обучения и валидации.
+
+    Args:
+        train_texts: Обучающие тексты
+        train_labels: Обучающие метки
+        val_texts: Валидационные тексты
+        val_labels: Валидационные метки
+        tokenizer: Токенизатор
+
+    Returns:
+        Tuple[DataLoader, DataLoader]: Тренировочный и валидационный DataLoader
+    """
+    print("Creating datasets...")
+    train_dataset = CircumstanceDataset(train_texts, train_labels, tokenizer)
+    val_dataset = CircumstanceDataset(val_texts, val_labels, tokenizer)
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True
+    )
+    val_dataloader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE)
+
+    return train_dataloader, val_dataloader
+
+
+def initialize_model() -> AutoModelForTokenClassification:
+    """
+    Инициализация модели для токенизации.
+
+    Returns:
+        AutoModelForTokenClassification: Инициализированная модель
+    """
+    print("Initializing model...")
+    return AutoModelForTokenClassification.from_pretrained(
+        Config.MODEL_NAME,
+        num_labels=Config.NUM_LABELS,
+        id2label=Config.ID2LABEL,
+        label2id=Config.LABEL2ID,
+    )
+
+
+def print_training_summary() -> None:
+    """Вывод итогов обучения в консоль."""
+    print("\n" + "=" * 60)
+    print("TRAINING COMPLETED")
+    print("=" * 60)
+    print(f"Model saved to: {Config.MODEL_SAVE_PATH}")
+    print(f"Tokenizer saved to: {Config.MODEL_SAVE_PATH}/tokenizer")
+    print(f"ONNX model saved to: {Config.ONNX_SAVE_PATH}")
+    print(f"Vocabulary: {Config.VOCAB_PATH}")
+
+
+def main() -> None:
+    """
+    Основная функция для запуска процесса обучения.
+
+    Выполняет следующие шаги:
+    1. Загружает конфигурацию
+    2. Загружает и подготавливает данные
+    3. Разделяет данные на train/val
+    4. Создает датасеты и DataLoader'ы
+    5. Инициализирует модель
+    6. Запускает обучение
+    7. Экспортирует модель в ONNX
+    """
+    # Загрузка конфигурации
+    Config.load_train_config()
+    display_training_configuration()
+
     # Загрузка данных
-    print(f"\nLoading dataset from {Config.DATASET_PATH}")
     try:
-        texts, labels = DataProcessor.load_dataset(Config.DATASET_PATH)
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
+        texts, labels = load_and_prepare_data(Config.DATASET_PATH)
+    except Exception:
         return
 
     # Разделение на train/val
@@ -213,25 +388,13 @@ def main():
     # Токенизатор
     tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 
-    # Создание датасетов
-    print("Creating datasets...")
-    train_dataset = CircumstanceDataset(train_texts, train_labels, tokenizer)
-    val_dataset = CircumstanceDataset(val_texts, val_labels, tokenizer)
-
-    # DataLoader
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True
+    # Создание датасетов и DataLoader'ов
+    train_dataloader, val_dataloader = create_datasets_and_loaders(
+        train_texts, train_labels, val_texts, val_labels, tokenizer
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE)
 
     # Модель
-    print("Initializing model...")
-    model = AutoModelForTokenClassification.from_pretrained(
-        Config.MODEL_NAME,
-        num_labels=Config.NUM_LABELS,
-        id2label=Config.ID2LABEL,
-        label2id=Config.LABEL2ID,
-    )
+    model = initialize_model()
 
     # Обучение
     print("\n" + "=" * 60)
@@ -244,13 +407,8 @@ def main():
     print("\nExporting model to ONNX format...")
     trainer.export_to_onnx()
 
-    print("\n" + "=" * 60)
-    print("TRAINING COMPLETED")
-    print("=" * 60)
-    print(f"Model saved to: {Config.MODEL_SAVE_PATH}")
-    print(f"Tokenizer saved to: {Config.MODEL_SAVE_PATH}/tokenizer")
-    print(f"ONNX model saved to: {Config.ONNX_SAVE_PATH}")
-    print(f"Vocabulary: {Config.VOCAB_PATH}")
+    # Итоги
+    print_training_summary()
 
 
 if __name__ == "__main__":
