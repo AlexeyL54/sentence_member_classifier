@@ -95,70 +95,6 @@ def show_info():
     print("=" * 60)
 
 
-def analyze_structure():
-    """Анализ структуры предложения"""
-    from inference import CircumstancePredictor
-
-    try:
-        predictor = CircumstancePredictor(debug=True)
-        print("✓ Model loaded successfully")
-        print("Type 'exit' to quit\n")
-    except Exception as e:
-        print(f"✗ Error loading model: {e}")
-        return
-
-    while True:
-        try:
-            text = input("\nEnter sentence: ").strip()
-
-            if text.lower() in ["exit", "quit", "q"]:
-                break
-
-            if not text:
-                continue
-
-            structure = predictor.analyze_sentence_structure(text)
-
-            print("\n" + "=" * 60)
-            print("SENTENCE STRUCTURE ANALYSIS")
-            print("=" * 60)
-            print(f"Sentence: {structure['sentence']}\n")
-
-            # Просто выводим каждую категорию, если она есть
-            if structure["subject"]:
-                print("Подлежащее:")
-                for item in structure["subject"]:
-                    print(f"  • {item['text']}")
-
-            if structure["predicate"]:
-                print("\nСказуемое:")
-                for item in structure["predicate"]:
-                    print(f"  • {item['text']}")
-
-            if structure["addition"]:
-                print("\nДополнение:")
-                for item in structure["addition"]:
-                    print(f"  • {item['text']}")
-
-            if structure["definition"]:
-                print("\nОпределение:")
-                for item in structure["definition"]:
-                    print(f"  • {item['text']}")
-
-            if structure["adverbial"]:
-                print("\nОбстоятельство:")
-                for item in structure["adverbial"]:
-                    print(f"  • {item['text']}")
-
-            print("=" * 60)
-
-        except KeyboardInterrupt:
-            print("\n\nExiting...")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-
-
 def get_dataset_stats():
     """Получение статистики по датасету"""
     from dataset import DataProcessor
@@ -179,7 +115,6 @@ def main():
 Examples:
   %(prog)s --train                    Train the model
   %(prog)s --predict                  Interactive prediction mode
-  %(prog)s --analyze                  Analyze sentence structure
   %(prog)s --file input.txt           Process text file
   %(prog)s --stats                    Show dataset statistics
   %(prog)s --labels                   List all supported labels
@@ -190,9 +125,6 @@ Examples:
     parser.add_argument("--train", action="store_true", help="Train the model")
     parser.add_argument(
         "--predict", action="store_true", help="Interactive prediction mode"
-    )
-    parser.add_argument(
-        "--analyze", action="store_true", help="Analyze sentence structure"
     )
     parser.add_argument("--file", type=str, help="Process text file")
     parser.add_argument("--output", type=str, help="Output file for processing results")
@@ -208,8 +140,6 @@ Examples:
         train_model()
     elif args.predict:
         predict_interactive()
-    elif args.analyze:
-        analyze_structure()
     elif args.file:
         predict_file(args.file, args.output)
     elif args.labels:
