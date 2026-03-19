@@ -1,139 +1,101 @@
+// src/back/bert_onnx_inference.h
 #ifndef BERT_ONNX_INFERENCE_H
 #define BERT_ONNX_INFERENCE_H
 
-#include "simple_tokenizer.h"
 #include <map>
 #include <memory>
-#include <onnxruntime/onnxruntime_cxx_api.h>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "onnx_model.h"
+#include "simple_tokenizer.h"
+
 /**
- * @brief Класс для инференса BERT модели NER через ONNX Runtime
- *
- * Предоставляет функциональность для загрузки модели BERT,
- * токенизации текста и извлечения обстоятельств (NER).
- * Использует ONNX Runtime для выполнения модели.
+ * @brief Класс для объединения токенизатора и ONNX модели для NER
  */
 class BertOnnxInference {
 public:
   /**
-   * @brief Структура, представляющая найденную сущность (обстоятельство)
+   * @brief Сущность (член предложения), найденная в тексте
    */
   struct Entity {
-    std::string text; // Текст сущности
-    std::string type; // Тип сущности (TIME, MANNER, DEGREE и т.д.)
-    size_t start;     // Начальная позиция в байтах
-    size_t end;       // Конечная позиция в байтах
-    std::vector<std::string> tokens; // Токены, составляющие сущность
+    std::string text;    // Текст сущности
+    std::string type;    // Тип на английском (например, "B-SUBJECT")
+    std::string type_ru; // Тип на русском (например, "Подлежащее")
+    size_t start;        // Начальная позиция в тексте
+    size_t end;          // Конечная позиция в тексте
+    float confidence;    // Уверенность модели
   };
 
   /**
-   * @brief Результат анализа одного предложения
+   * @brief Результат обработки одного предложения
    */
   struct SentenceResult {
-    std::string text;             // Текст предложения
-    std::vector<Entity> entities; // Найденные сущности
+    std::string text;                // Исходный текст предложения
+    std::vector<Entity> entities;    // Найденные сущности
+    std::vector<std::string> tokens; // Токены
+    std::vector<int> token_labels;   // Метки для каждого токена
   };
 
   /**
-   * @brief Конструктор класса BertOnnxInference
+   * @brief Конструктор
    *
-   * @param model_path Путь к файлу ONNX модели
-   * @param vocab_path Путь к файлу словаря токенизатора
+   * @param model ONNX модель
+   * @param tokenizer Токенизатор
+   * @param labels Метки (ID -> {английское_название, русское_название})
+   * @param max_len Максимальная длина последовательности
    */
-  BertOnnxInference(const std::string &model_path,
-                    const std::string &vocab_path);
+  BertOnnxInference(
+      std::unique_ptr<onnx_infer::BertNerModel> model,
+      SimpleTokenizer &tokenizer,
+      const std::map<int, std::pair<std::string, std::string>> &labels,
+      size_t max_len = 128);
 
   /**
-   * @brief Деструктор класса
-   */
-  ~BertOnnxInference();
-
-  /**
-   * @brief Извлекает обстоятельства из текста
-   *
-   * @param text Входной текст для анализа
-   * @return std::vector<SentenceResult> Результаты анализа по предложениям
-   */
-  std::vector<SentenceResult> extract_circumstances(const std::string &text);
-
-  /**
-   * @brief Структура для сбора статистики обработки
-   */
-  struct Stats {
-    size_t total_sentences = 0;                  // Всего обработано предложений
-    size_t total_entities = 0;                   // Всего найдено сущностей
-    std::map<std::string, size_t> entity_counts; // Счетчики по типам
-  };
-
-  /**
-   * @brief Получает текущую статистику
-   *
-   * @return Stats Текущая статистика обработки
-   */
-  Stats get_stats() const { return stats_; }
-
-private:
-  Ort::Env env;                  // ONNX Runtime окружение
-  Ort::Session session{nullptr}; // ONNX сессия для выполнения модели
-  std::unique_ptr<SimpleTokenizer> tokenizer; // Токенизатор
-  Stats stats_;                               // Внутренняя статистика
-
-  /**
-   * @brief Метки NER в формате BIO (должны совпадать с Python проектом)
-   */
-  static const std::vector<std::string> LABELS;
-
-  /**
-   * @brief Максимальная длина последовательности (из Python конфигурации)
-   */
-  static const size_t MAX_LEN = 128;
-
-  /**
-   * @brief Разделяет текст на предложения
+   * @brief Извлекает члены предложения из текста
    *
    * @param text Входной текст
-   * @return std::vector<std::string> Вектор предложений
+   * @return std::vector<SentenceResult> Результаты по предложениям
+   */
+  std::vector<SentenceResult> extract_sentence_parts(const std::string &text);
+
+  /**
+   * @brief Обрабатывает одно предложение
+   *
+   * @param sentence Текст предложения
+   * @return SentenceResult Результат обработки
+   */
+  SentenceResult process_sentence(const std::string &sentence);
+
+private:
+  std::unique_ptr<onnx_infer::BertNerModel> model_;
+  SimpleTokenizer &tokenizer_;
+  std::map<int, std::pair<std::string, std::string>> labels_;
+  size_t max_len_;
+
+  /**
+   * @brief Разбивает текст на предложения (простая реализация)
+   *
+   * @param text Входной текст
+   * @return std::vector<std::string> Предложения
    */
   std::vector<std::string> split_into_sentences(const std::string &text);
 
   /**
-   * @brief Группирует токены в сущности на основе BIO меток
+   * @brief Объединяет подслова в полные слова с метками
    *
-   * @param tokenization Результат токенизации
-   * @param labels Предсказанные метки для каждого токена
-   * @param original_text Исходный текст для извлечения текста сущностей
-   * @return std::vector<Entity> Сгруппированные сущности
+   * @param tokens Токены
+   * @param token_labels Метки токенов
+   * @param offsets Смещения токенов
+   * @param original_text Исходный текст
+   * @return std::vector<Entity> Объединенные сущности
    */
   std::vector<Entity>
-  group_entities(const SimpleTokenizer::EncodingResult &tokenization,
-                 const std::vector<std::string> &labels,
+  merge_subwords(const std::vector<std::string> &tokens,
+                 const std::vector<int> &token_labels,
+                 const std::vector<std::pair<size_t, size_t>> &offsets,
                  const std::string &original_text);
-
-  /**
-   * @brief Выполняет инференс модели
-   *
-   * @param input_ids Вектор ID токенов
-   * @param attention_mask Вектор маски внимания
-   * @return std::vector<float> Вектор логитов
-   */
-  std::vector<float> run_inference(const std::vector<int64_t> &input_ids,
-                                   const std::vector<int64_t> &attention_mask);
-
-  /**
-   * @brief Обновляет статистику найденными сущностями
-   *
-   * @param entities Вектор найденных сущностей
-   */
-  void update_stats(const std::vector<Entity> &entities);
-
-  /**
-   * @brief Валидирует загруженную модель
-   *
-   * Проверяет соответствие модели ожидаемым параметрам
-   */
-  void validate_model();
 };
 
-#endif
+#endif // BERT_ONNX_INFERENCE_H
