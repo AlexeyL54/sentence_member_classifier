@@ -119,6 +119,7 @@ Examples:
   %(prog)s --stats                    Show dataset statistics
   %(prog)s --labels                   List all supported labels
   %(prog)s --info                     Show project information
+  %(prog)s --evaluate                 Evaluate model on test dataset
         """,
     )
 
@@ -133,6 +134,24 @@ Examples:
     )
     parser.add_argument("--stats", action="store_true", help="Show dataset statistics")
     parser.add_argument("--info", action="store_true", help="Show project information")
+    parser.add_argument(
+        "--evaluate", action="store_true", help="Evaluate model on test dataset"
+    )
+    parser.add_argument(
+        "--test_data",
+        type=str,
+        default=Config.DATASET_PATH,
+        help="Path to test dataset (for evaluation)",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="metrics_results",
+        help="Output directory for evaluation results",
+    )
+    parser.add_argument(
+        "--no_plot", action="store_true", help="Disable confusion matrix plot"
+    )
 
     args = parser.parse_args()
 
@@ -148,6 +167,14 @@ Examples:
         get_dataset_stats()
     elif args.info:
         show_info()
+    elif args.evaluate:
+        from metrics import evaluate_model
+
+        evaluate_model(
+            test_dataset_path=args.test_data,
+            output_dir=args.output_dir,
+            plot_cm=not args.no_plot,
+        )
     else:
         parser.print_help()
 

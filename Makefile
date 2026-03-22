@@ -2,7 +2,7 @@ default:
 # ============================================
 # СБОРКА ДЛЯ LINUX
 # ============================================
-	g++ main.cpp src/back/cJSON.c src/back/bert_onnx_inference.cpp src/back/file_processor.cpp src/back/simple_tokenizer.cpp -s -O2 -lonnxruntime -pthread -o predictor.out
+	g++ main.cpp src/back/cJSON.c src/back/onnx_model.cpp src/back/bert_onnx_inference.cpp src/back/file_processor.cpp src/back/simple_tokenizer.cpp -s -O2 -lonnxruntime -pthread -o predictor.out
 
 # ============================================
 # ДИНАМИЧЕСКАЯ СБОРКА ДЛЯ WINDOWS (x64)

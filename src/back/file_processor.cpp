@@ -55,29 +55,6 @@ std::string FileProcessor::read_text_file(const std::string &path) {
 }
 
 /**
- * @brief Переводит английскую метку типа обстоятельства на русский язык
- *
- * Автоматически удаляет префиксы B- и I- (BIO разметка) перед переводом.
- *
- * @param label Английская метка (например, "B-TIME", "I-MANNER")
- * @return std::string Русскоязычное название типа обстоятельства
- */
-std::string FileProcessor::translate_label(const std::string &label) {
-  // Убираем префикс B- или I-
-  std::string clean_label = label;
-  if (label.size() > 2 &&
-      (label.substr(0, 2) == "B-" || label.substr(0, 2) == "I-")) {
-    clean_label = label.substr(2);
-  }
-
-  auto it = label_translations_.find(clean_label);
-  if (it != label_translations_.end()) {
-    return it->second;
-  }
-  return clean_label;
-}
-
-/**
  * @brief Получает текущую дату и время в формате для имени директории
  *
  * @return std::string Строка с датой и временем в формате "YYYY-MM-DD_HH-MM-SS"
@@ -128,14 +105,15 @@ FileProcessor::create_output_directory(const std::string &base_path) {
 }
 
 /**
- * @brief Форматирует предложение, выделяя обстоятельства квадратными скобками
+ * @brief Форматирует предложение, выделяя члены предложения квадратными
+ * скобками
  *
- * Вставляет открывающую скобку [ перед началом обстоятельства
- * и закрывающую скобку ] после его окончания.
+ * Вставляет открывающую скобку [ перед началом сущности
+ * и закрывающую скобку ] после её окончания.
  *
  * @param sentence Исходное предложение
- * @param entities Вектор найденных обстоятельств с позициями
- * @return std::string Предложение с выделенными обстоятельствами
+ * @param entities Вектор найденных сущностей с позициями
+ * @return std::string Предложение с выделенными членами предложения
  */
 std::string FileProcessor::format_sentence_with_entities(
     const std::string &sentence,
@@ -148,7 +126,7 @@ std::string FileProcessor::format_sentence_with_entities(
   // Создаем копию предложения
   std::string formatted = sentence;
 
-  // Вставляем скобки вокруг обстоятельств
+  // Вставляем скобки вокруг сущностей
   // Начинаем с конца, чтобы индексы не сдвигались
   for (auto it = entities.rbegin(); it != entities.rend(); ++it) {
     const auto &entity = *it;
@@ -192,9 +170,9 @@ FileProcessor::process_file(const std::string &input_path) {
       return result;
     }
 
-    // Извлекаем обстоятельства
+    // Извлекаем члены предложения
     auto start_time = std::chrono::high_resolution_clock::now();
-    auto sentences_results = detector_.extract_circumstances(content);
+    auto sentences_results = detector_.extract_sentence_parts(content);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         end_time - start_time);
@@ -203,7 +181,7 @@ FileProcessor::process_file(const std::string &input_path) {
     result.sentences = sentences_results;
     result.total_sentences = sentences_results.size();
 
-    // Считаем общее количество обстоятельств
+    // Считаем общее количество сущностей
     for (const auto &sentence_result : sentences_results) {
       result.total_entities += sentence_result.entities.size();
     }
@@ -302,15 +280,17 @@ FileProcessor::Statistics FileProcessor::calculate_statistics(
     stats.total_entities += file_result.total_entities;
     stats.entities_per_file[file_result.filename] = file_result.total_entities;
 
-    // Считаем по типам обстоятельств
+    // Считаем по типам членов предложения
     for (const auto &sentence_result : file_result.sentences) {
       for (const auto &entity : sentence_result.entities) {
         std::string type = entity.type;
         stats.entity_type_counts[type]++;
 
-        // Добавляем предложение для этого обстоятельства
-        std::string entity_key =
-            entity.text + " (" + translate_label(type) + ")";
+        std::string type_ru = entity.type_ru;
+        stats.entity_type_counts_ru[type_ru]++;
+
+        // Добавляем предложение для этой сущности
+        std::string entity_key = entity.text + " (" + type_ru + ")";
         stats.entity_to_sentences[entity_key].insert(sentence_result.text);
       }
     }
@@ -322,8 +302,8 @@ FileProcessor::Statistics FileProcessor::calculate_statistics(
 /**
  * @brief Записывает файл sentences.txt с детальными результатами
  *
- * Содержит для каждого файла все предложения с выделенными обстоятельствами
- * и списком найденных обстоятельств.
+ * Содержит для каждого файла все предложения с выделенными членами предложения
+ * и списком найденных сущностей.
  *
  * @param path Путь для сохранения файла
  * @param all_results Вектор результатов обработки файлов
@@ -344,30 +324,53 @@ void FileProcessor::write_sentences_file(
   const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
   out_file.write(reinterpret_cast<const char *>(bom), sizeof(bom));
 
+  out_file << "=== АНАЛИЗ ЧЛЕНОВ ПРЕДЛОЖЕНИЯ ===\n\n";
+  out_file << "Всего файлов: " << stats.total_files << "\n";
+  out_file << "Всего предложений: " << stats.total_sentences << "\n";
+  out_file << "Всего членов предложения: " << stats.total_entities << "\n\n";
+
   for (const auto &file_result : all_results) {
     // Заголовок файла
-    out_file << "=== Файл: " << file_result.filename << " ===\n";
-    out_file << "=== Предложений: " << file_result.total_sentences
-             << ", Обстоятельств: " << file_result.total_entities << " ===\n\n";
+    out_file << "========================================\n";
+    out_file << "ФАЙЛ: " << file_result.filename << "\n";
+    out_file << "========================================\n";
+    out_file << "Предложений: " << file_result.total_sentences
+             << ", Членов предложения: " << file_result.total_entities
+             << "\n\n";
 
-    // Предложения с обстоятельствами
+    // Предложения с выделенными членами предложения
+    int sent_num = 1;
     for (const auto &sentence_result : file_result.sentences) {
-      // Предложение с выделением обстоятельств в квадратных скобках
+      // Предложение с выделением в квадратных скобках
       std::string formatted_sentence = format_sentence_with_entities(
           sentence_result.text, sentence_result.entities);
 
-      out_file << formatted_sentence << "\n";
+      out_file << "[" << sent_num << "] " << formatted_sentence << "\n";
 
-      // Список обстоятельств
+      // Список членов предложения
       if (!sentence_result.entities.empty()) {
+        // Группируем по типам для лучшей читаемости
+        std::map<std::string, std::vector<std::string>> entities_by_type;
+
         for (const auto &entity : sentence_result.entities) {
-          out_file << "- " << entity.text << " ("
-                   << translate_label(entity.type) << ")\n";
+          entities_by_type[entity.type_ru].push_back(entity.text);
         }
-        out_file << "\n";
+
+        for (const auto &[type, texts] : entities_by_type) {
+          out_file << "   " << type << ": ";
+          for (size_t i = 0; i < texts.size(); i++) {
+            out_file << "\"" << texts[i] << "\"";
+            if (i < texts.size() - 1) {
+              out_file << ", ";
+            }
+          }
+          out_file << "\n";
+        }
       } else {
-        out_file << "(нет обстоятельств)\n\n";
+        out_file << "   (нет членов предложения)\n";
       }
+      out_file << "\n";
+      sent_num++;
     }
 
     out_file << "\n";
@@ -380,10 +383,10 @@ void FileProcessor::write_sentences_file(
  * @brief Записывает файл statistics.txt с общей статистикой
  *
  * Содержит:
- * - Общую статистику по файлам, предложениям, обстоятельствам
- * - Распределение обстоятельств по типам
+ * - Общую статистику по файлам, предложениям, сущностям
+ * - Распределение членов предложения по типам
  * - Статистику по каждому файлу
- * - Все найденные обстоятельства с примерами предложений
+ * - Все найденные члены предложения с примерами предложений
  *
  * @param path Путь для сохранения файла
  * @param stats Статистика обработки
@@ -402,57 +405,85 @@ void FileProcessor::write_statistics_file(const std::string &path,
   const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
   out_file.write(reinterpret_cast<const char *>(bom), sizeof(bom));
 
-  out_file << "СТАТИСТИКА ОБРАБОТКИ\n";
-  out_file << "===================\n\n";
+  out_file << "СТАТИСТИКА АНАЛИЗА ЧЛЕНОВ ПРЕДЛОЖЕНИЯ\n";
+  out_file << "======================================\n\n";
 
+  // ОБЩАЯ СТАТИСТИКА
   out_file << "ОБЩАЯ СТАТИСТИКА:\n";
+  out_file << "-----------------\n";
   out_file << "• Обработано файлов: " << stats.total_files << "\n";
   out_file << "• Всего предложений: " << stats.total_sentences << "\n";
-  out_file << "• Всего обстоятельств: " << stats.total_entities << "\n";
+  out_file << "• Всего членов предложения: " << stats.total_entities << "\n";
 
   if (stats.total_files > 0) {
     out_file << "• Среднее на файл: "
              << static_cast<float>(stats.total_entities) / stats.total_files
-             << " обстоятельств\n";
+             << " членов предложения\n";
   }
 
   if (stats.total_sentences > 0) {
     out_file << "• Среднее на предложение: "
              << static_cast<float>(stats.total_entities) / stats.total_sentences
-             << " обстоятельств\n";
+             << " членов предложения\n";
   }
 
-  out_file << "\nОБСТОЯТЕЛЬСТВА ПО ТИПАМ:\n";
-  out_file << "------------------------\n";
-  for (const auto &[type, count] : stats.entity_type_counts) {
-    std::string translated = translate_label(type);
+  out_file << "\n";
+
+  // РАСПРЕДЕЛЕНИЕ ПО ТИПАМ
+  out_file << "РАСПРЕДЕЛЕНИЕ ПО ТИПАМ:\n";
+  out_file << "----------------------\n";
+
+  // Сортируем по убыванию
+  std::vector<std::pair<std::string, int>> sorted_types;
+  for (const auto &[type, count] : stats.entity_type_counts_ru) {
+    sorted_types.push_back({type, count});
+  }
+
+  std::sort(sorted_types.begin(), sorted_types.end(),
+            [](const auto &a, const auto &b) { return a.second > b.second; });
+
+  for (const auto &[type, count] : sorted_types) {
     float percentage = stats.total_entities > 0 ? static_cast<float>(count) /
                                                       stats.total_entities * 100
                                                 : 0;
-
-    out_file << "• " << translated << " (" << type << "): " << count << " ("
-             << std::fixed << std::setprecision(1) << percentage << "%)\n";
+    out_file << "• " << type << ": " << count << " (" << std::fixed
+             << std::setprecision(1) << percentage << "%)\n";
   }
   out_file << "\n";
 
-  out_file << "ОБСТОЯТЕЛЬСТВА ПО ФАЙЛАМ:\n";
-  out_file << "-------------------------\n";
+  // СТАТИСТИКА ПО ФАЙЛАМ
+  out_file << "СТАТИСТИКА ПО ФАЙЛАМ:\n";
+  out_file << "--------------------\n";
   for (const auto &[filename, count] : stats.entities_per_file) {
-    out_file << "• " << filename << ": " << count << " обстоятельств\n";
+    out_file << "• " << filename << ": " << count << " членов предложения\n";
   }
   out_file << "\n";
 
-  out_file << "ВСЕ НАЙДЕННЫЕ ОБСТОЯТЕЛЬСТВА:\n";
-  out_file << "-----------------------------\n";
-  for (const auto &[entity_key, sentences] : stats.entity_to_sentences) {
-    out_file << "\n" << entity_key << ":\n";
+  // ВСЕ НАЙДЕННЫЕ ЧЛЕНЫ ПРЕДЛОЖЕНИЯ
+  out_file << "ВСЕ НАЙДЕННЫЕ ЧЛЕНЫ ПРЕДЛОЖЕНИЯ:\n";
+  out_file << "--------------------------------\n";
+
+  // Сортируем по количеству вхождений
+  std::vector<std::pair<std::string, std::set<std::string>>> sorted_entities(
+      stats.entity_to_sentences.begin(), stats.entity_to_sentences.end());
+
+  std::sort(sorted_entities.begin(), sorted_entities.end(),
+            [](const auto &a, const auto &b) {
+              return a.second.size() > b.second.size();
+            });
+
+  for (const auto &[entity_key, sentences] : sorted_entities) {
+    out_file << "\n"
+             << entity_key << " (встречается " << sentences.size()
+             << " раз):\n";
+
     int example_count = 0;
     for (const auto &sentence : sentences) {
       if (example_count < 3) { // Показываем максимум 3 примера
-        out_file << "  - \"" << sentence << "\"\n";
+        out_file << "  • \"" << sentence << "\"\n";
         example_count++;
       } else {
-        out_file << "  - ... и еще " << (sentences.size() - 3)
+        out_file << "  • ... и еще " << (sentences.size() - 3)
                  << " предложений\n";
         break;
       }
@@ -463,11 +494,70 @@ void FileProcessor::write_statistics_file(const std::string &path,
 }
 
 /**
+ * @brief Записывает файл summary.txt с краткой сводкой
+ *
+ * @param path Путь для сохранения файла
+ * @param all_results Вектор результатов обработки файлов
+ * @param stats Статистика обработки
+ */
+void FileProcessor::write_summary_file(
+    const std::string &path, const std::vector<FileResult> &all_results,
+    const Statistics &stats) {
+  std::ofstream out_file(path + "/summary.txt",
+                         std::ios::out | std::ios::binary);
+
+  if (!out_file.is_open()) {
+    return; // Не критично, если не удалось создать
+  }
+
+  // UTF-8 BOM
+  const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+  out_file.write(reinterpret_cast<const char *>(bom), sizeof(bom));
+
+  out_file << "КРАТКАЯ СВОДКА АНАЛИЗА\n";
+  out_file << "======================\n\n";
+
+  auto now = std::chrono::system_clock::now();
+  auto in_time_t = std::chrono::system_clock::to_time_t(now);
+  out_file << "Дата анализа: "
+           << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S")
+           << "\n\n";
+
+  out_file << "ИТОГИ:\n";
+  out_file << "• Файлов обработано: " << stats.total_files << "\n";
+  out_file << "• Предложений обработано: " << stats.total_sentences << "\n";
+  out_file << "• Членов предложения найдено: " << stats.total_entities
+           << "\n\n";
+
+  // Топ-5 самых частых членов предложения
+  if (!stats.entity_to_sentences.empty()) {
+    out_file << "САМЫЕ ЧАСТЫЕ ЧЛЕНЫ ПРЕДЛОЖЕНИЯ:\n";
+
+    std::vector<std::pair<std::string, size_t>> entity_counts;
+    for (const auto &[entity_key, sentences] : stats.entity_to_sentences) {
+      entity_counts.push_back({entity_key, sentences.size()});
+    }
+
+    std::sort(entity_counts.begin(), entity_counts.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
+
+    int top_count = std::min(5, (int)entity_counts.size());
+    for (int i = 0; i < top_count; i++) {
+      out_file << (i + 1) << ". " << entity_counts[i].first << " ("
+               << entity_counts[i].second << " раз)\n";
+    }
+  }
+
+  out_file.close();
+}
+
+/**
  * @brief Записывает все результаты обработки в выходную директорию
  *
- * Создает три файла:
- * - sentences.txt - детальные результаты с выделенными обстоятельствами
+ * Создает четыре файла:
+ * - sentences.txt - детальные результаты с выделенными членами предложения
  * - statistics.txt - статистика по всем файлам
+ * - summary.txt - краткая сводка анализа
  * - results.json - структурированные результаты в формате JSON
  *
  * @param output_dir Директория для сохранения результатов
@@ -489,71 +579,9 @@ void FileProcessor::write_results(const std::string &output_dir,
     write_statistics_file(output_dir, stats);
     std::cout << "    ✓ Created: statistics.txt\n";
 
-    // Дополнительно: сохраняем детальные результаты в JSON
-    std::ofstream json_file(output_dir + "/results.json");
-    if (json_file.is_open()) {
-      json_file << "{\n";
-      json_file << "  \"total_files\": " << stats.total_files << ",\n";
-      json_file << "  \"total_sentences\": " << stats.total_sentences << ",\n";
-      json_file << "  \"total_entities\": " << stats.total_entities << ",\n";
-      json_file << "  \"files\": [\n";
-
-      for (size_t i = 0; i < all_results.size(); i++) {
-        const auto &file_result = all_results[i];
-        json_file << "    {\n";
-        json_file << "      \"filename\": \"" << file_result.filename
-                  << "\",\n";
-        json_file << "      \"sentences\": " << file_result.total_sentences
-                  << ",\n";
-        json_file << "      \"entities\": " << file_result.total_entities
-                  << ",\n";
-        json_file << "      \"sentences_list\": [\n";
-
-        for (size_t j = 0; j < file_result.sentences.size(); j++) {
-          const auto &sentence = file_result.sentences[j];
-          json_file << "        {\n";
-          json_file << "          \"text\": \"" << sentence.text << "\",\n";
-          json_file << "          \"entities\": [\n";
-
-          for (size_t k = 0; k < sentence.entities.size(); k++) {
-            const auto &entity = sentence.entities[k];
-            json_file << "            {\n";
-            json_file << "              \"text\": \"" << entity.text << "\",\n";
-            json_file << "              \"type\": \"" << entity.type << "\",\n";
-            json_file << "              \"start\": " << entity.start << ",\n";
-            json_file << "              \"end\": " << entity.end << "\n";
-            json_file << "            }";
-
-            if (k < sentence.entities.size() - 1) {
-              json_file << ",";
-            }
-            json_file << "\n";
-          }
-
-          json_file << "          ]\n";
-          json_file << "        }";
-
-          if (j < file_result.sentences.size() - 1) {
-            json_file << ",";
-          }
-          json_file << "\n";
-        }
-
-        json_file << "      ]\n";
-        json_file << "    }";
-
-        if (i < all_results.size() - 1) {
-          json_file << ",";
-        }
-        json_file << "\n";
-      }
-
-      json_file << "  ]\n";
-      json_file << "}\n";
-      json_file.close();
-
-      std::cout << "    ✓ Created: results.json\n";
-    }
+    // Записываем summary.txt
+    write_summary_file(output_dir, all_results, stats);
+    std::cout << "    ✓ Created: summary.txt\n";
 
   } catch (const std::exception &e) {
     std::cerr << "    ✗ Error saving results: " << e.what() << "\n";

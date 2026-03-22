@@ -33,7 +33,9 @@ public:
     int total_files = 0;                           // Всего файлов
     int total_sentences = 0;                       // Всего предложений
     int total_entities = 0;                        // Всего сущностей
-    std::map<std::string, int> entity_type_counts; // Счетчики по типам
+    std::map<std::string, int> entity_type_counts; // Счетчики по типам (англ.)
+    std::map<std::string, int>
+        entity_type_counts_ru; // Счетчики по типам (рус.)
     std::map<std::string, std::set<std::string>>
         entity_to_sentences;                      // Сущность -> предложения
     std::map<std::string, int> entities_per_file; // Сущности по файлам
@@ -93,19 +95,6 @@ private:
   BertOnnxInference &detector_; // Ссылка на детектор для анализа текста
 
   /**
-   * @brief Словарь для перевода английских меток на русский язык
-   */
-  std::map<std::string, std::string> label_translations_ = {
-      {"TIME", "обстоятельство времени"},
-      {"MANNER", "обстоятельство образа действия"},
-      {"DEGREE", "обстоятельство степени"},
-      {"CONDITION", "обстоятельство условия"},
-      {"CAUSE", "обстоятельство причины"},
-      {"CONCESSION", "обстоятельство уступки"},
-      {"LOCATION", "обстоятельство места"},
-      {"PURPOSE", "обстоятельство цели"}};
-
-  /**
    * @brief Рассчитывает статистику по результатам обработки
    *
    * @param all_results Вектор результатов по файлам
@@ -133,23 +122,26 @@ private:
   void write_statistics_file(const std::string &path, const Statistics &stats);
 
   /**
-   * @brief Форматирует предложение с выделением обстоятельств
+   * @brief Записывает файл summary.txt с краткой сводкой
+   *
+   * @param path Путь для сохранения
+   * @param all_results Результаты по файлам
+   * @param stats Статистика обработки
+   */
+  void write_summary_file(const std::string &path,
+                          const std::vector<FileResult> &all_results,
+                          const Statistics &stats);
+
+  /**
+   * @brief Форматирует предложение с выделением членов предложения
    *
    * @param sentence Исходное предложение
    * @param entities Найденные сущности
-   * @return std::string Предложение с обстоятельствами в квадратных скобках
+   * @return std::string Предложение с членами предложения в квадратных скобках
    */
   std::string format_sentence_with_entities(
       const std::string &sentence,
       const std::vector<BertOnnxInference::Entity> &entities);
-
-  /**
-   * @brief Переводит английскую метку на русский язык
-   *
-   * @param label Английская метка
-   * @return std::string Русский перевод
-   */
-  std::string translate_label(const std::string &label);
 
   /**
    * @brief Читает текстовый файл с поддержкой UTF-8 BOM
