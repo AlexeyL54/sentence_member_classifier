@@ -153,7 +153,7 @@ public:
    */
   inline std::string get_unk_token() const { return "[UNK]"; }
 
-private:
+protected:
   std::vector<std::string> vocabulary_; // Список всех токенов в словаре
   std::unordered_map<std::string, int64_t>
       vocab_map_; // Отображение токен -> ID
