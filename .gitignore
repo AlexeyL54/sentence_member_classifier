@@ -4,6 +4,8 @@ text/
 dist/
 predictor.out
 
+tests/build/
+
 modelling/models/
 modelling/metrics_results/
 
