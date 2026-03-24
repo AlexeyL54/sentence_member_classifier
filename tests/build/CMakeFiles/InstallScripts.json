@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/alexey/programming/ML/sentence_member_classifier/tests/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

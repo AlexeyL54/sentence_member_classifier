@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/test.dir/link.d CMakeFiles/test.dir/back/test_tokenizer.cpp.o CMakeFiles/test.dir/home/alexey/programming/ML/sentence_member_classifier/src/back/simple_tokenizer.cpp.o -o test  /usr/lib/libgtest_main.so.1.17.0 /usr/lib/libgtest.so.1.17.0

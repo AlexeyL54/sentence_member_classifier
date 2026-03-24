@@ -1,0 +1,3 @@
+/home/alexey/programming/ML/sentence_member_classifier/tests/build/CMakeFiles/test.dir
+/home/alexey/programming/ML/sentence_member_classifier/tests/build/CMakeFiles/edit_cache.dir
+/home/alexey/programming/ML/sentence_member_classifier/tests/build/CMakeFiles/rebuild_cache.dir

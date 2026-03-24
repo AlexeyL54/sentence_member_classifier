@@ -5,6 +5,7 @@ dist/
 predictor.out
 
 modelling/models/
+modelling/metrics_results/
 
 src/back/onnxruntime-win-x64
 src/front/compile_flags.txt
