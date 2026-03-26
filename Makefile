@@ -2,7 +2,21 @@ default:
 # ============================================
 # СБОРКА ДЛЯ LINUX
 # ============================================
-	g++ main.cpp src/back/cJSON.c src/back/onnx_model.cpp src/back/bert_onnx_inference.cpp src/back/file_processor.cpp src/back/simple_tokenizer.cpp -s -O2 -lonnxruntime -pthread -o predictor.out
+	g++ tui.cpp src/back/cJSON.c src/back/onnx_model.cpp src/back/bert_onnx_inference.cpp src/back/file_processor.cpp src/back/simple_tokenizer.cpp -s -O2 -lonnxruntime -pthread -o predictor.out
+	#	g++ gui.cpp \
+    src/front/InputPage.cpp \
+    src/front/ResultPage.cpp \
+    src/front/SearchPage.cpp \
+    src/front/MainWindow.cpp \
+    -I/usr/include/qt6 \
+    -I/usr/include/qt6/QtCore \
+    -I/usr/include/qt6/QtWidgets \
+    -I/usr/include/qt6/QtGui \
+    -lQt6Core \
+    -lQt6Widgets \
+    -lQt6Gui \
+    -fPIC \
+    -o gui.out
 
 # ============================================
 # ДИНАМИЧЕСКАЯ СБОРКА ДЛЯ WINDOWS (x64)

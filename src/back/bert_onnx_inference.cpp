@@ -1,5 +1,5 @@
 // src/back/bert_onnx_inference.cpp
-#include "bert_onnx_inference.h"
+#include "bert_onnx_inference.hpp"
 
 BertOnnxInference::BertOnnxInference(
     std::unique_ptr<onnx_infer::BertNerModel> model, SimpleTokenizer &tokenizer,
