@@ -2,272 +2,115 @@
 #define RESULTPAGE_H
 
 #include <QButtonGroup>
-#include <QTextEdit>
-#include <QWidget>
-#include <MainWindow.hpp>
-
-/*
-class ResultPage : public QWidget {
-  Q_OBJECT
-private:
-signals:
-};
-
-*/
-
-#include <QMainWindow>
-#include <QTextEdit>
 #include <QCheckBox>
-#include <QScrollArea>
-#include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QWidget>
 #include <QLabel>
+#include <QMainWindow>
+#include <QMap>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QScrollArea>
 #include <QStyle>
+#include <QTextEdit>
+#include <QVBoxLayout>
+#include <QWidget>
 
-class TextMarkupWidget;
-
-class ResultPage : public QMainWindow
-{
-    Q_OBJECT
-
-    TextMarkupWidget *widgetText;
-
-    QWidget *leftWidget;
-    QTextEdit *textEdit;
-    QWidget *rightWidget;
-    // В классе MainWindow добавляем массив лейблов для отображения количества
-    QLabel *countLabels[6]; // По одному для каждого типа члена предложения
-    // В классе MainWindow объявляем массив прогрессбаров
-    QProgressBar *bars[6]; // По одному для каждого типа члена предложения
-    QTextEdit *detailsTextEdit; // <-- НОВОЕ ПОЛЕ для вывода информации
-
-    QPushButton *btnSave;
-    QPushButton *btnSearch;
-
-
-    // 1. Добавляем определение структуры сюда или подключаем внешний файл
-    struct SentenceParts {
-        QVector<QString> subject;
-        QVector<QString> predicate;
-        QVector<QString> object;
-        QVector<QString> attribute;
-        QVector<QString> adverbial;
-        QVector<QString> other;
-    } parts;
-
-     QMap<QString, QString> members;
-     QString fullText;
-
-public:
-    ResultPage(QWidget *parent = nullptr);
-
-     void loadTextFromFile(const QString &filename);
-     void loadParsedData(const QString &filename);   // Новая функция для загрузки данных
-     void updateCounts();
-     void updateChart();
-
-     void buildWordRoleMap();
-     void readTextFromFile(const QString &filename);
-
-};
-
-/*******************************************************/
+#include "lib/TextMarkupWidget.hpp"
 
 /**
- * @brief Вспомогательный класс компоновщика с автоматическим переносом
- * элементов.
+ * @brief Главное окно для отображения результатов анализа предложений.
  *
- * Обеспечивает перенос дочерних виджетов на новую строку при нехватке места.
+ * Класс отвечает за отображение текста с подсветкой частей речи,
+ * статистику по частям предложения и предоставляет интерфейс для поиска.
  */
-class FlowLayout : public QLayout {
+class ResultPage : public QMainWindow {
   Q_OBJECT
 
 public:
   /**
-   * @brief Конструктор с указанием родительского виджета.
-   * @param parent Родительский виджет.
-   * @param margin Отступы со всех сторон.
-   * @param hSpacing Горизонтальный отступ между элементами.
-   * @param vSpacing Вертикальный отступ между элементами.
+   * @brief Конструктор класса ResultPage.
+   * @param parent Указатель на родительский виджет.
    */
-  explicit FlowLayout(QWidget *parent = nullptr, int margin = 5,
-                      int hSpacing = 5, int vSpacing = 5);
+  ResultPage(QWidget *parent = nullptr);
 
   /**
-   * @brief Конструктор без родительского виджета.
-   * @param margin Отступы со всех сторон.
-   * @param hSpacing Горизонтальный отступ между элементами.
-   * @param vSpacing Вертикальный отступ между элементами.
+   * @brief Загружает текст из файла для отображения.
+   * @param filename Путь к файлу с текстом.
    */
-  explicit FlowLayout(int margin = 5, int hSpacing = 5, int vSpacing = 5);
+  void loadTextFromFile(const QString &filename);
 
   /**
-   * @brief Деструктор.
+   * @brief Загружает разобранные данные из файла.
+   * @param filename Путь к файлу с данными разбора.
    */
-  ~FlowLayout();
+  void loadParsedData(const QString &filename);
 
   /**
-   * @brief Добавляет элемент в компоновщик.
-   * @param item Добавляемый элемент.
+   * @brief Обновляет отображение количества элементов в каждой категории.
    */
-  void addItem(QLayoutItem *item) override;
+  void updateCounts();
 
   /**
-   * @brief Возвращает горизонтальный отступ между элементами.
-   * @return Значение отступа в пикселях.
+   * @brief Обновляет графическое отображение (прогресс-бары) статистики.
    */
-  int horizontalSpacing() const;
+  void updateChart();
 
   /**
-   * @brief Возвращает вертикальный отступ между элементами.
-   * @return Значение отступа в пикселях.
+   * @brief Строит карту соответствия слов их ролям в предложении.
    */
-  int verticalSpacing() const;
+  void buildWordRoleMap();
 
   /**
-   * @brief Возвращает направления расширения компоновщика.
-   * @return Всегда Qt::Horizontal.
+   * @brief Считывает текст из файла во внутреннюю переменную.
+   * @param filename Путь к файлу с текстом.
    */
-  Qt::Orientations expandingDirections() const override;
+  void readTextFromFile(const QString &filename);
 
   /**
-   * @brief Показывает, зависит ли высота от ширины.
-   * @return Всегда true.
+   * @brief Обновляет все отображения на интерфейсе.
    */
-  bool hasHeightForWidth() const override;
+  void refreshDisplay();
 
+signals:
   /**
-   * @brief Возвращает высоту, необходимую для заданной ширины.
-   * @param width Доступная ширина.
-   * @return Необходимая высота.
+   * @brief Сигнал, испускаемый при запросе поиска.
    */
-  int heightForWidth(int width) const override;
+  void searchRequested();
 
+private slots:
   /**
-   * @brief Возвращает количество элементов в компоновщике.
-   * @return Количество элементов.
+   * @brief Слот, обрабатывающий нажатие кнопки поиска.
    */
-  int count() const override;
-
-  /**
-   * @brief Возвращает элемент по индексу.
-   * @param index Индекс элемента.
-   * @return Указатель на элемент или nullptr.
-   */
-  QLayoutItem *itemAt(int index) const override;
-
-  /**
-   * @brief Удаляет и возвращает элемент по индексу.
-   * @param index Индекс элемента.
-   * @return Указатель на удаленный элемент.
-   */
-  QLayoutItem *takeAt(int index) override;
-
-  /**
-   * @brief Устанавливает геометрию компоновщика.
-   * @param rect Прямоугольник для размещения элементов.
-   */
-  void setGeometry(const QRect &rect) override;
-
-  /**
-   * @brief Возвращает рекомендуемый размер.
-   * @return Рекомендуемый размер.
-   */
-  QSize sizeHint() const override;
-
-  /**
-   * @brief Возвращает минимальный размер.
-   * @return Минимальный размер.
-   */
-  QSize minimumSize() const override;
+  void onSearchClicked();
 
 private:
-  /**
-   * @brief Выполняет расстановку элементов.
-   * @param rect Доступная область.
-   * @param testOnly Если true, только вычисляет высоту без установки геометрии.
-   * @return Общая использованная высота.
-   */
-  int doLayout(const QRect &rect, bool testOnly) const;
+  TextMarkupWidget *widgetText;
+  QWidget *leftWidget;
+  QTextEdit *textEdit;
+  QWidget *rightWidget;
+  QLabel *countLabels[6];
+  QProgressBar *bars[6];
+  QTextEdit *detailsTextEdit;
+  QPushButton *btnSave;
+  QPushButton *btnSearch;
+
+  QVector<QCheckBox *> m_checkBoxes;
 
   /**
-   * @brief Вычисляет стандартный отступ на основе стиля.
-   * @param pm Тип отступа.
-   * @return Значение отступа.
+   * @brief Структура для хранения частей предложения.
    */
-  int smartSpacing(QStyle::PixelMetric pm) const;
+  struct SentenceParts {
+    QVector<QString> subject;   // Подлежащие
+    QVector<QString> predicate; // Сказуемые
+    QVector<QString> object;    // Дополнения
+    QVector<QString> attribute; // Определения
+    QVector<QString> adverbial; // Обстоятельства
+    QVector<QString> other;     // Другие части
+  } parts;
 
-  QList<QLayoutItem *> m_itemList; // Список элементов
-  int m_hSpace;                    // Горизонтальный отступ
-  int m_vSpace;                    // Вертикальный отступ
-};
-
-/**
- * @brief Основной виджет для отображения текста с разметкой членов предложения.
- *
- * Позволяет отобразить текст, разбитый на слова, с подписями (членами
- * предложения) под каждым словом. Поддерживает настройку цветов для слов и
- * подписей.
- */
-class TextMarkupWidget : public QWidget {
-  Q_OBJECT
-
-public:
-  /**
-   * @brief Конструктор.
-   * @param parent Родительский виджет.
-   */
-  explicit TextMarkupWidget(QWidget *parent = nullptr);
-
-  /**
-   * @brief Устанавливает текст и его разметку.
-   * @param text Исходный текст (разбивается на слова по пробелам).
-   * @param members Словарь: слово -> член предложения.
-   */
-  void setMarkupText(const QString &text,
-                     const QMap<QString, QString> &members);
-
-  /**
-   * @brief Устанавливает цвет текста (самих слов).
-   * @param color Цвет в формате CSS (например, "#FFFFFF").
-   */
-  void setWordColor(const QString &color);
-
-  /**
-   * @brief Устанавливает цвет подписей (членов предложения).
-   * @param color Цвет в формате CSS (например, "#AAAAAA").
-   */
-  void setLabelColor(const QString &color);
-
-  /**
-   * @brief Возвращает текущий цвет слов.
-   * @return Цвет слов.
-   */
-  QString wordColor() const;
-
-  /**
-   * @brief Возвращает текущий цвет подписей.
-   * @return Цвет подписей.
-   */
-  QString labelColor() const;
-
-private:
-  /**
-   * @brief Обновляет отображение (перестраивает виджеты слов).
-   */
-  void rebuild();
-
-  QString m_wordColor;              // Текущий цвет слов
-  QString m_labelColor;             // Текущий цвет подписей
-  QString m_text;                   // Исходный текст
-  QMap<QString, QString> m_members; // Разметка слов
-
-  QScrollArea *m_scrollArea; // Область прокрутки
-  QWidget *m_container;      // Контейнер для слов
-  FlowLayout *m_flowLayout;  // Layout с переносом слов
+  QMap<QString, QString> members; // Карта: слово -> его роль
+  QString fullText;               // Полный текст для анализа
 };
 
 #endif // RESULTPAGE_H

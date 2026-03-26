@@ -4,10 +4,10 @@
 #include <memory>
 #include <string>
 
-#include "src/back/bert_onnx_inference.h"
+#include "src/back/bert_onnx_inference.hpp"
 #include "src/back/cJSON.h"
-#include "src/back/onnx_model.h"
-#include "src/back/simple_tokenizer.h"
+#include "src/back/onnx_model.hpp"
+#include "src/back/simple_tokenizer.hpp"
 
 // Конфигурация модели
 struct Config {

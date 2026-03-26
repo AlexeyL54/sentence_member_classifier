@@ -4,6 +4,7 @@ text/
 dist/
 predictor.out
 
+build/
 tests/build/
 
 modelling/models/

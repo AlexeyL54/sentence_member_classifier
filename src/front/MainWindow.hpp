@@ -1,17 +1,38 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QStackedWidget>
 #include <QWidget>
 
 #include "InputPage.hpp"
 #include "ResultPage.hpp"
+#include "SearchPage.hpp"
 
 class MainWindow : public QWidget {
   Q_OBJECT
 
 public:
-  MainWindow(QWidget *parent = nullptr);
+  explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
+
+private slots:
+  // Слоты для навигации между страницами
+  void onAnalyzeRequested();
+  void onSearchRequested();
+  void onBackToResultRequested();
+
+private:
+  void setupUI();
+  void setupConnections();
+  void createSearchItems(); // Создаёт элементы для поиска из готовых файлов
+
+  QStackedWidget *stackedWidget = nullptr;
+  InputPage *inputPage = nullptr;
+  ResultPage *resultPage = nullptr;
+  SearchPage *searchPage = nullptr;
+
+  // Данные, передаваемые между страницами
+  QVector<SearchResultItem> searchItems_;
 };
 
 #endif // MAINWINDOW_H

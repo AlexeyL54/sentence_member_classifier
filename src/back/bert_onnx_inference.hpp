@@ -8,8 +8,8 @@
 #include <utility>
 #include <vector>
 
-#include "onnx_model.h"
-#include "simple_tokenizer.h"
+#include "onnx_model.hpp"
+#include "simple_tokenizer.hpp"
 
 /**
  * @brief Класс для объединения токенизатора и ONNX модели для NER
