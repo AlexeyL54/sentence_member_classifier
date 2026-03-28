@@ -28,7 +28,7 @@ class MetricsCalculator:
     def __init__(self):
         """
         Инициализация калькулятора метрик.
-        
+
         Устанавливает списки меток, отображения между ID и метками,
         а также базовые классы для оценки качества распознавания членов предложения.
         """
@@ -58,10 +58,10 @@ class MetricsCalculator:
     def _get_base_class(self, label: str) -> str:
         """
         Получение базового класса из BIO-метки.
-        
+
         Args:
             label (str): BIO-метка (например, "B-ADVERBIAL", "I-ADVERBIAL" или "O")
-            
+
         Returns:
             str: Базовый класс без BIO-префикса
         """
@@ -76,11 +76,11 @@ class MetricsCalculator:
     ) -> Tuple[List[int], List[int]]:
         """
         Преобразование BIO-меток в ID базовых классов.
-        
+
         Args:
             predictions (List[int]): Список ID предсказанных BIO-меток
             true_labels (List[int]): Список ID истинных BIO-меток
-            
+
         Returns:
             Tuple[List[int], List[int]]: Кортеж из двух списков:
                 - Список ID базовых классов для предсказаний
@@ -106,11 +106,11 @@ class MetricsCalculator:
     ) -> Dict[str, Any]:
         """
         Расчет precision, recall, f1 с weighted average.
-        
+
         Args:
             predictions (List[int]): Список ID предсказанных BIO-меток
             true_labels (List[int]): Список ID истинных BIO-меток
-            
+
         Returns:
             Dict[str, Any]: Словарь с метриками, содержащий:
                 - precision (float): Взвешенная precision
@@ -157,18 +157,23 @@ class MetricsCalculator:
     ) -> Dict[str, Dict[str, float]]:
         """
         Расчет метрик для каждого класса.
-        
+
         Args:
             true_labels (List[int]): Список ID истинных меток базовых классов
             predictions (List[int]): Список ID предсказанных меток базовых классов
-            
+
         Returns:
             Dict[str, Dict[str, float]]: Словарь, где ключ - название класса,
                 значение - словарь с метриками precision, recall, f1, support
         """
-        labels = list(range(len(self.base_classes)))
+
+        # Get all possible labels (0 to len(base_classes)-1)
+        # all_labels = list(range(len(self.base_classes)))
+        actual_classes = sorted(set(true_labels))
+
+        # Calculate metrics for all classes
         result = precision_recall_fscore_support(
-            true_labels, predictions, labels=labels, zero_division=0
+            true_labels, predictions, labels=actual_classes, zero_division=0
         )
 
         if result is None:
@@ -185,8 +190,8 @@ class MetricsCalculator:
         precision, recall, f1, support = result
 
         per_class = {}
-        for i, class_name in enumerate(self.base_classes):
-            display_name = self.class_names[class_name]
+        for i, class_name in enumerate(actual_classes):
+            display_name = self.base_classes[class_name]
             per_class[display_name] = {
                 "precision": float(precision[i]) if precision is not None else 0.0,
                 "recall": float(recall[i]) if recall is not None else 0.0,
@@ -204,21 +209,29 @@ class MetricsCalculator:
     ) -> str:
         """
         Генерация отчета о классификации.
-        
+
         Args:
             predictions (List[int]): Список ID предсказанных BIO-меток
             true_labels (List[int]): Список ID истинных BIO-меток
             output_file (Optional[str]): Путь для сохранения отчета.
                 Если указан, отчет сохраняется в файл
-            
+
         Returns:
             str: Текст отчета о классификации
         """
         pred_base, true_base = self.convert_to_base_ids(predictions, true_labels)
-        target_names = [self.class_names[c] for c in self.base_classes]
+
+        unique_classes = sorted(set(true_base))
+        target_names = [self.class_names[self.base_classes[i]] for i in unique_classes]
+
+        labels = unique_classes
 
         report = classification_report(
-            true_base, pred_base, target_names=target_names, zero_division=0
+            true_base,
+            pred_base,
+            target_names=target_names,
+            labels=labels,
+            zero_division=0,
         )
 
         full_report = self._format_report_header(len(pred_base)) + report
@@ -231,10 +244,10 @@ class MetricsCalculator:
     def _format_report_header(self, total_tokens: int) -> str:
         """
         Форматирование заголовка отчета.
-        
+
         Args:
             total_tokens (int): Общее количество токенов
-            
+
         Returns:
             str: Отформатированный заголовок
         """
@@ -248,7 +261,7 @@ class MetricsCalculator:
     def _save_report(self, report: str, output_file: str) -> None:
         """
         Сохранение отчета в файл.
-        
+
         Args:
             report (str): Текст отчета
             output_file (str): Путь для сохранения файла
@@ -263,11 +276,11 @@ class MetricsCalculator:
     ) -> np.ndarray:
         """
         Расчет матрицы ошибок.
-        
+
         Args:
             predictions (List[int]): Список ID предсказанных BIO-меток
             true_labels (List[int]): Список ID истинных BIO-меток
-            
+
         Returns:
             np.ndarray: Матрица ошибок размером (n_classes, n_classes),
                 где строки - истинные классы, столбцы - предсказанные
@@ -282,7 +295,7 @@ class MetricsCalculator:
     ) -> None:
         """
         Визуализация матрицы ошибок.
-        
+
         Args:
             cm (np.ndarray): Матрица ошибок для визуализации
             output_path (Optional[str]): Путь для сохранения графика.
@@ -315,7 +328,7 @@ class MetricsCalculator:
     ) -> None:
         """
         Создание графика матрицы ошибок.
-        
+
         Args:
             cm (np.ndarray): Нормализованная матрица ошибок
             target_names (List[str]): Названия классов
@@ -349,7 +362,7 @@ class MetricsCalculator:
     def _add_values_to_cells(self, cm: np.ndarray) -> None:
         """
         Добавление значений в ячейки матрицы с корректным округлением.
-        
+
         Args:
             cm (np.ndarray): Матрица ошибок для отображения значений
         """
@@ -390,7 +403,7 @@ class MetricsCalculator:
     def _save_plot(self, output_path: str) -> None:
         """
         Сохранение графика.
-        
+
         Args:
             output_path (str): Путь для сохранения графика
         """
@@ -406,12 +419,12 @@ def collect_predictions(
 ) -> Tuple[List[int], List[int]]:
     """
     Сбор предсказаний модели для всех текстов.
-    
+
     Args:
         predictor (CircumstancePredictor): Объект предсказателя модели
         texts (List[str]): Список текстов для обработки
         labels (List[List[str]]): Список списков истинных меток для каждого текста
-        
+
     Returns:
         Tuple[List[int], List[int]]: Кортеж из двух списков:
             - Список ID предсказанных меток для всех токенов
@@ -436,10 +449,10 @@ def collect_predictions(
 def _get_prediction_ids(tokens: List) -> List[int]:
     """
     Получение ID предсказанных меток.
-    
+
     Args:
         tokens (List): Список токенов с атрибутами label
-        
+
     Returns:
         List[int]: Список ID предсказанных меток
     """
@@ -453,11 +466,11 @@ def _get_prediction_ids(tokens: List) -> List[int]:
 def _align_true_labels(tokens: List, true_seq: List[str]) -> List[int]:
     """
     Выравнивание истинных меток с токенами.
-    
+
     Args:
         tokens (List): Список токенов
         true_seq (List[str]): Список истинных меток
-        
+
     Returns:
         List[int]: Список ID истинных меток, выровненных по длине токенов
     """
@@ -475,11 +488,11 @@ def _align_lengths(
 ) -> Tuple[List[int], List[int]]:
     """
     Выравнивание длин предсказаний и истинных меток.
-    
+
     Args:
         pred_ids (List[int]): Список ID предсказанных меток
         true_ids (List[int]): Список ID истинных меток
-        
+
     Returns:
         Tuple[List[int], List[int]]: Кортеж из двух списков одинаковой длины:
             - Список предсказанных меток
@@ -496,7 +509,7 @@ def _align_lengths(
 def print_metrics_summary(metrics: Dict[str, Any]) -> None:
     """
     Вывод сводки метрик в консоль.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками из calculate_metrics()
     """
@@ -508,7 +521,7 @@ def print_metrics_summary(metrics: Dict[str, Any]) -> None:
 def _print_aggregated_metrics(metrics: Dict[str, Any]) -> None:
     """
     Вывод агрегированных метрик.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками
     """
@@ -524,7 +537,7 @@ def _print_aggregated_metrics(metrics: Dict[str, Any]) -> None:
 def _print_per_class_metrics(metrics: Dict[str, Any]) -> None:
     """
     Вывод метрик для каждого класса.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками, содержащий per_class
     """
@@ -555,7 +568,7 @@ def _print_per_class_metrics(metrics: Dict[str, Any]) -> None:
 def _print_class_comparison(metrics: Dict[str, Any]) -> None:
     """
     Вывод сравнения между членами предложения.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками, содержащий per_class
     """
@@ -605,7 +618,7 @@ def save_results(
 ) -> None:
     """
     Сохранение результатов оценки в файлы.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками
         report (str): Текст отчета о классификации
@@ -624,11 +637,11 @@ def save_results(
 def _prepare_results_json(metrics: Dict[str, Any], report: str) -> Dict[str, Any]:
     """
     Подготовка данных для JSON.
-    
+
     Args:
         metrics (Dict[str, Any]): Словарь с метриками
         report (str): Текст отчета о классификации
-        
+
     Returns:
         Dict[str, Any]: Структурированные данные для сохранения в JSON
     """
@@ -670,7 +683,7 @@ def _prepare_results_json(metrics: Dict[str, Any], report: str) -> Dict[str, Any
 def print_dataset_stats(texts: List[str], labels: List[List[str]]) -> None:
     """
     Вывод статистики по датасету.
-    
+
     Args:
         texts (List[str]): Список текстов
         labels (List[List[str]]): Список списков меток для каждого текста
@@ -708,14 +721,14 @@ def evaluate_model(
 ) -> Dict[str, Any]:
     """
     Основная функция для оценки модели.
-    
+
     Args:
         test_dataset_path (str): Путь к файлу с тестовым датасетом
         model_path (Optional[str]): Путь к сохраненной модели.
             Если None, используется путь из конфигурации
         output_dir (str): Директория для сохранения результатов
         plot_cm (bool): Флаг построения матрицы ошибок
-        
+
     Returns:
         Dict[str, Any]: Словарь с вычисленными метриками
     """
@@ -756,10 +769,10 @@ def _print_evaluation_header() -> None:
 def _load_data(test_dataset_path: str) -> Tuple[List[str], List[List[str]]]:
     """
     Загрузка тестовых данных.
-    
+
     Args:
         test_dataset_path (str): Путь к файлу с тестовым датасетом
-        
+
     Returns:
         Tuple[List[str], List[List[str]]]: Кортеж из списка текстов и списка списков меток
     """
@@ -772,10 +785,10 @@ def _load_data(test_dataset_path: str) -> Tuple[List[str], List[List[str]]]:
 def _load_model(model_path: Optional[str]) -> CircumstancePredictor:
     """
     Загрузка модели.
-    
+
     Args:
         model_path (Optional[str]): Путь к сохраненной модели
-        
+
     Returns:
         CircumstancePredictor: Объект предсказателя модели
     """
@@ -793,13 +806,13 @@ def _generate_and_save_report(
 ) -> str:
     """
     Генерация и сохранение отчета.
-    
+
     Args:
         calculator (MetricsCalculator): Калькулятор метрик
         predictions (List[int]): Список ID предсказанных меток
         true_labels (List[int]): Список ID истинных меток
         output_dir (str): Директория для сохранения отчета
-        
+
     Returns:
         str: Текст сгенерированного отчета
     """
@@ -816,7 +829,7 @@ def _plot_and_save_confusion_matrix(
 ) -> None:
     """
     Построение и сохранение матрицы ошибок.
-    
+
     Args:
         calculator (MetricsCalculator): Калькулятор метрик
         predictions (List[int]): Список ID предсказанных меток
@@ -836,7 +849,7 @@ def _plot_and_save_confusion_matrix(
 def get_metrics(test_dataset_path: str) -> None:
     """
     Функция для получения метрик (вызывается из main.py).
-    
+
     Args:
         test_dataset_path (str): Путь к файлу с тестовым датасетом
     """
