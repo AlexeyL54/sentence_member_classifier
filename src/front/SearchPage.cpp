@@ -17,10 +17,10 @@
 #include <QStringList>
 
 /**
- * \brief Контейнер прокручиваемого списка результатов поиска.
+ * @brief Контейнер прокручиваемого списка результатов поиска.
  *
  * Внутри вызова setItems() динамически создаются карточки с результатами.
- * \param parent Родительский виджет.
+ * @param parent Родительский виджет.
  */
 SearchResultsList::SearchResultsList(QWidget* parent)
     : QWidget(parent)
@@ -42,7 +42,7 @@ SearchResultsList::SearchResultsList(QWidget* parent)
 }
 
 /**
- * \brief Удаляет ранее созданные карточки из layout'а
+ * @brief Удаляет ранее созданные карточки из layout'а
  */
 void SearchResultsList::clearLayout()
 {
@@ -58,8 +58,8 @@ void SearchResultsList::clearLayout()
 }
 
 /**
- * \brief Перерисовывает список карточек по набору элементов.
- * \param items Набор элементов для отображения в виде карточек.
+ * @brief Перерисовывает список карточек по набору элементов.
+ * @param items Набор элементов для отображения в виде карточек.
  */
 void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
 {
@@ -111,9 +111,9 @@ void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
 }
 
 /**
- * \brief Страница поиска: кнопка «Назад», поле ввода, фильтры и список результатов.
- * \param items Набор данных, который отображается и фильтруется на странице.
- * \param parent Родительский виджет.
+ * @brief Страница поиска: кнопка «Назад», поле ввода, фильтры и список результатов.
+ * @param items Набор данных, который отображается и фильтруется на странице.
+ * @param parent Родительский виджет.
  */
 SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
     : QWidget(parent), allItems_(items)
@@ -240,10 +240,10 @@ SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
 }
 
 /**
- * \brief Перехватывает клики для мультимножественного выбора в выпадающем списке.
- * \param watched Объект, на котором произошло событие.
- * \param event Событие Qt.
- * \return true, если событие обработано в фильтре и не должно идти дальше; иначе false.
+ * @brief Перехватывает клики для мультимножественного выбора в выпадающем списке.
+ * @param watched Объект, на котором произошло событие.
+ * @param event Событие Qt.
+ * @return true, если событие обработано в фильтре и не должно идти дальше; иначе false.
  */
 bool SearchPage::eventFilter(QObject* watched, QEvent* event)
 {
@@ -317,7 +317,7 @@ bool SearchPage::eventFilter(QObject* watched, QEvent* event)
 }
 
 /**
- * \brief Обновляет selectedMembers_ по текущему состоянию check-боксов.
+ * @brief Обновляет selectedMembers_ по текущему состоянию check-боксов.
  */
 void SearchPage::updateSelectedMembers()
 {
@@ -336,7 +336,7 @@ void SearchPage::updateSelectedMembers()
 }
 
 /**
- * \brief Обновляет текст в поле memberFilterCombo_ в зависимости от выбранных чеков.
+ * @brief Обновляет текст в поле memberFilterCombo_ в зависимости от выбранных чеков.
  */
 void SearchPage::updateMemberComboSummary()
 {
@@ -364,7 +364,7 @@ void SearchPage::updateMemberComboSummary()
 }
 
 /**
- * \brief Применяет фильтры (по тексту/членам/сортировке) и обновляет список.
+ * @brief Применяет фильтры (по тексту/членам/сортировке) и обновляет список.
  */
 void SearchPage::applyCurrentFilters()
 {
@@ -372,8 +372,8 @@ void SearchPage::applyCurrentFilters()
 }
 
 /**
- * \brief Фильтрует элементы по тексту поиска, члену предложения и сортирует их.
- * \param text Текущее значение из поля поиска.
+ * @brief Фильтрует элементы по тексту поиска, члену предложения и сортирует их.
+ * @param text Текущее значение из поля поиска.
  */
 void SearchPage::filterAndRender(const QString& text)
 {
@@ -458,10 +458,10 @@ void SearchPage::filterAndRender(const QString& text)
 }
 
 /**
- * \brief Реагирует на ввод в поле поиска.
+ * @brief Реагирует на ввод в поле поиска.
  *
  * Фильтрация применяется сразу (как «живой поиск»).
- * \param text Текущий текст из поля поиска.
+ * @param text Текущий текст из поля поиска.
  */
 void SearchPage::onSearchTextChanged(const QString& text)
 {
@@ -470,7 +470,7 @@ void SearchPage::onSearchTextChanged(const QString& text)
 
 
 /**
- * \brief Реагирует на изменение выбранных членов предложения.
+ * @brief Реагирует на изменение выбранных членов предложения.
  */
 void SearchPage::onMemberFilterChanged()
 {
@@ -480,8 +480,8 @@ void SearchPage::onMemberFilterChanged()
 }
 
 /**
- * \brief Реагирует на изменение выбранного режима сортировки.
- * \param index Индекс выбранного режима в выпадающем списке сортировки.
+ * @brief Реагирует на изменение выбранного режима сортировки.
+ * @param index Индекс выбранного режима в выпадающем списке сортировки.
  */
 void SearchPage::onSortModeChanged(int index)
 {
