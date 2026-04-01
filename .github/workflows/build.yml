@@ -21,21 +21,60 @@ jobs:
         arch: 'win64_msvc2022_64'
         
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      run: |
+        cmake -B build `
+              -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
+              -DCMAKE_BUILD_TYPE=Release
+      shell: pwsh
       
     - name: Build
       run: cmake --build build --config Release --parallel
+      shell: pwsh
       
     - name: Deploy Qt application
       run: |
-        cd build\Release
-        windeployqt TextAnalyzer.exe --no-translations --no-system-d3d-compiler --no-opengl-sw
-        dir
-      shell: cmd
+        $qtBinPath = "$env:Qt6_DIR\bin"
+        $qtPluginsPath = "$env:Qt6_DIR\plugins"
+        $buildPath = "build\Release"
+        
+        # Создаем структуру для артефактов
+        $artifactPath = "artifact"
+        New-Item -ItemType Directory -Force -Path $artifactPath | Out-Null
+        
+        # Копируем EXE
+        Copy-Item "$buildPath\TextAnalyzer.exe" "$artifactPath\"
+        
+        # Копируем основные Qt DLL
+        $qtDlls = @("Qt6Core.dll", "Qt6Widgets.dll", "Qt6Gui.dll")
+        foreach ($dll in $qtDlls) {
+            if (Test-Path "$qtBinPath\$dll") {
+                Copy-Item "$qtBinPath\$dll" "$artifactPath\"
+            }
+        }
+        
+        # Копируем плагин Windows
+        $platformsPath = "$artifactPath\platforms"
+        New-Item -ItemType Directory -Force -Path $platformsPath | Out-Null
+        if (Test-Path "$qtPluginsPath\platforms\qwindows.dll") {
+            Copy-Item "$qtPluginsPath\platforms\qwindows.dll" "$platformsPath\"
+        }
+        
+        # Копируем MSVC runtime
+        $vcRedistPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT"
+        $vcDlls = Get-ChildItem -Path $vcRedistPath -Filter "*.dll" -ErrorAction SilentlyContinue
+        foreach ($dll in $vcDlls) {
+            Copy-Item $dll.FullName "$artifactPath\"
+        }
+        
+        # Создаем ZIP
+        Compress-Archive -Path "$artifactPath\*" -DestinationPath "TextAnalyzer-Windows.zip" -Force
+        
+        Write-Host "Artifacts created in TextAnalyzer-Windows.zip"
+      shell: pwsh
       
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: TextAnalyzer-Windows
-        path: build\Release\
+        path: TextAnalyzer-Windows.zip
         if-no-files-found: error
