@@ -47,15 +47,30 @@ jobs:
 
     - name: Deploy Qt DLLs (windeployqt)
       run: |
-        # Добавляем путь к bin Qt в PATH, чтобы найти windeployqt
-        $env:PATH = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin;$env:PATH"
+        # 1. Добавляем путь к bin Qt в PATH
+        $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
+        $env:PATH = "$qtBinPath;$env:PATH"
         
-        # Запускаем утилиту деплоя для копирования всех зависимостей
-        windeployqt --release --no-compiler-runtime install/bin/TextAnalyzer.exe
+        # 2. Формируем абсолютный путь к исполняемому файлу
+        $exePath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
         
-        # Опционально: копируем среду выполнения Visual C++ (если нужно, обычно лучше установить редистрибьютив на ПК пользователя)
-        # Но для портативности можно попробовать скопировать vcruntime, если он есть в путях системы
+        # Проверка существования файла перед запуском (для отладки)
+        if (!(Test-Path $exePath)) {
+            Write-Error "Файл $exePath не найден! Проверьте шаг Install."
+            exit 1
+        }
+
+        # 3. Запускаем windeployqt
+        # Используем --force чтобы перезаписывать файлы при повторных запусках
+        # --no-translations можно добавить, если переводы не нужны или вызывают ошибки прав доступа
+        windeployqt --release --force "$exePath"
         
+        # Если нужны переводы и предыдущая команда упала на них, попробуйте запустить отдельно или проверить права папки translations
+        # В вашем логе ошибка была на "Creating qt_ar.qm", возможно, стоит очистить папку переводов перед деплоем, если она кэшируется
+        Remove-Item -Path "${{ github.workspace }}/install/bin/translations" -Recurse -Force -ErrorAction SilentlyContinue
+        windeployqt --release --force "$exePath"
+
+      working-directory: ${{ github.workspace }}        
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
