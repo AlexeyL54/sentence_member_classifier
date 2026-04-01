@@ -1,13 +1,26 @@
-cmake_minimum_required(VERSION 3.10)
-project(TextAnalyzer)
+cmake_minimum_required(VERSION 3.16)  # Повысим версию для лучшей поддержки Windows
+project(TextAnalyzer VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+# Опции сборки
+if(MSVC)
+    # Для MSVC добавляем флаги для консольного/оконного приложения
+    add_compile_options(/W3 /MP)
+    
+    # Устанавливаем уровень предупреждений
+    if(CMAKE_BUILD_TYPE MATCHES "Release")
+        add_compile_options(/O2 /MT)
+    else()
+        add_compile_options(/Od /MTd)
+    endif()
+endif()
 
+# Исходные файлы
 set(SOURCES
     gui.cpp
     src/front/InputPage.cpp
@@ -27,6 +40,43 @@ set(HEADERS
     src/front/lib/TextMarkupWidget.hpp
 )
 
-add_executable(gui ${SOURCES} ${HEADERS})
+# Поиск Qt
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
-target_link_libraries(gui Qt6::Core Qt6::Widgets)
+# Создание исполняемого файла
+add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
+# WIN32 означает, что это GUI-приложение (не консольное)
+
+# Подключение Qt библиотек
+target_link_libraries(TextAnalyzer 
+    Qt6::Core 
+    Qt6::Widgets
+)
+
+# Для Windows можно добавить иконку
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
+    set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
+    file(WRITE ${RESOURCE_FILE} 
+        "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/resources/app.ico\"\n")
+    target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
+endif()
+
+# Установка правил для сборки
+install(TARGETS TextAnalyzer
+    RUNTIME DESTINATION bin
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION lib
+)
+
+# Опционально: копирование ресурсов
+if(EXISTS "${CMAKE_SOURCE_DIR}/resources/")
+    install(DIRECTORY resources/ DESTINATION resources)
+endif()
+
+# Вывод информации о сборке
+message(STATUS "Building TextAnalyzer version ${PROJECT_VERSION}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Qt version: ${Qt6_VERSION}")
+if(MSVC)
+    message(STATUS "Compiler: MSVC ${MSVC_VERSION}")
+endif()
