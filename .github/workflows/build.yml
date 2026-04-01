@@ -1,66 +1,68 @@
-name: Build for Windows
+# .github/workflows/build-windows.yml
+name: Build Windows (MSVC)
 
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  build:
-    runs-on: windows-2022
+  build-windows:
+    runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
-    # Используем предустановленную среду Qt из GitHub Actions
-    - name: Setup Qt
-      run: |
-        # Qt 6.5.3 предустановлен на windows-2022 раннере
-        $qtPath = "C:\Qt\6.5.3\msvc2019_64"
-        if (Test-Path $qtPath) {
-          echo "QT_PATH=$qtPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "Found Qt at: $qtPath"
-        } else {
-          # Альтернативный путь
-          $qtPath = "C:\hostedtoolcache\windows\Qt\6.5.3\msvc2019_64"
-          if (Test-Path $qtPath) {
-            echo "QT_PATH=$qtPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-            echo "Found Qt at: $qtPath"
-          } else {
-            echo "Qt not found"
-            exit 1
-          }
-        }
-      shell: pwsh
-      
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Qt6
+      uses: jurplel/install-qt-action@v4
       with:
-        arch: x64
-        
+        version: '6.5.0'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        modules: 'qtbase qttools'
+        install-deps: 'true'
+
     - name: Configure CMake
       run: |
-        cmake -B build ^
-              -DCMAKE_PREFIX_PATH="%QT_PATH%" ^
-              -DCMAKE_BUILD_TYPE=Release ^
-              -G "Visual Studio 17 2022" ^
-              -A x64
-      shell: cmd
-      
+        cmake -B build `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_INSTALL_PREFIX=install
+
     - name: Build
-      run: cmake --build build --config Release --parallel
-      shell: cmd
-      
-    - name: Deploy
       run: |
-        mkdir artifact
-        copy build\Release\TextAnalyzer.exe artifact\
-        %QT_PATH%\bin\windeployqt.exe artifact\TextAnalyzer.exe --no-translations --no-system-d3d-compiler
-        powershell Compress-Archive -Path artifact\* -DestinationPath TextAnalyzer-Windows.zip -Force
-      shell: cmd
-      
-    - name: Upload artifact
+        cmake --build build --config Release --parallel
+
+    - name: Install
+      run: |
+        cmake --install build --config Release
+
+    - name: Copy Qt DLLs
+      run: |
+        # Копируем необходимые Qt DLL в папку с exe
+        $qtBin = (Get-Command qmake).Path | Split-Path -Parent
+        $dlls = @("Qt6Core.dll", "Qt6Widgets.dll", "Qt6Gui.dll")
+        foreach ($dll in $dlls) {
+          Copy-Item "$qtBin\$dll" -Destination "install/bin/" -ErrorAction SilentlyContinue
+        }
+        # Или используем windeployqt
+        windeployqt --release install/bin/TextAnalyzer.exe
+
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: TextAnalyzer-Windows
-        path: TextAnalyzer-Windows.zip
+        name: TextAnalyzer-Windows-x64
+        path: install/
+        retention-days: 30
+
+    - name: Create Release (optional)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: TextAnalyzer-Windows-x64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
