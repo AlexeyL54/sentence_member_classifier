@@ -7,36 +7,60 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     
     steps:
     - uses: actions/checkout@v4
     
+    # Используем предустановленную среду Qt из GitHub Actions
+    - name: Setup Qt
+      run: |
+        # Qt 6.5.3 предустановлен на windows-2022 раннере
+        $qtPath = "C:\Qt\6.5.3\msvc2019_64"
+        if (Test-Path $qtPath) {
+          echo "QT_PATH=$qtPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "Found Qt at: $qtPath"
+        } else {
+          # Альтернативный путь
+          $qtPath = "C:\hostedtoolcache\windows\Qt\6.5.3\msvc2019_64"
+          if (Test-Path $qtPath) {
+            echo "QT_PATH=$qtPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+            echo "Found Qt at: $qtPath"
+          } else {
+            echo "Qt not found"
+            exit 1
+          }
+        }
+      shell: pwsh
+      
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
-      
-    - name: Setup Qt
-      uses: egor-tensin/setup-qt@v1
       with:
-        version: '6.5.3'
-        arch: 'win64_msvc2019_64'
+        arch: x64
         
     - name: Configure CMake
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake -B build ^
+              -DCMAKE_PREFIX_PATH="%QT_PATH%" ^
+              -DCMAKE_BUILD_TYPE=Release ^
+              -G "Visual Studio 17 2022" ^
+              -A x64
       shell: cmd
       
     - name: Build
       run: cmake --build build --config Release --parallel
+      shell: cmd
       
     - name: Deploy
       run: |
         mkdir artifact
         copy build\Release\TextAnalyzer.exe artifact\
-        windeployqt artifact\TextAnalyzer.exe
-        
+        %QT_PATH%\bin\windeployqt.exe artifact\TextAnalyzer.exe --no-translations --no-system-d3d-compiler
+        powershell Compress-Archive -Path artifact\* -DestinationPath TextAnalyzer-Windows.zip -Force
+      shell: cmd
+      
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: TextAnalyzer-Windows
-        path: artifact/
+        path: TextAnalyzer-Windows.zip
