@@ -1,0 +1,67 @@
+name: Build for Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # Возможность запустить вручную
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    # 1. Checkout кода
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # 2. Установка Qt
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.5.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        modules: 'qt5compat'  # Если нужны дополнительные модули
+        tools-only: false
+        
+    # 3. Настройка CMake
+    - name: Configure CMake
+      run: |
+        cmake -B build `
+              -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
+              -DCMAKE_BUILD_TYPE=Release `
+              -DCMAKE_CXX_STANDARD=11
+      shell: pwsh
+      
+    # 4. Сборка проекта
+    - name: Build
+      run: cmake --build build --config Release --parallel
+      
+    # 5. Копирование зависимостей Qt
+    - name: Copy Qt dependencies
+      run: |
+        mkdir -p build/Release/platforms
+        # Копируем необходимые DLL из Qt
+        windeployqt --release build/Release/TextAnalyzer.exe
+      shell: pwsh
+      
+    # 6. Проверка созданных файлов
+    - name: List files
+      run: dir build\Release
+      shell: cmd
+      
+    # 7. Загрузка артефакта
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TextAnalyzer-Windows-x64
+        path: |
+          build/Release/TextAnalyzer.exe
+          build/Release/*.dll
+          build/Release/platforms/
+          build/Release/styles/
+        if-no-files-found: error
