@@ -53,13 +53,14 @@ target_link_libraries(TextAnalyzer
     Qt6::Widgets
 )
 
-# Для Windows можно добавить иконку
-if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
-    set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
-    file(WRITE ${RESOURCE_FILE} 
-        "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/resources/app.ico\"\n")
-    target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
-endif()
+# if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
+#     set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
+#     file(WRITE ${RESOURCE_FILE}
+#     "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/resources/app.ico\"
+#     ")
+#     target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
+# endif()
+# ----------------------------------
 
 # Установка правил для сборки
 install(TARGETS TextAnalyzer
