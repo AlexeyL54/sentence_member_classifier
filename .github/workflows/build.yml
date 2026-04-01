@@ -47,39 +47,36 @@ jobs:
 
     - name: Deploy Qt DLLs (windeployqt)
       run: |
-        # 1. Добавляем путь к bin Qt в PATH
+        # 1. Добавляем путь к утилитам Qt в PATH
         $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
         $env:PATH = "$qtBinPath;$env:PATH"
         
-        # 2. Переходим в директорию с исполняемым файлом.
-        # Это решает проблему "Cannot open .: Access is denied", 
-        # так как теперь "." ссылается на папку install/bin, куда у нас есть права записи.
-        $deployDir = "${{ github.workspace }}/install/bin"
-        Set-Location $deployDir
+        # 2. Путь к вашему исполняемому файлу
+        $exePath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
         
-        Write-Host "Working directory changed to: $pwd"
-        Write-Host "Target executable: TextAnalyzer.exe"
-
-        # 3. Очищаем папку translations, если она существует, чтобы избежать ошибок прав доступа при создании .qm файлов
-        $transPath = Join-Path $pwd "translations"
-        if (Test-Path $transPath) {
-            Write-Host "Removing existing translations folder to prevent access errors..."
-            Remove-Item -Path $transPath -Recurse -Force
-        }
-
-        # 4. Запускаем windeployqt
-        # Мы находимся внутри папки bin, поэтому указываем просто имя файла.
-        # --force гарантирует перезапись существующих DLL.
-        # --no-compiler-runtime добавлен, чтобы игнорировать отсутствие VCINSTALLDIR (предупреждение в логе) и не падать из-за этого.
-        windeployqt --release --force --no-compiler-runtime TextAnalyzer.exe
+        Write-Host "🚀 Starting deployment for: $exePath"
         
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "windeployqt failed with exit code $LASTEXITCODE"
+        if (!(Test-Path $exePath)) {
+            Write-Error "❌ Ошибка: Файл $exePath не найден. Проверьте шаг 'Install'."
             exit 1
         }
 
-      # Важно: working-directory здесь можно не указывать, так как мы делаем Set-Location внутри скрипта,
-      # но для чистоты можно оставить корень репозитория.
+        # 3. Запуск windeployqt
+        # --release: используем релизные версии DLL
+        # --force: перезаписывать существующие файлы
+        # --no-translations: НЕ копировать файлы переводов (.qm), так как интерфейс только на русском
+        # --no-compiler-runtime: не пытаться копировать VC++ редистрибьютив (избегаем ошибок без VCINSTALLDIR)
+        windeployqt --release --force --no-translations --no-compiler-runtime "$exePath"
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ windeployqt завершился с ошибкой (код $LASTEXITCODE)"
+            exit 1
+        }
+        
+        Write-Host "✅ Деплой успешно завершен!"
+        Write-Host "📦 Размер папки install/bin:"
+        Get-ChildItem "${{ github.workspace }}/install/bin" -Recurse | Measure-Object -Property Length -Sum | ForEach-Object { "{0:N2} MB" -f ($_.Sum / 1MB) }
+
       working-directory: ${{ github.workspace }}
 
     - name: Upload Artifact
