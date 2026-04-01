@@ -12,87 +12,31 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Download Qt pre-built
-      run: |
-        # Скачиваем Qt с официального зеркала
-        $qtVersion = "6.5.3"
-        $qtArch = "msvc2019_64"
-        $qtUrl = "https://download.qt.io/official_releases/qt/6.5/$qtVersion/submodules/qtbase-everywhere-src-$qtVersion.zip"
-        
-        # Используем предустановленный Qt на раннере
-        $qtPaths = @(
-            "C:\Qt\6.5.3\msvc2019_64",
-            "C:\hostedtoolcache\windows\Qt\6.5.3\msvc2019_64",
-            "D:\a\_temp\Qt\6.5.3\msvc2019_64"
-        )
-        
-        $qtFound = $false
-        foreach ($path in $qtPaths) {
-            if (Test-Path $path) {
-                echo "QT_PATH=$path" >> $env:GITHUB_ENV
-                echo "Qt found at: $path"
-                $qtFound = $true
-                break
-            }
-        }
-        
-        if (-not $qtFound) {
-          echo "Qt not found in standard locations"
-          exit 1
-        }
-        
-      shell: pwsh
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
       
-    - name: Setup CMake
-      uses: threeal/cmake-action@v2
+    - name: Setup Qt
+      uses: egor-tensin/setup-qt@v1
       with:
-        options: |
-          CMAKE_PREFIX_PATH=${{ env.QT_PATH }}
-          CMAKE_BUILD_TYPE=Release
-        build-dir: build
-        generator: "Visual Studio 17 2022"
-        architecture: x64
+        version: '6.5.3'
+        arch: 'win64_msvc2019_64'
         
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+      shell: cmd
+      
     - name: Build
       run: cmake --build build --config Release --parallel
       
     - name: Deploy
       run: |
-        $buildDir = "build\Release"
-        $outputDir = "artifact"
+        mkdir artifact
+        copy build\Release\TextAnalyzer.exe artifact\
+        windeployqt artifact\TextAnalyzer.exe
         
-        New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
-        
-        # Копируем EXE
-        Copy-Item "$buildDir\TextAnalyzer.exe" "$outputDir\"
-        
-        # Используем windeployqt если доступен
-        $windeployqt = Get-ChildItem -Path "$env:QT_PATH\bin" -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
-        
-        if ($windeployqt) {
-          & $windeployqt.FullName "$outputDir\TextAnalyzer.exe" --no-translations --no-system-d3d-compiler
-          Write-Host "✅ windeployqt completed"
-        } else {
-          Write-Host "⚠️  windeployqt not found, copying DLLs manually"
-          # Копируем основные DLL
-          $dlls = @("Qt6Core.dll", "Qt6Widgets.dll", "Qt6Gui.dll")
-          foreach ($dll in $dlls) {
-            $source = "$env:QT_PATH\bin\$dll"
-            if (Test-Path $source) {
-              Copy-Item $source "$outputDir\"
-            }
-          }
-          # Копируем плагины
-          Copy-Item "$env:QT_PATH\plugins\platforms" -Destination "$outputDir\" -Recurse
-        }
-        
-        # Создаем архив
-        Compress-Archive -Path "$outputDir\*" -DestinationPath "TextAnalyzer-Windows.zip" -Force
-        
-      shell: pwsh
-      
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: TextAnalyzer-Windows
-        path: TextAnalyzer-Windows.zip
+        path: artifact/
