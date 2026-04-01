@@ -51,26 +51,37 @@ jobs:
         $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
         $env:PATH = "$qtBinPath;$env:PATH"
         
-        # 2. Формируем абсолютный путь к исполняемому файлу
-        $exePath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
+        # 2. Переходим в директорию с исполняемым файлом.
+        # Это решает проблему "Cannot open .: Access is denied", 
+        # так как теперь "." ссылается на папку install/bin, куда у нас есть права записи.
+        $deployDir = "${{ github.workspace }}/install/bin"
+        Set-Location $deployDir
         
-        # Проверка существования файла перед запуском (для отладки)
-        if (!(Test-Path $exePath)) {
-            Write-Error "Файл $exePath не найден! Проверьте шаг Install."
+        Write-Host "Working directory changed to: $pwd"
+        Write-Host "Target executable: TextAnalyzer.exe"
+
+        # 3. Очищаем папку translations, если она существует, чтобы избежать ошибок прав доступа при создании .qm файлов
+        $transPath = Join-Path $pwd "translations"
+        if (Test-Path $transPath) {
+            Write-Host "Removing existing translations folder to prevent access errors..."
+            Remove-Item -Path $transPath -Recurse -Force
+        }
+
+        # 4. Запускаем windeployqt
+        # Мы находимся внутри папки bin, поэтому указываем просто имя файла.
+        # --force гарантирует перезапись существующих DLL.
+        # --no-compiler-runtime добавлен, чтобы игнорировать отсутствие VCINSTALLDIR (предупреждение в логе) и не падать из-за этого.
+        windeployqt --release --force --no-compiler-runtime TextAnalyzer.exe
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "windeployqt failed with exit code $LASTEXITCODE"
             exit 1
         }
 
-        # 3. Запускаем windeployqt
-        # Используем --force чтобы перезаписывать файлы при повторных запусках
-        # --no-translations можно добавить, если переводы не нужны или вызывают ошибки прав доступа
-        windeployqt --release --force "$exePath"
-        
-        # Если нужны переводы и предыдущая команда упала на них, попробуйте запустить отдельно или проверить права папки translations
-        # В вашем логе ошибка была на "Creating qt_ar.qm", возможно, стоит очистить папку переводов перед деплоем, если она кэшируется
-        Remove-Item -Path "${{ github.workspace }}/install/bin/translations" -Recurse -Force -ErrorAction SilentlyContinue
-        windeployqt --release --force "$exePath"
+      # Важно: working-directory здесь можно не указывать, так как мы делаем Set-Location внутри скрипта,
+      # но для чистоты можно оставить корень репозитория.
+      working-directory: ${{ github.workspace }}
 
-      working-directory: ${{ github.workspace }}        
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
