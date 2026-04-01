@@ -12,64 +12,83 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: '6.5.3'
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2022_64'
-        
-    - name: Configure CMake
+    - name: Download Qt pre-built
       run: |
-        cmake -B build `
-              -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
-              -DCMAKE_BUILD_TYPE=Release
-      shell: pwsh
-      
-    - name: Build
-      run: cmake --build build --config Release --parallel
-      shell: pwsh
-      
-    - name: Deploy Qt application
-      run: |
-        $qtBinPath = "$env:Qt6_DIR\bin"
-        $qtPluginsPath = "$env:Qt6_DIR\plugins"
-        $buildPath = "build\Release"
+        # Скачиваем Qt с официального зеркала
+        $qtVersion = "6.5.3"
+        $qtArch = "msvc2019_64"
+        $qtUrl = "https://download.qt.io/official_releases/qt/6.5/$qtVersion/submodules/qtbase-everywhere-src-$qtVersion.zip"
         
-        # Создаем структуру для артефактов
-        $artifactPath = "artifact"
-        New-Item -ItemType Directory -Force -Path $artifactPath | Out-Null
+        # Используем предустановленный Qt на раннере
+        $qtPaths = @(
+            "C:\Qt\6.5.3\msvc2019_64",
+            "C:\hostedtoolcache\windows\Qt\6.5.3\msvc2019_64",
+            "D:\a\_temp\Qt\6.5.3\msvc2019_64"
+        )
         
-        # Копируем EXE
-        Copy-Item "$buildPath\TextAnalyzer.exe" "$artifactPath\"
-        
-        # Копируем основные Qt DLL
-        $qtDlls = @("Qt6Core.dll", "Qt6Widgets.dll", "Qt6Gui.dll")
-        foreach ($dll in $qtDlls) {
-            if (Test-Path "$qtBinPath\$dll") {
-                Copy-Item "$qtBinPath\$dll" "$artifactPath\"
+        $qtFound = $false
+        foreach ($path in $qtPaths) {
+            if (Test-Path $path) {
+                echo "QT_PATH=$path" >> $env:GITHUB_ENV
+                echo "Qt found at: $path"
+                $qtFound = $true
+                break
             }
         }
         
-        # Копируем плагин Windows
-        $platformsPath = "$artifactPath\platforms"
-        New-Item -ItemType Directory -Force -Path $platformsPath | Out-Null
-        if (Test-Path "$qtPluginsPath\platforms\qwindows.dll") {
-            Copy-Item "$qtPluginsPath\platforms\qwindows.dll" "$platformsPath\"
+        if (-not $qtFound) {
+          echo "Qt not found in standard locations"
+          exit 1
         }
         
-        # Копируем MSVC runtime
-        $vcRedistPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT"
-        $vcDlls = Get-ChildItem -Path $vcRedistPath -Filter "*.dll" -ErrorAction SilentlyContinue
-        foreach ($dll in $vcDlls) {
-            Copy-Item $dll.FullName "$artifactPath\"
+      shell: pwsh
+      
+    - name: Setup CMake
+      uses: threeal/cmake-action@v2
+      with:
+        options: |
+          CMAKE_PREFIX_PATH=${{ env.QT_PATH }}
+          CMAKE_BUILD_TYPE=Release
+        build-dir: build
+        generator: "Visual Studio 17 2022"
+        architecture: x64
+        
+    - name: Build
+      run: cmake --build build --config Release --parallel
+      
+    - name: Deploy
+      run: |
+        $buildDir = "build\Release"
+        $outputDir = "artifact"
+        
+        New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+        
+        # Копируем EXE
+        Copy-Item "$buildDir\TextAnalyzer.exe" "$outputDir\"
+        
+        # Используем windeployqt если доступен
+        $windeployqt = Get-ChildItem -Path "$env:QT_PATH\bin" -Filter "windeployqt.exe" -Recurse | Select-Object -First 1
+        
+        if ($windeployqt) {
+          & $windeployqt.FullName "$outputDir\TextAnalyzer.exe" --no-translations --no-system-d3d-compiler
+          Write-Host "✅ windeployqt completed"
+        } else {
+          Write-Host "⚠️  windeployqt not found, copying DLLs manually"
+          # Копируем основные DLL
+          $dlls = @("Qt6Core.dll", "Qt6Widgets.dll", "Qt6Gui.dll")
+          foreach ($dll in $dlls) {
+            $source = "$env:QT_PATH\bin\$dll"
+            if (Test-Path $source) {
+              Copy-Item $source "$outputDir\"
+            }
+          }
+          # Копируем плагины
+          Copy-Item "$env:QT_PATH\plugins\platforms" -Destination "$outputDir\" -Recurse
         }
         
-        # Создаем ZIP
-        Compress-Archive -Path "$artifactPath\*" -DestinationPath "TextAnalyzer-Windows.zip" -Force
+        # Создаем архив
+        Compress-Archive -Path "$outputDir\*" -DestinationPath "TextAnalyzer-Windows.zip" -Force
         
-        Write-Host "Artifacts created in TextAnalyzer-Windows.zip"
       shell: pwsh
       
     - name: Upload artifact
@@ -77,4 +96,3 @@ jobs:
       with:
         name: TextAnalyzer-Windows
         path: TextAnalyzer-Windows.zip
-        if-no-files-found: error
