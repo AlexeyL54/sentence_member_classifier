@@ -1,6 +1,7 @@
 #include "SearchPage.hpp"
 
 #include <algorithm>
+#include <string>
 
 #include <QAbstractItemView>
 #include <QFont>
@@ -61,7 +62,7 @@ void SearchResultsList::clearLayout()
  * @brief Перерисовывает список карточек по набору элементов.
  * @param items Набор элементов для отображения в виде карточек.
  */
-void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
+void SearchResultsList::setItems(const std::vector<SearchItem>& items)
 {
     clearLayout();
 
@@ -75,8 +76,8 @@ void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
         cardLayout->setContentsMargins(16, 16, 16, 16);
         cardLayout->setSpacing(8);
 
-        // 1) Слово
-        QLabel* wordLabel = new QLabel(it.word, card);
+        // 1) Слово (член предложения)
+        QLabel* wordLabel = new QLabel(QString::fromStdString(it.text), card);
         QFont f = wordLabel->font();
         f.setBold(true);
         f.setPointSizeF(f.pointSizeF() * 1.05);
@@ -84,25 +85,47 @@ void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
         wordLabel->setWordWrap(true);
 
         // 2) Что за член предложения
-        QLabel* memberLabel = new QLabel("Член предложения: " + it.member, card);
+        QLabel* memberLabel = new QLabel(
+            QStringLiteral("Член предложения: %1").arg(QString::fromStdString(it.type)), card);
         memberLabel->setWordWrap(true);
 
-        // 3) В каком предложении встретилось
-        QString sentenceLine = "В предложении: №" + QString::number(it.sentenceNo);
-        QString snippet = it.sentenceText.trimmed();
-        if (!snippet.isEmpty())
-        {
-            // Чтобы третья строка не разъезжалась на десятки строк, обрезаем пример.
-            if (snippet.size() > 90)
-                snippet = snippet.left(90) + "...";
-            sentenceLine += ": " + snippet;
-        }
-        QLabel* sentenceLabel = new QLabel(sentenceLine, card);
-        sentenceLabel->setWordWrap(true);
+        // 3) Встречаемость (как раньше счётчик в данных)
+        QLabel* countLabel = new QLabel(
+            QStringLiteral("Встречаемость в тексте: %1").arg(it.amount), card);
+        countLabel->setWordWrap(true);
 
         cardLayout->addWidget(wordLabel);
         cardLayout->addWidget(memberLabel);
-        cardLayout->addWidget(sentenceLabel);
+        cardLayout->addWidget(countLabel);
+
+        // 4) Предложения-контексты (в SearchItem — массив строк)
+        if (it.sentences.empty())
+        {
+            QLabel* emptyLabel = new QLabel(QStringLiteral("Предложения: нет"), card);
+            emptyLabel->setWordWrap(true);
+            cardLayout->addWidget(emptyLabel);
+        }
+        else
+        {
+            int idx = 1;
+            for (const std::string& sent : it.sentences)
+            {
+                QString snippet = QString::fromStdString(sent).trimmed();
+                if (!snippet.isEmpty())
+                {
+                    // Чтобы строка не разъезжалась на десятки строк, обрезаем предложение.
+                    if (snippet.size() > 90)
+                        snippet = snippet.left(90) + QStringLiteral("...");
+                    QString sentenceLine = QStringLiteral("В предложении: №%1: %2")
+                                               .arg(idx)
+                                               .arg(snippet);
+                    QLabel* sentenceLabel = new QLabel(sentenceLine, card);
+                    sentenceLabel->setWordWrap(true);
+                    cardLayout->addWidget(sentenceLabel);
+                }
+                ++idx;
+            }
+        }
 
         layout_->addWidget(card);
     }
@@ -115,8 +138,9 @@ void SearchResultsList::setItems(const QVector<SearchResultItem>& items)
  * @param items Набор данных, который отображается и фильтруется на странице.
  * @param parent Родительский виджет.
  */
-SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
-    : QWidget(parent), allItems_(items)
+SearchPage::SearchPage(const std::vector<SearchItem>& items, QWidget* parent)
+    : QWidget(parent)
+    , allItems_(items)
 {
     QVBoxLayout* root = new QVBoxLayout(this);
     // Увеличиваем отступы, чтобы элементы не были прижаты к краям.
@@ -125,7 +149,7 @@ SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
     const int controlHeight = 38;  // Единая высота элементов управления
     const int searchWidth = 640;   // Общая ширина поискового блока
 
-    QPushButton* backBtn = new QPushButton("Назад", this);
+    QPushButton* backBtn = new QPushButton(QStringLiteral("Назад"), this);
     backBtn->setCursor(Qt::PointingHandCursor);
     connect(backBtn, &QPushButton::clicked, this, &SearchPage::backRequested);
     backBtn->setMinimumHeight(controlHeight);
@@ -138,7 +162,7 @@ SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
     root->addLayout(backRow, 0);
 
     searchEdit_ = new QLineEdit(this);
-    searchEdit_->setPlaceholderText("Введите слово для поиска...");
+    searchEdit_->setPlaceholderText(QStringLiteral("Введите слово для поиска..."));
     searchEdit_->setFixedWidth(searchWidth);
     searchEdit_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     searchEdit_->setMinimumHeight(controlHeight);
@@ -154,17 +178,17 @@ SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
 
     // Список вариантов
     const QVector<QString> memberOptions = {
-        "Подлежащее",
-        "Сказуемое",
-        "Дополнение",
-        "Определение",
-        "Обстоятельство"
+        QStringLiteral("Подлежащее"),
+        QStringLiteral("Сказуемое"),
+        QStringLiteral("Дополнение"),
+        QStringLiteral("Определение"),
+        QStringLiteral("Обстоятельство"),
     };
 
     memberModel_ = new QStandardItemModel(memberFilterCombo_);
 
     // Служебный пункт: быстро отметить/снять все категории.
-    QStandardItem* selectAllItem = new QStandardItem("Выбрать всё");
+    QStandardItem* selectAllItem = new QStandardItem(QStringLiteral("Выбрать всё"));
     selectAllItem->setFlags(selectAllItem->flags() | Qt::ItemIsUserCheckable);
     selectAllItem->setData(Qt::Checked, Qt::CheckStateRole);
     memberModel_->appendRow(selectAllItem);
@@ -195,12 +219,12 @@ SearchPage::SearchPage(const QVector<SearchResultItem>& items, QWidget* parent)
     sortCombo_->setFixedWidth((searchWidth - 12) / 2);
 
     // Сортировка в обе стороны для каждой категории
-    sortCombo_->addItem("По алфавиту: А→Я", 0);
-    sortCombo_->addItem("По алфавиту: Я→А", 1);
-    sortCombo_->addItem("По встречаемости: по убыванию", 2);
-    sortCombo_->addItem("По встречаемости: по возрастанию", 3);
-    sortCombo_->addItem("По номеру предложения: по возрастанию", 4);
-    sortCombo_->addItem("По номеру предложения: по убыванию", 5);
+    sortCombo_->addItem(QStringLiteral("По алфавиту: А→Я"), 0);
+    sortCombo_->addItem(QStringLiteral("По алфавиту: Я→А"), 1);
+    sortCombo_->addItem(QStringLiteral("По встречаемости: по убыванию"), 2);
+    sortCombo_->addItem(QStringLiteral("По встречаемости: по возрастанию"), 3);
+    sortCombo_->addItem(QStringLiteral("По номеру предложения: по возрастанию"), 4);
+    sortCombo_->addItem(QStringLiteral("По номеру предложения: по убыванию"), 5);
     connect(sortCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
         this, &SearchPage::onSortModeChanged);
 
@@ -346,13 +370,13 @@ void SearchPage::updateMemberComboSummary()
     const int total = std::max(0, memberModel_->rowCount() - 1);
     if (selectedMembers_.size() == static_cast<size_t>(total) && total > 0)
     {
-        memberFilterCombo_->lineEdit()->setText("Все члены предложения");
+        memberFilterCombo_->lineEdit()->setText(QStringLiteral("Все члены предложения"));
         return;
     }
 
     if (selectedMembers_.empty())
     {
-        memberFilterCombo_->lineEdit()->setText("Нет выбранных членов");
+        memberFilterCombo_->lineEdit()->setText(QStringLiteral("Нет выбранных членов"));
         return;
     }
 
@@ -360,7 +384,7 @@ void SearchPage::updateMemberComboSummary()
     parts.reserve(selectedMembers_.size());
     for (const auto& m : selectedMembers_)
         parts.push_back(m);
-    memberFilterCombo_->lineEdit()->setText(parts.join(", "));
+    memberFilterCombo_->lineEdit()->setText(parts.join(QStringLiteral(", ")));
 }
 
 /**
@@ -382,74 +406,82 @@ void SearchPage::filterAndRender(const QString& text)
     // Считаем фильтр по членам актуальным (на случай изменений вне pressed-коннекта).
     updateSelectedMembers();
 
-    QVector<SearchResultItem> filtered;
+    std::vector<SearchItem> filtered;
     filtered.reserve(allItems_.size());
 
     for (const auto& it : allItems_)
     {
-        if (!needle.isEmpty() && !it.word.contains(needle, Qt::CaseInsensitive))
+        const QString qtext = QString::fromStdString(it.text);
+        if (!needle.isEmpty() && !qtext.contains(needle, Qt::CaseInsensitive))
             continue;
 
         // Если пользователь снял все галки — показать пустой список.
         if (selectedMembers_.empty())
             continue;
 
-        if (!selectedMembers_.contains(it.member))
+        const QString qtype = QString::fromStdString(it.type);
+        if (!selectedMembers_.contains(qtype))
             continue;
 
         filtered.push_back(it);
     }
 
-    auto wordKey = [](const QString& w)
-    {
-        return w.toLower();
+    auto wordKey = [](const SearchItem& it) {
+        return QString::fromStdString(it.text).toLower();
+    };
+
+    // В SearchItem нет номера предложения: для режимов 4–5 сортируем по первой строке из sentences (лексикографически).
+    auto firstSentenceKey = [](const SearchItem& it) {
+        if (it.sentences.empty())
+            return QString();
+        return QString::fromStdString(it.sentences.front()).toLower();
     };
 
     // Применяем сортировку
     switch (sortModeIndex_)
     {
         case 0: // По алфавиту: А->Я
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                return wordKey(a.word) < wordKey(b.word);
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                return wordKey(a) < wordKey(b);
             });
             break;
         case 1: // По алфавиту: Я->А
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                return wordKey(a.word) > wordKey(b.word);
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                return wordKey(a) > wordKey(b);
             });
             break;
         case 2: // По встречаемости: по убыванию
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                if (a.count != b.count)
-                    return a.count > b.count;
-                return wordKey(a.word) < wordKey(b.word);
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                if (a.amount != b.amount)
+                    return a.amount > b.amount;
+                return wordKey(a) < wordKey(b);
             });
             break;
         case 3: // По встречаемости: по возрастанию
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                if (a.count != b.count)
-                    return a.count < b.count;
-                return wordKey(a.word) < wordKey(b.word);
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                if (a.amount != b.amount)
+                    return a.amount < b.amount;
+                return wordKey(a) < wordKey(b);
             });
             break;
-        case 4: // По номеру предложения: по возрастанию
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                if (a.sentenceNo != b.sentenceNo)
-                    return a.sentenceNo < b.sentenceNo;
-                return wordKey(a.word) < wordKey(b.word);
+        case 4: // Подпись как раньше; фактически — по первому контексту в списке
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                if (firstSentenceKey(a) != firstSentenceKey(b))
+                    return firstSentenceKey(a) < firstSentenceKey(b);
+                return wordKey(a) < wordKey(b);
             });
             break;
-        case 5: // По номеру предложения: по убыванию
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                if (a.sentenceNo != b.sentenceNo)
-                    return a.sentenceNo > b.sentenceNo;
-                return wordKey(a.word) < wordKey(b.word);
+        case 5:
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                if (firstSentenceKey(a) != firstSentenceKey(b))
+                    return firstSentenceKey(a) > firstSentenceKey(b);
+                return wordKey(a) < wordKey(b);
             });
             break;
         default:
             // На случай некорректного индекса: алфавит по возрастанию.
-            std::sort(filtered.begin(), filtered.end(), [&](const SearchResultItem& a, const SearchResultItem& b) {
-                return wordKey(a.word) < wordKey(b.word);
+            std::sort(filtered.begin(), filtered.end(), [&](const SearchItem& a, const SearchItem& b) {
+                return wordKey(a) < wordKey(b);
             });
             break;
     }
@@ -488,4 +520,3 @@ void SearchPage::onSortModeChanged(int index)
     sortModeIndex_ = index;
     applyCurrentFilters();
 }
-
