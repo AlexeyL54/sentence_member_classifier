@@ -59,6 +59,15 @@ public:
    */
   QString labelColor() const;
 
+  /*
+   *
+   */
+  //void setWordBackgroundColor(const QString &color);
+  QString wordBackgroundColor() const;
+
+  void setHighlightedRole(const QString &role);
+     QString highlightedRole() const;
+
 private:
   /**
    * @brief Перестраивает отображение текста.
@@ -68,6 +77,8 @@ private:
    */
   void rebuild();
 
+  void updateHighlighting();
+
   QString m_wordColor;              // Цвет текста слов.
   QString m_labelColor;             // Цвет подписей (ролей предложения).
   QString m_text;                   // Отображаемый текст.
@@ -76,6 +87,10 @@ private:
   QScrollArea *m_scrollArea; // Область прокрутки для контента.
   QWidget *m_container;      // Контейнер для элементов компоновки.
   FlowLayout *m_flowLayout;  // Компоновка в виде потока.
+
+  QString m_wordBackgroundColor; // Цвет фона слов
+  QString m_highlightedRole; // Роль, которую нужно выделять (например, "подлежащее")
+
 };
 
 #endif // TEXTMARKUPWIDGET_H

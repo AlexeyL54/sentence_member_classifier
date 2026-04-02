@@ -134,7 +134,7 @@ private slots:
      * @brief Слот, обрабатывающий выбор чекбокса
      * @param state
      */
-    void onCheckboxStateChanged(int state);
+    void onCheckboxStateChanged(int state, const QString &role);
 
 public:
     void setData(const std::vector<SentenceResult>& results);

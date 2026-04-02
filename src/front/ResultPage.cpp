@@ -70,6 +70,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
+  QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
 
   for (int i = 0; i < partNames.size(); ++i) {
     QWidget *rowWidget = new QWidget(rightWidget);
@@ -81,7 +82,12 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
     cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     cb->setFixedWidth(110);
 
-    connect(cb, &QCheckBox::stateChanged, this, &ResultPage::onCheckboxStateChanged);
+    QString role = roles.at(i);
+    //connect(cb, &QCheckBox::stateChanged, this, &ResultPage::onCheckboxStateChanged);
+    connect(cb, &QCheckBox::stateChanged,
+           this, [this, role](int state) {
+                    onCheckboxStateChanged(state, role);
+                });
 
     m_checkBoxes.append(cb);
 
@@ -391,7 +397,8 @@ void ResultPage::onAnalyzeClicked() {
   }
 }
 
-void ResultPage::onCheckboxStateChanged(int state)
+
+void ResultPage::onCheckboxStateChanged(int state, const QString &role)
 {
     // Получаем указатель на чекбокс, который отправил сигнал
     QObject *senderObj = sender();
@@ -412,6 +419,11 @@ void ResultPage::onCheckboxStateChanged(int state)
                 box->setChecked(false);
             }
         }
+
+        // Вызываем функцию выделения текста
+        if (widgetText) {
+            widgetText->setHighlightedRole(role);
+        }
     }
     // Если галочку сняли (отжали)
     else if (state == Qt::Unchecked) {
@@ -419,9 +431,14 @@ void ResultPage::onCheckboxStateChanged(int state)
         foreach (QCheckBox *box, m_checkBoxes) {
             box->setEnabled(true);
         }
+
+        // Если галочка снята со всех (или мы просто хотим снять выделение),
+        // передаем пустую строку, чтобы убрать фон.
+        if (widgetText) {
+            widgetText->setHighlightedRole("");
+        }
     }
 }
-
 
 
 void ResultPage::setData(const std::vector<SentenceResult>& results)
