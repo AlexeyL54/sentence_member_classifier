@@ -70,7 +70,8 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
-  QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
+  QStringList roles = {"подлежащее",  "сказуемое",      "дополнение",
+                       "определение", "обстоятельство", "другое"};
 
   for (int i = 0; i < partNames.size(); ++i) {
     QWidget *rowWidget = new QWidget(rightWidget);

@@ -10,7 +10,7 @@
  */
 TextMarkupWidget::TextMarkupWidget(QWidget *parent)
     : QWidget(parent), m_wordColor("#000000"), m_labelColor("#808080"),
-      m_wordBackgroundColor("#FFFACD"), m_highlightedRole("")  {
+      m_wordBackgroundColor("#FFFACD"), m_highlightedRole("") {
 
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -164,6 +164,15 @@ void TextMarkupWidget::rebuild() {
           QString("font-size: 11pt; color: %1; font-weight: normal;")
               .arg(m_wordColor));
 
+      // Устанавливаем всплывающую подсказку с ролью слова
+      QString toolTipText;
+      if (!memberText.isEmpty() && memberText != "-") {
+        toolTipText = memberText;
+      } else {
+        toolTipText = word;
+      }
+      wordLabel->setToolTip(toolTipText);
+
       wordWithPunctLayout->addWidget(wordLabel);
 
       // Знаки препинания (если есть)
@@ -208,8 +217,6 @@ void TextMarkupWidget::rebuild() {
   m_scrollArea->widget()->update();
 }
 
-
-
 // Реализация сеттера
 /*void TextMarkupWidget::setWordBackgroundColor(const QString &color) {
     if (m_wordBackgroundColor != color) {
@@ -220,65 +227,68 @@ void TextMarkupWidget::rebuild() {
 
 // Реализация геттера
 QString TextMarkupWidget::wordBackgroundColor() const {
-    return m_wordBackgroundColor;
+  return m_wordBackgroundColor;
 }
 
 void TextMarkupWidget::setHighlightedRole(const QString &role) {
-    if (m_highlightedRole != role) {
-        m_highlightedRole = role;
-        updateHighlighting(); // Перестраиваем интерфейс при изменении роли
-    }
+  if (m_highlightedRole != role) {
+    m_highlightedRole = role;
+    updateHighlighting(); // Перестраиваем интерфейс при изменении роли
+  }
 }
 
-QString TextMarkupWidget::highlightedRole() const {
-    return m_highlightedRole;
-}
-
+QString TextMarkupWidget::highlightedRole() const { return m_highlightedRole; }
 
 void TextMarkupWidget::updateHighlighting() {
-    if (m_text.isEmpty()) {
-        return;
+  if (m_text.isEmpty()) {
+    return;
+  }
+
+  // Проходим по всем виджетам внутри m_flowLayout
+  for (int i = 0; i < m_flowLayout->count(); ++i) {
+    QWidget *container = m_flowLayout->itemAt(i)->widget();
+    if (!container)
+      continue;
+
+    // Ищем лейбл с ролью (он должен быть первым в layout контейнера)
+    QVBoxLayout *vLayout = qobject_cast<QVBoxLayout *>(container->layout());
+    if (!vLayout)
+      continue;
+
+    QLabel *memberLabel = qobject_cast<QLabel *>(vLayout->itemAt(0)->widget());
+    if (!memberLabel)
+      continue;
+
+    // Ищем лейбл со словом (он должен быть в layout, который идет вторым)
+    QHBoxLayout *hLayout =
+        qobject_cast<QHBoxLayout *>(vLayout->itemAt(1)->layout());
+    if (!hLayout)
+      continue;
+
+    QLabel *wordLabel = nullptr;
+    for (int j = 0; j < hLayout->count(); ++j) {
+      wordLabel = qobject_cast<QLabel *>(hLayout->itemAt(j)->widget());
+      if (wordLabel)
+        break; // Нашли первый QLabel (это слово)
     }
 
+    if (!wordLabel)
+      continue;
 
-    // Проходим по всем виджетам внутри m_flowLayout
-    for (int i = 0; i < m_flowLayout->count(); ++i) {
-        QWidget *container = m_flowLayout->itemAt(i)->widget();
-        if (!container) continue;
-
-        // Ищем лейбл с ролью (он должен быть первым в layout контейнера)
-        QVBoxLayout *vLayout = qobject_cast<QVBoxLayout*>(container->layout());
-        if (!vLayout) continue;
-
-        QLabel *memberLabel = qobject_cast<QLabel*>(vLayout->itemAt(0)->widget());
-        if (!memberLabel) continue;
-
-        // Ищем лейбл со словом (он должен быть в layout, который идет вторым)
-        QHBoxLayout *hLayout = qobject_cast<QHBoxLayout*>(vLayout->itemAt(1)->layout());
-        if (!hLayout) continue;
-
-        QLabel *wordLabel = nullptr;
-        for (int j = 0; j < hLayout->count(); ++j) {
-            wordLabel = qobject_cast<QLabel*>(hLayout->itemAt(j)->widget());
-            if (wordLabel) break; // Нашли первый QLabel (это слово)
-        }
-
-        if (!wordLabel) continue;
-
-        // Проверяем, совпадает ли роль с той, которую нужно выделить
-        if (memberLabel->text() == m_highlightedRole) {
-            // Применяем выделение
-            wordLabel->setStyleSheet(
-                QString("font-size: 11pt; color: %1; font-weight: normal; "
-                        "background-color: %2; padding: 1px; border-radius: 2px;")
-                    .arg(m_wordColor)
-                    .arg(m_wordBackgroundColor));
-        } else {
-            // Убираем выделение (делаем фон прозрачным)
-            wordLabel->setStyleSheet(
-                QString("font-size: 11pt; color: %1; font-weight: normal; "
-                        "background-color: transparent;")
-                    .arg(m_wordColor));
-        }
+    // Проверяем, совпадает ли роль с той, которую нужно выделить
+    if (memberLabel->text() == m_highlightedRole) {
+      // Применяем выделение
+      wordLabel->setStyleSheet(
+          QString("font-size: 11pt; color: %1; font-weight: normal; "
+                  "background-color: %2; padding: 1px; border-radius: 2px;")
+              .arg(m_wordColor)
+              .arg(m_wordBackgroundColor));
+    } else {
+      // Убираем выделение (делаем фон прозрачным)
+      wordLabel->setStyleSheet(
+          QString("font-size: 11pt; color: %1; font-weight: normal; "
+                  "background-color: transparent;")
+              .arg(m_wordColor));
     }
+  }
 }
