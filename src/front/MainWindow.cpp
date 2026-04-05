@@ -24,12 +24,12 @@ MainWindow::~MainWindow() {}
 void MainWindow::setupUI() {
 
   std::map<int, std::pair<std::string, std::string>> labels =
-      load_labels("model/config.json");
+      load_labels("../model/config.json");
 
-  SimpleTokenizer tokenizer("model/vocab.txt");
+  SimpleTokenizer tokenizer("../model/vocab.txt");
 
   std::unique_ptr<onnx_infer::BertNerModel> model =
-      std::make_unique<onnx_infer::BertNerModel>("model");
+      std::make_unique<onnx_infer::BertNerModel>("../model");
 
   inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
                                                 labels, 128);

@@ -52,7 +52,7 @@ set(HEADERS
 
 # Поиск Qt
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-find_package(onnxruntime)
+find_package(onnxruntime REQUIRED)
 
 # Создание исполняемого файла
 add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
@@ -62,6 +62,7 @@ add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
 target_link_libraries(TextAnalyzer 
     Qt6::Core 
     Qt6::Widgets
+    onnxruntime
 )
 
 # if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
