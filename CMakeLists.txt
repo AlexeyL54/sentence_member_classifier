@@ -29,6 +29,7 @@ set(SOURCES
     src/front/MainWindow.cpp
     src/front/lib/FlowLayout.cpp
     src/front/lib/TextMarkupWidget.cpp
+    src/back/statistics.cpp
 )
 
 set(HEADERS
@@ -38,6 +39,7 @@ set(HEADERS
     src/front/MainWindow.hpp
     src/front/lib/FlowLayout.hpp
     src/front/lib/TextMarkupWidget.hpp
+    src/back/statistics.hpp
 )
 
 # Поиск Qt

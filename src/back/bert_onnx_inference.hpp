@@ -12,32 +12,32 @@
 #include "simple_tokenizer.hpp"
 
 /**
+ * @brief Сущность (член предложения), найденная в тексте
+ */
+struct Entity {
+  std::string text;    // Текст сущности
+  std::string type;    // Тип на английском (например, "B-SUBJECT")
+  std::string type_ru; // Тип на русском (например, "Подлежащее")
+  size_t start;        // Начальная позиция в тексте
+  size_t end;          // Конечная позиция в тексте
+  // float confidence;    // Уверенность модели
+};
+
+/**
+ * @brief Результат обработки одного предложения
+ */
+struct SentenceResult {
+  std::string text;                // Исходный текст предложения
+  std::vector<Entity> entities;    // Найденные сущности
+  std::vector<std::string> tokens; // Токены
+  std::vector<int> token_labels;   // Метки для каждого токена
+};
+
+/**
  * @brief Класс для объединения токенизатора и ONNX модели для NER
  */
 class BertOnnxInference {
 public:
-  /**
-   * @brief Сущность (член предложения), найденная в тексте
-   */
-  struct Entity {
-    std::string text;    // Текст сущности
-    std::string type;    // Тип на английском (например, "B-SUBJECT")
-    std::string type_ru; // Тип на русском (например, "Подлежащее")
-    size_t start;        // Начальная позиция в тексте
-    size_t end;          // Конечная позиция в тексте
-    float confidence;    // Уверенность модели
-  };
-
-  /**
-   * @brief Результат обработки одного предложения
-   */
-  struct SentenceResult {
-    std::string text;                // Исходный текст предложения
-    std::vector<Entity> entities;    // Найденные сущности
-    std::vector<std::string> tokens; // Токены
-    std::vector<int> token_labels;   // Метки для каждого токена
-  };
-
   /**
    * @brief Конструктор
    *

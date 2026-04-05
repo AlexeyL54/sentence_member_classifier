@@ -32,7 +32,7 @@ private:
   SearchPage *searchPage = nullptr;
 
   // Данные, передаваемые между страницами
-  QVector<SearchResultItem> searchItems_;
+  QVector<SearchItem> searchItems_;
 };
 
 #endif // MAINWINDOW_H
