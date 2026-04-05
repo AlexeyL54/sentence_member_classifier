@@ -26,9 +26,10 @@ void MainWindow::setupUI() {
 
   // Загружаем данные в ResultPage из готовых файлов
   // Важно: порядок загрузки имеет значение!
-  resultPage->buildWordRoleMap(); // Строим карту соответствий слов
-  resultPage->updateCounts();     // Обновляем счетчики
-  resultPage->updateChart();      // Обновляем диаграмму
+  // resultPage->buildWordRoleMap(); // Строим карту соответствий слов
+  resultPage->setData(resultPage->makeData());
+  resultPage->updateCounts(); // Обновляем счетчики
+  resultPage->updateChart();  // Обновляем диаграмму
   // Не вызываем refreshDisplay(), так как buildWordRoleMap уже вызывает
   // setMarkupText
 
