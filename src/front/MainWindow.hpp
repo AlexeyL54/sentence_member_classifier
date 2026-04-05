@@ -4,6 +4,7 @@
 #include <QStackedWidget>
 #include <QWidget>
 #include <memory>
+#include <vector>
 
 #include "InputPage.hpp"
 #include "ResultPage.hpp"
@@ -24,6 +25,7 @@ private slots:
 
 private:
   std::unique_ptr<BertOnnxInference> inferer;
+  std::vector<SentenceResult> results;
   void setupUI();
   void setupConnections();
   void createSearchItems(); // Создаёт элементы для поиска из готовых файлов

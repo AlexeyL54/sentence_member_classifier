@@ -144,7 +144,9 @@ void TextMarkupWidget::rebuild() {
       wordLayout->setContentsMargins(2, 0, 2, 0);
 
       // Подпись члена предложения
-      QString memberText = m_members.value(word, "-");
+      // QString memberText = m_members.value(word, "-");
+      QString wordLower = word.toLower();
+      QString memberText = m_members.value(wordLower, "-");
       QLabel *memberLabel = new QLabel(memberText);
       memberLabel->setAlignment(Qt::AlignCenter);
       memberLabel->setStyleSheet(

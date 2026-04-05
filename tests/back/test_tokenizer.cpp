@@ -1,4 +1,4 @@
-#include "../../src/back/simple_tokenizer.h"
+#include "../../src/back/simple_tokenizer.hpp"
 #include <cstddef>
 #include <fstream>
 #include <gtest/gtest.h>

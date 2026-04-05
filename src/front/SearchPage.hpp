@@ -10,68 +10,68 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QString>
 #include <QStandardItemModel>
+#include <QString>
+#include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
-#include <QVBoxLayout>
 
 #include "../back/statistics.hpp"
 
-class SearchResultsList : public QWidget
-{
+class SearchResultsList : public QWidget {
 public:
-    explicit SearchResultsList(QWidget* parent = nullptr);
+  explicit SearchResultsList(QWidget *parent = nullptr);
 
-    void setItems(const std::vector<SearchItem>& items);
+  void setItems(const std::vector<SearchItem> &items);
 
 private:
-    void clearLayout();
+  void clearLayout();
 
-    QWidget* container_ = nullptr;
-    QVBoxLayout* layout_ = nullptr;
+  QWidget *container_ = nullptr;
+  QVBoxLayout *layout_ = nullptr;
 };
 
-class SearchPage : public QWidget
-{
-    Q_OBJECT
+class SearchPage : public QWidget {
+  Q_OBJECT
 public:
-    // Создаёт страницу поиска и принимает исходный набор данных.
-    explicit SearchPage(const std::vector<SearchItem>& items, QWidget* parent = nullptr);
+  // Создаёт страницу поиска и принимает исходный набор данных.
+  explicit SearchPage(QWidget *parent = nullptr);
+
+  void setSearchItems(std::vector<SearchItem> &items);
 
 signals:
-    // Нажатие на кнопку "Назад".
-    void backRequested();
+  // Нажатие на кнопку "Назад".
+  void backRequested();
 
 protected:
-    // Нужен для обработки кликов в выпадающем списке с мультивыбором.
-    bool eventFilter(QObject* watched, QEvent* event) override;
+  // Нужен для обработки кликов в выпадающем списке с мультивыбором.
+  bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    // Фильтрация + сортировка данных и обновление списка карточек.
-    void filterAndRender(const QString& text);
-    // Считывает выбранные пункты из чекбоксов "члены предложения".
-    void updateSelectedMembers();
-    // Обновляет текст в поле combo по выбранным пунктам.
-    void updateMemberComboSummary();
-    // Применяет текущие параметры поиска/фильтра/сортировки.
-    void applyCurrentFilters();
+  // Фильтрация + сортировка данных и обновление списка карточек.
+  void filterAndRender(const QString &text);
+  // Считывает выбранные пункты из чекбоксов "члены предложения".
+  void updateSelectedMembers();
+  // Обновляет текст в поле combo по выбранным пунктам.
+  void updateMemberComboSummary();
+  // Применяет текущие параметры поиска/фильтра/сортировки.
+  void applyCurrentFilters();
 
 private slots:
-    void onSearchTextChanged(const QString& text);
-    void onMemberFilterChanged();
-    void onSortModeChanged(int index);
+  void onSearchTextChanged(const QString &text);
+  void onMemberFilterChanged();
+  void onSortModeChanged(int index);
 
 private:
-    std::vector<SearchItem> allItems_;
-    SearchResultsList* resultsList_ = nullptr;
-    QLineEdit* searchEdit_ = nullptr;
+  std::vector<SearchItem> allItems_;
+  SearchResultsList *resultsList_ = nullptr;
+  QLineEdit *searchEdit_ = nullptr;
 
-    QComboBox* memberFilterCombo_ = nullptr;
-    QComboBox* sortCombo_ = nullptr;
-    QStandardItemModel* memberModel_ = nullptr;
-    QVector<QString> selectedMembers_;
-    int sortModeIndex_ = 0;
+  QComboBox *memberFilterCombo_ = nullptr;
+  QComboBox *sortCombo_ = nullptr;
+  QStandardItemModel *memberModel_ = nullptr;
+  QVector<QString> selectedMembers_;
+  int sortModeIndex_ = 0;
 };
 
 #endif // SEARCHPAGE_HPP

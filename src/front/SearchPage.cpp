@@ -129,8 +129,7 @@ void SearchResultsList::setItems(const std::vector<SearchItem> &items) {
  * @param items Набор данных, который отображается и фильтруется на странице.
  * @param parent Родительский виджет.
  */
-SearchPage::SearchPage(const std::vector<SearchItem> &items, QWidget *parent)
-    : QWidget(parent), allItems_(items) {
+SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *root = new QVBoxLayout(this);
   // Увеличиваем отступы, чтобы элементы не были прижаты к краям.
   root->setContentsMargins(24, 20, 24, 24);
@@ -251,6 +250,11 @@ SearchPage::SearchPage(const std::vector<SearchItem> &items, QWidget *parent)
   sortModeIndex_ = sortCombo_->currentIndex();
   updateSelectedMembers();
   updateMemberComboSummary();
+  applyCurrentFilters();
+}
+
+void SearchPage::setSearchItems(std::vector<SearchItem> &items) {
+  allItems_ = items;
   applyCurrentFilters();
 }
 

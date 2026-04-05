@@ -4,7 +4,9 @@
 #include <QStringConverter>
 #include <QTextStream>
 #include <QVBoxLayout>
+#include <iostream>
 #include <memory>
+#include <ostream>
 #include <vector>
 
 #include "../back/bert_onnx_inference.hpp"
@@ -26,10 +28,11 @@ void MainWindow::setupUI() {
   std::map<int, std::pair<std::string, std::string>> labels =
       load_labels("../model/config.json");
 
-  SimpleTokenizer tokenizer("../model/vocab.txt");
+  auto tokenizer = std::make_shared<SimpleTokenizer>("../model/vocab.txt");
 
   std::unique_ptr<onnx_infer::BertNerModel> model =
-      std::make_unique<onnx_infer::BertNerModel>("../model");
+      std::make_unique<onnx_infer::BertNerModel>(
+          "../model/bert_ner_model.onnx");
 
   inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
                                                 labels, 128);
@@ -41,71 +44,7 @@ void MainWindow::setupUI() {
   inputPage = new InputPage(this);
   resultPage = new ResultPage(this);
 
-  // Загружаем данные в ResultPage из готовых файлов
-  // Важно: порядок загрузки имеет значение!
-  // resultPage->setData(resultPage->makeData());
-  // resultPage->updateCounts(); // Обновляем счетчики
-  // resultPage->updateChart();  // Обновляем диаграмму
-
-  // Создаём SearchResultItem для страницы поиска из готовых данных
-
-  std::vector<SearchItem> debugItems = {
-      {"вчера",
-       "обстоятельство",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       2},
-      {"я", "подлежащее", {"Вчера я ходил в школу и учился читать книгу."}, 3},
-      {"ходил",
-       "сказуемое",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       1},
-      {"школу",
-       "дополнение",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       1},
-      {"учился",
-       "сказуемое",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       1},
-      {"читать",
-       "дополнение",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       2},
-      {"книгу",
-       "дополнение",
-       {"Вчера я ходил в школу и учился читать книгу."},
-       2},
-      {"сегодня", "обстоятельство", {"Сегодня я читаю книгу быстро."}, 1},
-      {"читаю", "сказуемое", {"Сегодня я читаю книгу быстро."}, 1},
-      {"быстро", "обстоятельство", {"Сегодня я читаю книгу быстро."}, 1},
-      {"потому",
-       "обстоятельство",
-       {"Потому что я учился вчера, я буду продолжать читать."},
-       1},
-      {"если",
-       "обстоятельство",
-       {"Если я учился вчера, то я буду продолжать читать."},
-       1},
-      {"буду",
-       "сказуемое",
-       {"Потому что я учился вчера, я буду продолжать читать."},
-       1},
-      {"продолжать",
-       "сказуемое",
-       {"Потому что я учился вчера, я буду продолжать читать."},
-       1},
-      {"то",
-       "обстоятельство",
-       {"Если я учился вчера, то я буду продолжать читать."},
-       1},
-      {"когда",
-       "обстоятельство",
-       {"Сегодня я читаю книгу быстро, когда появляется время."},
-       1}};
-  // SearchPage window(debugItems);
-
-  // searchPage = new SearchPage(searchItems_, this);
-  searchPage = new SearchPage(debugItems, this);
+  searchPage = new SearchPage(this);
 
   // Добавляем страницы в стек
   stackedWidget->addWidget(inputPage);  // индекс 0
@@ -136,10 +75,39 @@ void MainWindow::setupConnections() {
 }
 
 void MainWindow::onAnalyzeRequested(const std::string &text) {
-  std::vector<SentenceResult> result = inferer->extract_sentence_parts(text);
-  resultPage->setData(resultPage->makeData());
+  std::cout << "[DEBUG] onAnalyzeRequested called" << std::endl;
+
+  if (!inferer) {
+    std::cerr << "[ERROR] inferer is null!" << std::endl;
+    return;
+  }
+
+  std::cout << "[DEBUG] Calling extract_sentence_parts..." << std::endl;
+  results = inferer->extract_sentence_parts(text);
+  std::cout << "[DEBUG] Got " << results.size() << " sentences" << std::endl;
+
+  std::vector<SearchItem> items = build_search_items(results);
+
+  std::cout << "Search Items:" << std::endl;
+  for (const SearchItem &item : items) {
+    std::cout << item.text << std::endl;
+    std::cout << item.type << std::endl;
+    std::cout << item.amount << std::endl;
+    std::cout << std::endl;
+  }
+
+  searchPage->setSearchItems(items);
+  resultPage->setData(results);
   resultPage->updateCounts();
   resultPage->updateChart();
+
+  // Вместо этого пока просто выводим результат в консоль
+  for (const auto &sent : results) {
+    std::cout << "Sentence: " << sent.text << std::endl;
+    for (const auto &ent : sent.entities) {
+      std::cout << "  " << ent.type_ru << ": " << ent.text << std::endl;
+    }
+  }
 
   // Переходим на страницу результатов
   stackedWidget->setCurrentWidget(resultPage);

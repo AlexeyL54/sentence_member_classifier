@@ -1,13 +1,16 @@
 // src/back/bert_onnx_inference.cpp
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
+#include <iostream>
+#include <ostream>
 
 BertOnnxInference::BertOnnxInference(
-    std::unique_ptr<onnx_infer::BertNerModel> model, SimpleTokenizer &tokenizer,
+    std::unique_ptr<onnx_infer::BertNerModel> model,
+    std::shared_ptr<SimpleTokenizer> tokenizer,
     const std::map<int, std::pair<std::string, std::string>> &labels,
     size_t max_len)
-    : model_(std::move(model)), tokenizer_(tokenizer), labels_(labels),
-      max_len_(max_len) {}
+    : model_(std::move(model)), tokenizer_(std::move(tokenizer)),
+      labels_(labels), max_len_(max_len) {}
 
 std::vector<std::string>
 BertOnnxInference::split_into_sentences(const std::string &text) {
@@ -60,17 +63,21 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
 
 SentenceResult
 BertOnnxInference::process_sentence(const std::string &sentence) {
+  std::cout << "Вызван метод process_sentence" << std::endl;
   SentenceResult result;
   result.text = sentence;
 
   // Токенизация
-  auto encoding = tokenizer_.encode(sentence, max_len_);
+  std::cout << "Вызываем encode" << std::endl;
+  auto encoding = tokenizer_->encode(sentence, max_len_);
 
   if (encoding.input_ids.empty()) {
+    std::cout << "input_ids пуст" << std::endl;
     return result;
   }
 
   // Получаем предсказания модели
+  std::cout << "Получаем предсказание модели" << std::endl;
   auto predictions =
       model_->predict_labels(encoding.input_ids, encoding.attention_mask);
 
@@ -81,6 +88,8 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   // Объединяем подслова в сущности
   result.entities =
       merge_subwords(encoding.tokens, predictions, encoding.offsets, sentence);
+
+  std::cout << "Конец process_sentence" << std::endl;
 
   return result;
 }
@@ -208,17 +217,17 @@ load_labels(const std::string &path) {
       std::string rus;
 
       if (eng == "O")
-        rus = "Не член предложения";
+        rus = "другое";
       else if (eng.find("SUBJECT") != std::string::npos)
-        rus = "Подлежащее";
+        rus = "подлежащее";
       else if (eng.find("PREDICATE") != std::string::npos)
-        rus = "Сказуемое";
+        rus = "сказуемое";
       else if (eng.find("DEFINITION") != std::string::npos)
-        rus = "Определение";
+        rus = "определение";
       else if (eng.find("ADDITION") != std::string::npos)
-        rus = "Дополнение";
+        rus = "дополнение";
       else if (eng.find("ADVERBIAL") != std::string::npos)
-        rus = "Обстоятельство";
+        rus = "обстоятельство";
       else
         rus = eng;
 
@@ -234,14 +243,18 @@ std::vector<SentenceResult>
 BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<SentenceResult> results;
 
+  std::cout << "Вызван метод extract_sentence_parts" << std::endl;
   // Разбиваем на предложения
   auto sentences = split_into_sentences(text);
+  std::cout << "Текст разбит на предложения" << std::endl;
 
   for (const auto &sentence : sentences) {
     if (sentence.length() < 3)
       continue; // Пропускаем слишком короткие
 
+    std::cout << "Обрабатываем предложени: " << sentence << std::endl;
     auto result = process_sentence(sentence);
+    std::cout << "Обработали" << std::endl;
     results.push_back(result);
   }
 

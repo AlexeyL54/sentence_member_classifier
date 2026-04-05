@@ -51,7 +51,7 @@ public:
    */
   BertOnnxInference(
       std::unique_ptr<onnx_infer::BertNerModel> model,
-      SimpleTokenizer &tokenizer,
+      std::shared_ptr<SimpleTokenizer> tokenizer,
       const std::map<int, std::pair<std::string, std::string>> &labels,
       size_t max_len = 128);
 
@@ -73,7 +73,7 @@ public:
 
 private:
   std::unique_ptr<onnx_infer::BertNerModel> model_;
-  SimpleTokenizer &tokenizer_;
+  std::shared_ptr<SimpleTokenizer> tokenizer_;
   std::map<int, std::pair<std::string, std::string>> labels_;
   size_t max_len_;
 
