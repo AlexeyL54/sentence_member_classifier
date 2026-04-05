@@ -1,0 +1,571 @@
+[
+
+    {
+        "tokens": [ "Осень", "украсившая", "деревья", "золотыми", "листьями", "принесла", "ветер", "дожди", "и", "холодные", "ночи" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "щ", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Листья", "покрытые", "инеем", "зашуршали", "под", "ногами" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Девушка", "улыбавшаяся", "прохожим", "шла", "по", "улице" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Книга", "прочитанная", "вчера", "вечером", "произвела", "сильное", "впечатление" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Прочитанная", "вчера", "вечером", "книга", "произвела", "сильное", "впечатление" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Поздравление", "написанное", "мной", "понравилось", "маме" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "товар", "привезённый", "продавцом", "быстро", "раскупили" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Привезённый", "продавцом", "товар", "быстро", "раскупили" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Зонтик", "вырываемый", "ветром", "согнулся" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Облака", "бегущие", "по", "небу", "завораживали" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Выбранный", "покупателем", "он", "уже", "был", "упакован" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "O", "B-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Развеселившиеся", "донельзя", "мы", "никак", "не", "могли", "успокоиться" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Уставший", "от", "уроков", "ученик", "незаметно", "уснул" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Заросшая", "бурьяном", "в", "самом", "конце", "палисадника", "стояла", "скамья" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Нарисованный", "сыном", "цветок", "был", "как", "живой" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Выточенные", "токарем", "детали", "лежали", "возле", "станка" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Бегущая", "по", "снегу", "лиса", "оставляла", "неглубокие", "следы" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Кукла", "подаренная", "мамой", "и", "одетая", "девочкой", "была", "прекрасна" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "O", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Невдалеке", "сверкает", "на", "солнце", "извилистая", "речонка." ],
+        "tags": [ "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Перед", "нами", "простирался", "необъятный", "лесной", "массив." ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Красногрудые", "снегири", "клевали", "ягодки", "рябины." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Вдали", "стоит", "дубовый", "лес", "и", "блестит", "на", "солнце." ],
+        "tags": [ "B-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "B-SUBJECT", "O", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Пушистый", "снег", "хлопьями", "падает", "на", "землю." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-ADDITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Красивый", "пейзаж", "вызывает", "радостное", "чувство." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Гусь", "подошел", "сзади", "и", "больно", "долбанул", "Каштанку", "клювом." ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "O", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Собака", "громко", "залаяла", "на", "ребят." ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Пушистый", "иней", "украсил", "деревья." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Мотылек", "лениво", "повис", "на", "стебельке." ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Бабочка", "села", "на", "цветок", "и", "тихонько", "двигала", "крылышками." ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "O", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Вечером", "я", "с", "приятелем", "сидел", "на", "обрыве." ],
+        "tags": [ "B-ADVERBIAL", "B-SUBJECT", "O", "B-ADDITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Последние", "перелетные", "птицы", "покидают", "родные", "места." ],
+        "tags": [ "B-DEFINITION", "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Зимние", "вьюги", "напевали", "нам", "песни", "чудные." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-DEFINITION" ]
+    },
+    {
+        "tokens": [ "Белобокие", "сороки", "сидели", "на", "сучке", "и", "резко", "стрекотали." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "O", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Кот", "мягко", "подпрыгнул", "и", "впился", "когтями", "в", "мышку." ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "O", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "В", "сырых", "местах", "прятались", "голубоглазые", "незабудки." ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "На", "черемухе", "соловей", "распевал", "свои", "песни." ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Две", "большие", "лохматые", "белые", "собаки", "бросились", "на", "кошку." ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "B-DEFINITION", "B-DEFINITION", "I-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Белый", "пар", "по", "лугам", "расстилается." ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Отец", "осторожно", "снял", "нагар", "со", "свечи." ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Ветерок", "ласково", "перебирает", "на", "ясенях", "листья." ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Из", "большой", "корзины", "девочка", "отбирала", "спелые", "вишни." ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "В", "детских", "журналах", "часто", "встречаются", "загадочные", "картинки." ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "На", "улице", "светило", "солнце", "пели", "птицы", "шумел", "ветер" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "B-PREDICATE", "B-SUBJECT", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "В", "саду", "росли", "яблони", "груши", "и", "вишни" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-PREDICATE", "O", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Мы", "купили", "яблоки", "груши", "и", "сливы" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "O", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Она", "улыбалась", "смеялась", "радовалась" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-PREDICATE", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Мама", "папа", "и", "дети", "собрались", "за", "столом" ],
+        "tags": [ "B-SUBJECT", "B-SUBJECT", "O", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Мы", "читали", "писали", "обсуждали" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-PREDICATE", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Она", "любила", "цветы", "травы", "и", "деревья" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "O", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Сад", "был", "зелёным", "ухоженным", "благоухающим" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-DEFINITION" ]
+    },
+    {
+        "tokens": [ "Мы", "поехали", "в", "Москву", "на", "дачу", "и", "к", "бабушке" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "O", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Мы", "читали", "и", "писали" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "O", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "То", "пели", "птицы", "то", "шумел", "ветер" ],
+        "tags": [ "O", "B-PREDICATE", "B-SUBJECT", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Она", "купила", "хлеб", "молоко", "сыр" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "На", "столе", "были", "хлеб", "сыр", "молоко" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "B-SUBJECT", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Хлеб", "сыр", "молоко", "всё", "это", "было", "на", "столе" ],
+        "tags": [ "B-SUBJECT", "B-SUBJECT", "B-SUBJECT", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Мы", "гуляли", "по", "парку", "бегали", "по", "лужайке", "и", "катались", "на", "велосипедах" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "O", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "На", "столе", "лежали", "тетради", "учебники", "ручки", "и", "карандаши" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "B-SUBJECT", "B-SUBJECT", "O", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "То", "светило", "солнце", "то", "накрапывал", "дождь" ],
+        "tags": [ "O", "B-PREDICATE", "B-SUBJECT", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Я", "видела", "большие", "старые", "деревянные", "дома" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Она", "не", "читала", "и", "не", "писала" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "O", "B-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Мы", "видели", "красивых", "старых", "ухоженных", "лошадей" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "На", "улице", "светило", "солнце", "и", "пели", "птицы" ],
+        "tags": [ "", "", "B-PREDICATE", "B-SUBJECT", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "В", "корзине", "лежали", "яблоки", "груши", "апельсины" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "B-SUBJECT", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Она", "не", "смотрела", "не", "слушала", "не", "отвечала" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-PREDICATE", "I-PREDICATE", "B-PREDICATE", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "На", "полках", "стояли", "книги", "журналы", "и", "газеты" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "B-SUBJECT", "O", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Серые", "тучи", "закрыли", "солнце" ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "В", "конце", "улицы", "я", "увидел", "старого", "знакомого" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Мы", "запустили", "в", "небо", "воздушного", "змея" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Сестра", "прочла", "мне", "интересную", "книгу" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Я", "всегда", "доверял", "ему" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "На", "кресле", "лежала", "мамина", "кофта" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Небо", "загорелось", "от", "ярких", "салютов" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Я", "приготовила", "ей", "отличный", "подарок", "вазу", "из", "хрусталя" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "B-ADDITION", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Разве", "может", "что", "то", "сравниться", "с", "мамиными", "нежными", "руками" ],
+        "tags": [ "B-ADVERBIAL", "B-PREDICATE", "B-SUBJECT", "I-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "B-DEFINITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Мальчишка", "не", "хотел", "сидеть", "спокойно", "и", "крутился", "как", "заведённый" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "I-PREDICATE", "B-ADVERBIAL", "O", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Я", "обожаю", "бабушкино", "черничное", "варенье" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Пришла", "снежная", "зима" ],
+        "tags": [ "B-PREDICATE", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Одела", "деревья", "серебром", "завалила", "глубокими", "сугробами", "леса" ],
+        "tags": [ "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-PREDICATE", "B-DEFINITION", "B-ADDITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Махнула", "гостья", "крылом", "и", "посыпались", "снежинки" ],
+        "tags": [ "B-PREDICATE", "B-SUBJECT", "B-ADDITION", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Ребята", "лепят", "снеговика", "играют", "в", "снежки", "катаются", "на", "санках" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Церковь", "эту", "построил", "некогда", "барин" ],
+        "tags": [ "B-ADDITION", "B-DEFINITION", "B-PREDICATE", "B-ADVERBIAL", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Тит", "взглянул", "на", "горевший", "огненным", "взглядом", "костер" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Весну", "объявили", "грачи" ],
+        "tags": [ "B-ADDITION", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Здесь", "пахнет", "малиной", "травой", "цветами" ],
+        "tags": [ "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Я", "тоже", "не", "переношу", "зла" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Люди", "равнодушно", "смотрели", "на", "проплывающие", "за", "окном", "поля" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "После", "теплой", "ясной", "погоды", "наступило", "ненастье" ],
+        "tags": [ "B-ADVERBIAL", "B-DEFINITION", "B-DEFINITION", "I-ADVERBIAL", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Подруга", "на", "станции", "купила", "новые", "иллюстрированные", "журналы", "и", "свежий", "мягкий", "хлеб" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "B-DEFINITION", "B-ADDITION", "O", "B-DEFINITION", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Хохлатые", "курицы", "ищут", "в", "сене", "мошек", "да", "букашек" ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "O", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "И", "туман", "и", "непогоду", "осень", "поздняя", "несёт" ],
+        "tags": [ "O", "B-ADDITION", "O", "B-ADDITION", "B-SUBJECT", "B-DEFINITION", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Я", "отправил", "сестре", "телеграмму", "с", "поздравлением" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Учёные", "доказали", "существование", "жизни", "в", "космосе" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Он", "не", "знал", "никаких", "радостей", "кроме", "чтения", "книг" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-DEFINITION", "B-ADDITION", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "И", "поныне", "славятся", "у", "нас", "на", "Севере", "замечательные", "русские", "умельцы" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-DEFINITION", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Мы", "сели", "отдохнуть", "на", "скамейку", "у", "реки" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Машины", "шли", "медленно", "из-за", "снегопада" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Моему", "брату", "часто", "приходится", "ездить", "на", "такси" ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Несмотря", "на", "нелетную", "погоду", "самолеты", "продолжали", "совершать", "рейсы" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Я", "прошу", "тебя", "не", "вешать", "нос" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-PREDICATE", "I-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Я", "читаю", "письмо", "и", "думаю", "о", "тебе" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "O", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Он", "налил", "в", "стакан", "ландышевых", "капель" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Мне", "не", "хватает", "денег" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Многие", "из", "нас", "не", "видели", "выхода", "из", "сложившейся", "ситуации" ],
+        "tags": [ "B-SUBJECT", "I-SUBJECT", "I-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "I-ADDITION", "I-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Все", "просили", "её", "спеть" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Многие", "страны", "мира", "ведут", "торговлю", "с", "Китаем" ],
+        "tags": [ "B-SUBJECT", "I-SUBJECT", "I-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION" ]
+    },
+    {
+        "tokens": [ "Ночью", "в", "полях", "под", "напевы", "метели", "дремлют", "качаясь", "березы", "и", "ели" ],
+        "tags": [ "B-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "B-SUBJECT", "O", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Андрей", "нахмурившись", "молчал" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Я", "наклонясь", "поднял", "карандаш", "с", "пола" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Над", "рекой", "наклонясь", "что-то", "шепчет", "камыш" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Схватив", "котелок", "Димка", "помчался", "за", "водой" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Спускаясь", "по", "тропинке", "Димка", "вдруг", "остановился" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Он", "пополз", "спотыкаясь", "о", "разбросанные", "остатки", "кирпичей" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "У", "берегов", "вода", "тихонько", "играла", "перекатываясь", "через", "мелкое", "каменистое", "дно" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Вьется", "речка", "небольшая", "средь", "полей", "и", "рощ", "петляя" ],
+        "tags": [ "B-PREDICATE", "B-SUBJECT", "B-DEFINITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Под", "голубыми", "небесами", "великолепными", "коврами", "блестя", "на", "солнце", "снег", "лежит" ],
+        "tags": [ "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-DEFINITION", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Луна", "выплыла", "из-за", "туч", "осветив", "всё", "вокруг" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Заметив", "признаки", "надвигающейся", "бури", "капитан", "приказал", "убрать", "паруса" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Зная", "правило", "быстро", "ответишь", "на", "вопрос" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "B-PREDICATE", "O", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Выйдя", "к", "реке", "туристы", "устроили", "привал" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Он", "боясь", "опоздать", "к", "поезду", "часто", "просыпался" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Девочка", "слушала", "объяснения", "учителя", "посматривая", "по", "сторонам" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Летающая", "над", "костром", "бабочка", "была", "необычайно", "красива" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Альпинисты", "пренебрегающие", "опасностью", "поднимались", "вверх", "но", "не", "долго" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "O", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Поднявшись", "он", "быстро", "подошел", "к", "окну" ],
+        "tags": [ "B-ADVERBIAL", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Наклонившись", "над", "столом", "директор", "что", "то", "писал" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADDITION", "B-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Клюшка", "вырвавшаяся", "из", "рук", "игрока", "покатилась", "по", "льду" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Вырвавшись", "из", "рук", "игрока", "клюшка", "покатилась", "по", "льду" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Преследуя", "неприятеля", "они", "вышли", "к", "границе" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Войска", "преследовавшие", "неприятеля", "вышли", "к", "границе" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Туча", "набежавшая", "из-за", "леса", "закрыла", "солнце" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Дробясь", "о", "мрачные", "скалы", "шумят", "и", "пенятся", "валы" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "O", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Черный", "дым", "поднимавшийся", "из-за", "леса", "застилал", "горизонт" ],
+        "tags": [ "B-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Потрескивая", "догорал", "костер" ],
+        "tags": [ "B-ADVERBIAL", "B-PREDICATE", "B-SUBJECT" ]
+    },
+    {
+        "tokens": [ "Молнии", "полосовавшие", "черное", "небо", "освещали", "окрестность" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+    },
+    {
+        "tokens": [ "Слова", "имеющие", "несколько", "значений", "называются", "многозначными" ],
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-DEFINITION" ]
+    },
+    {
+        "tokens": [ "Отметив", "маршрут", "туристы", "устроились", "на", "ночлег" ],
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Раздавшийся", "слева", "грохот", "заставил", "меня", "оглянуться" ],
+        "tags": [ "B-DEFINITION", "I-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-PREDICATE" ]
+    },
+    {
+        "tokens": [ "Охотники", "любовались", "степью", "остывшей", "за", "ночь" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION" ]
+    },
+    {
+        "tokens": [ "Небо", "усеянное", "звездами", "манило", "к", "себе" ],
+        "tags": [ "B-SUBJECT", "B-DEFINITION", "I-DEFINITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Я", "стою", "у", "дороги", "прислонившись", "к", "иве" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+    },
+    {
+        "tokens": [ "Петя", "менял", "место", "стараясь", "укрыться", "от", "луны", "пугающей", "тусклым", "светом" ],
+        "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION" ]
+    }
+]
