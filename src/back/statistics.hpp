@@ -14,7 +14,7 @@ struct SearchItem {
   std::string text; // член предложения
   std::string type; // вид члена предложения (подлежащее, сказуемое, ...)
   std::vector<std::string>
-      sentences; // предложения, в которых встречается этот член предложения
+      sentences;  // предложения, в которых встречается этот член предложения
   int amount = 0; // количество появлений в тексте
 };
 
@@ -22,8 +22,9 @@ struct SearchItem {
  * @brief Глобальная статистика по обработанному тексту (экран анализа).
  */
 struct GlobalStats {
-  int sentences_total = 0;   // количество предложений в тексте
-  int words_total = 0;       // количество слов в тексте (подсчёт по SentenceResult::text)
+  int sentences_total = 0; // количество предложений в тексте
+  int words_total =
+      0; // количество слов в тексте (подсчёт по SentenceResult::text)
   int members_total = 0;     // количество членов предложения в тексте
   int subjects_total = 0;    // количество подлежащих в тексте
   int predicates_total = 0;  // количество сказуемых в тексте
@@ -38,11 +39,11 @@ struct GlobalStats {
 };
 
 /** Агрегаты по тексту из результата extract_sentence_parts. */
-GlobalStats build_global_stats(
-    const std::vector<BertOnnxInference::SentenceResult> &analysis_results);
+GlobalStats
+build_global_stats(const std::vector<SentenceResult> &analysis_results);
 
 /** Список SearchItem для SearchPage из того же результата анализа. */
-std::vector<SearchItem> build_search_items(
-    const std::vector<BertOnnxInference::SentenceResult> &analysis_results);
+std::vector<SearchItem>
+build_search_items(const std::vector<SentenceResult> &analysis_results);
 
 #endif // !STATISTICS_H

@@ -85,22 +85,22 @@ static void incrementCategoryTotal(GlobalStats &stats,
  * @param additionFreq Словарь дополнений.
  * @param adverbialFreq Словарь обстоятельств.
  */
-static void incrementTopCounter(
-    const std::string &categoryRu, const std::string &word,
-    std::unordered_map<std::string, int> &subjectFreq,
-    std::unordered_map<std::string, int> &predicateFreq,
-    std::unordered_map<std::string, int> &definitionFreq,
-    std::unordered_map<std::string, int> &additionFreq,
-    std::unordered_map<std::string, int> &adverbialFreq) {
-  if (categoryRu == "Подлежащее") {
+static void
+incrementTopCounter(const std::string &categoryRu, const std::string &word,
+                    std::unordered_map<std::string, int> &subjectFreq,
+                    std::unordered_map<std::string, int> &predicateFreq,
+                    std::unordered_map<std::string, int> &definitionFreq,
+                    std::unordered_map<std::string, int> &additionFreq,
+                    std::unordered_map<std::string, int> &adverbialFreq) {
+  if (categoryRu == "подлежащее") {
     subjectFreq[word] += 1;
-  } else if (categoryRu == "Сказуемое") {
+  } else if (categoryRu == "сказуемое") {
     predicateFreq[word] += 1;
-  } else if (categoryRu == "Определение") {
+  } else if (categoryRu == "определение") {
     definitionFreq[word] += 1;
-  } else if (categoryRu == "Дополнение") {
+  } else if (categoryRu == "дополнение") {
     additionFreq[word] += 1;
-  } else if (categoryRu == "Обстоятельство") {
+  } else if (categoryRu == "обстоятельство") {
     adverbialFreq[word] += 1;
   }
 }
@@ -110,13 +110,14 @@ static void incrementTopCounter(
  * @param analysis_results Результат extract_sentence_parts().
  * @return Заполненная структура GlobalStats.
  */
-GlobalStats build_global_stats(
-    const std::vector<BertOnnxInference::SentenceResult> &analysis_results) {
+GlobalStats
+build_global_stats(const std::vector<SentenceResult> &analysis_results) {
   GlobalStats stats{};
 
   stats.sentences_total = static_cast<int>(analysis_results.size());
 
-  // По одному частотному словарю на категорию: текст фрагмента -> сколько раз встретился.
+  // По одному частотному словарю на категорию: текст фрагмента -> сколько раз
+  // встретился.
   std::unordered_map<std::string, int> subjectFreq;
   std::unordered_map<std::string, int> predicateFreq;
   std::unordered_map<std::string, int> definitionFreq;
@@ -141,7 +142,8 @@ GlobalStats build_global_stats(
     }
   }
 
-  // Для каждой категории выбираем самый частый фрагмент (и его число вхождений).
+  // Для каждой категории выбираем самый частый фрагмент (и его число
+  // вхождений).
   stats.top_subject = pickTopWord(subjectFreq);
   stats.top_predicate = pickTopWord(predicateFreq);
   stats.top_definition = pickTopWord(definitionFreq);
@@ -153,12 +155,13 @@ GlobalStats build_global_stats(
 
 /**
  * @brief Строит агрегированный список элементов для страницы поиска.
- * @param analysis_results 
- * @return Вектор SearchItem 
+ * @param analysis_results
+ * @return Вектор SearchItem
  */
-std::vector<SearchItem> build_search_items(
-    const std::vector<BertOnnxInference::SentenceResult> &analysis_results) {
-  // Ключ: (type_ru, текст фрагмента) — одна запись на уникальную пару по всему тексту.
+std::vector<SearchItem>
+build_search_items(const std::vector<SentenceResult> &analysis_results) {
+  // Ключ: (type_ru, текст фрагмента) — одна запись на уникальную пару по всему
+  // тексту.
   std::map<std::pair<std::string, std::string>, SearchItem> itemsByKey;
 
   for (const auto &sentenceResult : analysis_results) {
