@@ -3,6 +3,7 @@
 
 #include <QStackedWidget>
 #include <QWidget>
+#include <memory>
 
 #include "InputPage.hpp"
 #include "ResultPage.hpp"
@@ -17,11 +18,12 @@ public:
 
 private slots:
   // Слоты для навигации между страницами
-  void onAnalyzeRequested();
+  void onAnalyzeRequested(const std::string &text);
   void onSearchRequested();
   void onBackToResultRequested();
 
 private:
+  std::unique_ptr<BertOnnxInference> inferer;
   void setupUI();
   void setupConnections();
   void createSearchItems(); // Создаёт элементы для поиска из готовых файлов

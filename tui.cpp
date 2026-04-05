@@ -3,6 +3,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "src/back/bert_onnx_inference.hpp"
 #include "src/back/cJSON.h"
@@ -95,10 +96,11 @@ int main() {
         break;
 
       // Анализ
-      auto sentences = inferrer.extract_sentence_parts(line);
+      std::vector<SentenceResult> sentences =
+          inferrer.extract_sentence_parts(line);
 
       // Вывод результатов
-      for (const auto &sent : sentences) {
+      for (const SentenceResult &sent : sentences) {
         std::cout << "\nПредложение: " << sent.text << "\n";
 
         if (sent.entities.empty()) {
@@ -108,7 +110,7 @@ int main() {
 
         // Группировка по типам
         std::map<std::string, std::vector<std::string>> by_type;
-        for (const auto &e : sent.entities) {
+        for (const Entity &e : sent.entities) {
           by_type[e.type_ru].push_back(e.text);
         }
 

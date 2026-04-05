@@ -30,6 +30,10 @@ set(SOURCES
     src/front/lib/FlowLayout.cpp
     src/front/lib/TextMarkupWidget.cpp
     src/back/statistics.cpp
+    src/back/bert_onnx_inference.cpp
+    src/back/onnx_model.cpp
+    src/back/cJSON.c
+    src/back/simple_tokenizer.cpp
 )
 
 set(HEADERS
@@ -40,10 +44,15 @@ set(HEADERS
     src/front/lib/FlowLayout.hpp
     src/front/lib/TextMarkupWidget.hpp
     src/back/statistics.hpp
+    src/back/bert_onnx_inference.hpp
+    src/back/onnx_model.hpp
+    src/back/cJSON.h
+    src/back/simple_tokenizer.hpp
 )
 
 # Поиск Qt
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(onnxruntime)
 
 # Создание исполняемого файла
 add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})

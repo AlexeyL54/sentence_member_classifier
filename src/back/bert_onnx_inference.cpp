@@ -1,5 +1,6 @@
 // src/back/bert_onnx_inference.cpp
 #include "bert_onnx_inference.hpp"
+#include "cJSON.h"
 
 BertOnnxInference::BertOnnxInference(
     std::unique_ptr<onnx_infer::BertNerModel> model, SimpleTokenizer &tokenizer,
@@ -57,7 +58,7 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
   return sentences;
 }
 
-BertOnnxInference::SentenceResult
+SentenceResult
 BertOnnxInference::process_sentence(const std::string &sentence) {
   SentenceResult result;
   result.text = sentence;
@@ -84,7 +85,7 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   return result;
 }
 
-std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
+std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
     const std::vector<std::pair<size_t, size_t>> &offsets,
@@ -168,7 +169,7 @@ std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
       entity.text = entity_text;
 
       // Упрощенная уверенность (можно улучшить)
-      entity.confidence = 0.95f;
+      // entity.confidence = 0.95f;
 
       entities.push_back(entity);
     }
@@ -178,7 +179,58 @@ std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
   return entities;
 }
 
-std::vector<BertOnnxInference::SentenceResult>
+// Загрузка меток из config.json
+std::map<int, std::pair<std::string, std::string>>
+load_labels(const std::string &path) {
+  std::map<int, std::pair<std::string, std::string>> labels;
+
+  FILE *file = fopen(path.c_str(), "rb");
+  if (!file)
+    return labels;
+
+  fseek(file, 0, SEEK_END);
+  long size = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  std::vector<char> buffer(size + 1);
+  fread(buffer.data(), 1, size, file);
+  fclose(file);
+
+  cJSON *config = cJSON_Parse(buffer.data());
+  if (!config)
+    return labels;
+
+  cJSON *id2label = cJSON_GetObjectItem(config, "id2label");
+  if (id2label && id2label->type == cJSON_Object) {
+    for (cJSON *child = id2label->child; child; child = child->next) {
+      int id = std::stoi(child->string);
+      std::string eng = child->valuestring;
+      std::string rus;
+
+      if (eng == "O")
+        rus = "Не член предложения";
+      else if (eng.find("SUBJECT") != std::string::npos)
+        rus = "Подлежащее";
+      else if (eng.find("PREDICATE") != std::string::npos)
+        rus = "Сказуемое";
+      else if (eng.find("DEFINITION") != std::string::npos)
+        rus = "Определение";
+      else if (eng.find("ADDITION") != std::string::npos)
+        rus = "Дополнение";
+      else if (eng.find("ADVERBIAL") != std::string::npos)
+        rus = "Обстоятельство";
+      else
+        rus = eng;
+
+      labels[id] = {eng, rus};
+    }
+  }
+
+  cJSON_Delete(config);
+  return labels;
+}
+
+std::vector<SentenceResult>
 BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<SentenceResult> results;
 

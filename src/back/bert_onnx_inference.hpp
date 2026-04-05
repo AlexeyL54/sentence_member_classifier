@@ -33,6 +33,9 @@ struct SentenceResult {
   std::vector<int> token_labels;   // Метки для каждого токена
 };
 
+std::map<int, std::pair<std::string, std::string>>
+load_labels(const std::string &path);
+
 /**
  * @brief Класс для объединения токенизатора и ONNX модели для NER
  */

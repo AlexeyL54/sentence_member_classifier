@@ -4,7 +4,12 @@
 #include <QStringConverter>
 #include <QTextStream>
 #include <QVBoxLayout>
+#include <memory>
 #include <vector>
+
+#include "../back/bert_onnx_inference.hpp"
+#include "../back/onnx_model.hpp"
+#include "../back/simple_tokenizer.hpp"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   setWindowTitle("Анализатор текста");
@@ -17,6 +22,18 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
 MainWindow::~MainWindow() {}
 
 void MainWindow::setupUI() {
+
+  std::map<int, std::pair<std::string, std::string>> labels =
+      load_labels("model/config.json");
+
+  SimpleTokenizer tokenizer("model/vocab.txt");
+
+  std::unique_ptr<onnx_infer::BertNerModel> model =
+      std::make_unique<onnx_infer::BertNerModel>("model");
+
+  inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
+                                                labels, 128);
+
   // Создаём стековый виджет для переключения страниц
   stackedWidget = new QStackedWidget(this);
 
@@ -26,15 +43,11 @@ void MainWindow::setupUI() {
 
   // Загружаем данные в ResultPage из готовых файлов
   // Важно: порядок загрузки имеет значение!
-  // resultPage->buildWordRoleMap(); // Строим карту соответствий слов
-  resultPage->setData(resultPage->makeData());
-  resultPage->updateCounts(); // Обновляем счетчики
-  resultPage->updateChart();  // Обновляем диаграмму
-  // Не вызываем refreshDisplay(), так как buildWordRoleMap уже вызывает
-  // setMarkupText
+  // resultPage->setData(resultPage->makeData());
+  // resultPage->updateCounts(); // Обновляем счетчики
+  // resultPage->updateChart();  // Обновляем диаграмму
 
   // Создаём SearchResultItem для страницы поиска из готовых данных
-  // createSearchItems();
 
   std::vector<SearchItem> debugItems = {
       {"вчера",
@@ -122,9 +135,9 @@ void MainWindow::setupConnections() {
           &MainWindow::onBackToResultRequested);
 }
 
-void MainWindow::onAnalyzeRequested() {
-  // Обновляем данные перед показом (на случай, если они изменились)
-  resultPage->buildWordRoleMap();
+void MainWindow::onAnalyzeRequested(const std::string &text) {
+  std::vector<SentenceResult> result = inferer->extract_sentence_parts(text);
+  resultPage->setData(resultPage->makeData());
   resultPage->updateCounts();
   resultPage->updateChart();
 
