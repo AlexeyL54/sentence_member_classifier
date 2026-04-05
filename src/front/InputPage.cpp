@@ -1,8 +1,11 @@
 #include "InputPage.hpp"
 #include <QDir>
 #include <QFileDialog>
+#include <QMessageBox>
+#include <fstream>
 
-InputPage::InputPage(QWidget *parent) : QWidget(parent) {
+InputPage::InputPage(QWidget *parent) : QWidget(parent)
+{
   setWindowTitle("Анализатор текста");
   resize(900, 550);
 
@@ -23,12 +26,61 @@ InputPage::InputPage(QWidget *parent) : QWidget(parent) {
 }
 
 /**
+ * @brief Обрабатывает нажатие кнопки «Анализировать» для текста с клавиатуры.
+ *
+ * Проверяет, что поле ввода не пустое, и только после этого
+ * отправляет сигнал перехода к анализу.
+ */
+void InputPage::onAnalyzeFromKeyboard()
+{
+  if (textInput->toPlainText().trimmed().isEmpty())
+  {
+    QMessageBox::warning(this, "Пустой текст",
+                         "Введите текст перед запуском анализа.");
+    return;
+  }
+
+  const std::string text = textInput->toPlainText().toUtf8().toStdString();
+  emit analysisRequested(text);
+}
+
+/**
+ * @brief Обрабатывает нажатие кнопки «Анализировать» для выбранного файла.
+ *
+ * Проверяет, что файл выбран и доступен для чтения, затем
+ * отправляет сигнал перехода к анализу.
+ */
+void InputPage::onAnalyzeFromFile()
+{
+  const QString path = filePathEdit->text();
+  if (path.isEmpty())
+  {
+    QMessageBox::warning(this, "Файл не выбран",
+                         "Укажите текстовый файл кнопкой «Выбрать файл».");
+    return;
+  }
+
+  std::ifstream in(path.toStdString(), std::ios::binary);
+  if (!in)
+  {
+    QMessageBox::warning(this, "Ошибка чтения",
+                         "Не удалось открыть или прочитать файл.");
+    return;
+  }
+
+  std::string text((std::istreambuf_iterator<char>(in)),
+                   std::istreambuf_iterator<char>());
+  emit analysisRequested(text);
+}
+
+/**
  * @brief Создаёт главный вертикальный layout окна.
  *
  * Layout привязывается к самому виджету InputPage и задаёт
  * общую вертикальную структуру содержимого окна.
  */
-void InputPage::setupMainLayout() {
+void InputPage::setupMainLayout()
+{
   mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(0, 0, 0, 0);
   mainLayout->setSpacing(0);
@@ -40,7 +92,8 @@ void InputPage::setupMainLayout() {
  * В эту строку затем добавляются колонки, в том числе
  * колонка с формой ввода текста.
  */
-void InputPage::setupContentRow() {
+void InputPage::setupContentRow()
+{
   contentRow = new QHBoxLayout();
   contentRow->setSpacing(0);
 }
@@ -51,7 +104,8 @@ void InputPage::setupContentRow() {
  * Внутрь этой колонки добавляются поясняющий текст, переключатель
  * способа ввода и стек страниц (клавиатура / файл).
  */
-void InputPage::setupContentColumn() {
+void InputPage::setupContentColumn()
+{
   contentColumn = new QWidget(this);
   contentLayout = new QVBoxLayout(contentColumn);
   contentLayout->setContentsMargins(24, 24, 24, 24);
@@ -63,7 +117,8 @@ void InputPage::setupContentColumn() {
  *
  * Текст описывает назначение программы и возможные способы ввода.
  */
-void InputPage::setupIntroText() {
+void InputPage::setupIntroText()
+{
   introText = new QLabel(
       "Эта программа предназначена для анализа русского текста: поиск членов "
       "предложения и слов, не являющихся членами предложения, с последующей "
@@ -80,7 +135,8 @@ void InputPage::setupIntroText() {
  * Добавляет радиокнопки «С клавиатуры» / «С файла» и инициализирует
  * QStackedWidget, в котором будут располагаться соответствующие страницы.
  */
-void InputPage::setupInputChoice() {
+void InputPage::setupInputChoice()
+{
   inputChoiceGroup = new QButtonGroup(contentColumn);
   radioKeyboard = new QRadioButton("С клавиатуры", contentColumn);
   radioFile = new QRadioButton("С файла", contentColumn);
@@ -102,7 +158,8 @@ void InputPage::setupInputChoice() {
  * Страница содержит многострочное поле ввода текста и кнопку
  * «Анализировать» для запуска обработки введённого текста.
  */
-void InputPage::setupKeyboardPage() {
+void InputPage::setupKeyboardPage()
+{
   pageKeyboard = new QWidget(contentColumn);
   QVBoxLayout *layoutKeyboard = new QVBoxLayout(pageKeyboard);
 
@@ -125,7 +182,8 @@ void InputPage::setupKeyboardPage() {
  * Страница содержит поле для отображения пути к файлу и две кнопки:
  * «Выбрать файл» и «Анализировать» выбранный файл.
  */
-void InputPage::setupFilePage() {
+void InputPage::setupFilePage()
+{
   pageFile = new QWidget(contentColumn);
   QVBoxLayout *layoutFile = new QVBoxLayout(pageFile);
 
@@ -153,37 +211,33 @@ void InputPage::setupFilePage() {
  * Подключает обработчик выбора файла и переключения страниц стека
  * при изменении состояния радиокнопок, а также задаёт начальное состояние.
  */
-void InputPage::setupConnections() {
+void InputPage::setupConnections()
+{
   // По нажатию «Выбрать файл» — диалог выбора, путь пишем в filePathEdit
-  connect(btnSelectFile, &QPushButton::clicked, this, [this]() {
+  connect(btnSelectFile, &QPushButton::clicked, this, [this]()
+          {
     QString path = QFileDialog::getOpenFileName(
         this, "Выберите файл", QDir::homePath(),
         "Текстовые файлы (*.txt);;Все файлы (*.*)");
     if (!path.isEmpty())
-      filePathEdit->setText(path);
-  });
+      filePathEdit->setText(path); });
 
   // Переключение страницы стека при выборе радиокнопки
-  connect(radioKeyboard, &QRadioButton::toggled, this, [this](bool checked) {
+  connect(radioKeyboard, &QRadioButton::toggled, this, [this](bool checked)
+          {
     if (checked)
-      stack->setCurrentIndex(0);
-  });
-  connect(radioFile, &QRadioButton::toggled, this, [this](bool checked) {
+      stack->setCurrentIndex(0); });
+  connect(radioFile, &QRadioButton::toggled, this, [this](bool checked)
+          {
     if (checked)
-      stack->setCurrentIndex(1);
-  });
+      stack->setCurrentIndex(1); });
 
   // Начальное состояние: «С клавиатуры», первая страница стека
   radioKeyboard->setChecked(true);
   stack->setCurrentIndex(0);
 
-  // ========== ДОБАВЛЯЕМ ПОДКЛЮЧЕНИЕ КНОПОК АНАЛИЗА ==========
-  // Сигнал от кнопки на странице "С клавиатуры"
   connect(btnAnalyzeKeyboard, &QPushButton::clicked, this,
-          [this]() { emit analyzeRequested(); });
-
-  // Сигнал от кнопки на странице "С файла"
+          &InputPage::onAnalyzeFromKeyboard);
   connect(btnAnalyzeFile, &QPushButton::clicked, this,
-          [this]() { emit analyzeRequested(); });
-  // ========================================================
+          &InputPage::onAnalyzeFromFile);
 }
