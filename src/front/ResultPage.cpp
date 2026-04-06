@@ -1,7 +1,10 @@
 #include "ResultPage.hpp"
+#include "../back/save_result.hpp"
 #include "lib/TextMarkupWidget.hpp"
 #include <QApplication>
+#include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QSizePolicy>
@@ -174,7 +177,28 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
   fullText = "";
 
+  connect(btnSave, &QPushButton::clicked, this, [this]() {
+    QString path = QFileDialog::getExistingDirectory(
+        this, "Выберите директорию", QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (!path.isEmpty()) {
+      std::string stdPath = path.toStdString();
+
+      // Используем уже готовые m_searchItems
+      saveAnalysis(stdPath, search_items, stats);
+
+      QMessageBox::information(this, "Сохранение",
+                               "Результаты успешно сохранены в:\n" + path);
+      isSaved = true;
+    }
+  });
+
   updateStatsDisplay();
+}
+
+void ResultPage::setSearchItems(const std::vector<SearchItem> &items) {
+  search_items = items;
 }
 
 /**

@@ -36,6 +36,7 @@ set(SOURCES
     src/back/onnx_model.cpp
     src/back/cJSON.c
     src/back/simple_tokenizer.cpp
+    src/back/save_result.cpp
 )
 
 set(HEADERS
@@ -50,6 +51,7 @@ set(HEADERS
     src/back/onnx_model.hpp
     src/back/cJSON.h
     src/back/simple_tokenizer.hpp
+    src/back/save_result.hpp
 )
 
 # Поиск Qt

@@ -16,6 +16,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <vector>
 
 #include "../back/bert_onnx_inference.hpp"
 #include "../back/statistics.hpp"
@@ -111,6 +112,7 @@ private slots:
 
 public:
   void setData(const std::vector<SentenceResult> &results);
+  void setSearchItems(const std::vector<SearchItem> &items);
   std::vector<SentenceResult> makeData();
   void updateStatsDisplay();
   void setGloabalStats(const GlobalStats stats);
@@ -130,6 +132,8 @@ private:
   QVector<QCheckBox *> m_checkBoxes;
 
   GlobalStats stats;
+
+  std::vector<SearchItem> search_items;
 
   /**
    * @brief Структура для хранения частей предложения.
