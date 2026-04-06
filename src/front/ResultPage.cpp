@@ -60,7 +60,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Правая часть: чекбоксы и лейблы с количеством
   rightWidget = new QWidget(centralWidget);
   rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  rightWidget->setFixedWidth(300);
+  rightWidget->setFixedWidth(400);
 
   QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
   rightLayout->setContentsMargins(15, 15, 15, 15);
@@ -70,7 +70,8 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
-  QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
+  QStringList roles = {"подлежащее",  "сказуемое",      "дополнение",
+                       "определение", "обстоятельство", "другое"};
 
   for (int i = 0; i < partNames.size(); ++i) {
     QWidget *rowWidget = new QWidget(rightWidget);
@@ -80,7 +81,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
     QCheckBox *cb = new QCheckBox(partNames[i], rowWidget);
     cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    cb->setFixedWidth(110);
+    cb->setFixedWidth(180);
 
     QString role = roles.at(i);
     // connect(cb, &QCheckBox::stateChanged, this,
@@ -98,7 +99,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
     bars[i] = new QProgressBar(rowWidget);
     bars[i]->setTextVisible(false);
     bars[i]->setRange(0, 1);
-    bars[i]->setFixedWidth(90);
+    bars[i]->setFixedWidth(120);
     bars[i]->setFixedHeight(20);
 
     hLayout->addWidget(cb);
@@ -170,23 +171,6 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
   updateStatsDisplay();
 }
-
-/**
- * @brief Считывает текст из файла во внутреннюю переменную.
- * @param filename Путь к файлу с текстом.
- */
-/*void ResultPage::readTextFromFile(const QString &filename) {
-  QFile file(filename);
-
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    return;
-  }
-
-  QTextStream in(&file);
-  in.setCodec("UTF-8");
-  fullText = in.readAll();
-  file.close();
-}*/
 
 /**
  * @brief Обновляет отображение количества элементов в каждой категории.
@@ -265,7 +249,37 @@ void ResultPage::onAnalyzeClicked() {
 
   if (ret == QMessageBox::Yes) {
     // Пользователь выбрал "Да" — здесь можно вызвать логику анализа
-    QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+    // QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+    m_results.clear();
+    fullText.clear();
+    members.clear();
+
+    // Очищаем структуру частей предложения
+    parts.subject.clear();
+    parts.predicate.clear();
+    parts.object.clear();
+    parts.attribute.clear();
+    parts.adverbial.clear();
+    parts.other.clear();
+
+    // Сбрасываем флаг сохранения
+    isSaved = false;
+
+    // Обновляем отображение (очищаем виджеты)
+    // refreshDisplay();
+
+    // Сбрасываем статистику
+    // stats = GlobalStats();
+    // updateStatsDisplay();
+
+    // Снимаем выделение со всех чекбоксов и разблокируем их
+    foreach (QCheckBox *box, m_checkBoxes) {
+      box->setChecked(false);
+      box->setEnabled(true);
+    }
+
+    emit newAnalysisRequested();
+
   } else {
     // Пользователь выбрал "Нет" или закрыл окно
     QMessageBox::information(this, "Отмена", "Анализ отменён.");
@@ -345,12 +359,12 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
       continue;
     }*/
 
-    for (size_t i = 0; i < sentence.tokens.size(); ++i) {
+    for (size_t i = 0; i < sentence.entities.size(); ++i) {
       const std::string &type = sentence.entities[i].type_ru;
       const std::string &sentence_part = sentence.entities[i].text;
       QString qWord = QString::fromStdString(sentence_part);
 
-      if (type == "подлeжащее") {
+      if (type == "подлежащее") {
         parts.subject.append(qWord);
       } else if (type == "сказуемое") {
         parts.predicate.append(qWord);
@@ -381,15 +395,21 @@ void ResultPage::buildWordRoleMap() {
   }
 
   for (const SentenceResult &sentence : m_results) {
-    // const SentenceResult& sentence = m_results[0]; // Берем первое
-    // предложение
-
-    // Проходим по всем видам членов предложения и словам из структуры данных
     for (size_t i = 0; i < sentence.entities.size(); ++i) {
-      QString word = QString::fromStdString(sentence.entities[i].text);
+      QString fullWord =
+          QString::fromStdString(sentence.entities[i].text).toLower();
       QString role = QString::fromStdString(sentence.entities[i].type_ru);
 
-      members.insert(word, role);
+      // Разбиваем фразу на отдельные слова
+      QStringList words = fullWord.split(' ', Qt::SkipEmptyParts);
+      for (const QString &word : words) {
+        // Очищаем слово от знаков препинания
+        QString cleanWord = word;
+        cleanWord.remove(QRegularExpression("[.,!?;:()\"'-]$"));
+        if (!cleanWord.isEmpty()) {
+          members.insert(cleanWord, role);
+        }
+      }
     }
   }
 
@@ -398,172 +418,15 @@ void ResultPage::buildWordRoleMap() {
   }
 }
 
-std::vector<SentenceResult> ResultPage::makeData() {
-  std::vector<SentenceResult> data;
-
-  SentenceResult result;
-
-  // 1
-  result.text = "На их пути расцветали весенние цветы, зеленела трава.";
-  result.entities = {{"На", "B-OBST", "обстоятельство", 0, 2},
-                     {"их", "B-OBST", "обстоятельство", 3, 5},
-                     {"пути", "B-OBST", "обстоятельство", 6, 10},
-                     {"расцветали", "B-SKAZ", "сказуемое", 11, 21},
-                     {"весенние", "B-OPR", "определение", 22, 30},
-                     {"цветы", "B-PODL", "подлежащее", 31, 36},
-                     {"зеленела", "B-SKAZ", "сказуемое", 38, 46},
-                     {"трава", "B-PODL", "подлежащее", 47, 52}};
-  result.tokens = {"На",       "их",    "пути",     "расцветали",
-                   "весенние", "цветы", "зеленела", "трава"};
-  result.token_labels = {1, 1, 1, 2, 3, 4, 2, 4};
-  data.push_back(result);
-
-  // 2
-  result.text = "Вот раздался колокольный звон.";
-  result.entities = {{"Вот", "B-OBST", "обстоятельство", 0, 3},
-                     {"раздался", "B-SKAZ", "сказуемое", 4, 12},
-                     {"колокольный", "B-OPR", "определение", 13, 24},
-                     {"звон", "B-PODL", "подлежащее", 25, 29}};
-  result.tokens = {"Вот", "раздался", "колокольный", "звон"};
-  result.token_labels = {1, 2, 3, 4};
-  data.push_back(result);
-
-  // 3
-  result.text = "Кай и Герда узнали колокольни родного города.";
-  result.entities = {{"Кай", "B-PODL", "подлежащее", 0, 3},
-                     {"и", "B-DR", "частица", 4, 5},
-                     {"Герда", "B-PODL", "подлежащее", 6, 11},
-                     {"узнали", "B-SKAZ", "сказуемое", 12, 18},
-                     {"колокольни", "B-DOP", "дополнение", 19, 29},
-                     {"родного", "B-OPR", "определение", 30, 37},
-                     {"города", "B-DOP", "дополнение", 38, 44}};
-  result.tokens = {"Кай",        "и",       "Герда", "узнали",
-                   "колокольни", "родного", "города"};
-  result.token_labels = {4, 5, 4, 2, 6, 3, 6};
-  data.push_back(result);
-
-  // 4
-  result.text = "Они поднялись по знакомой лестнице и вошли в комнату.";
-  result.entities = {{"Они", "B-PODL", "подлежащее", 0, 3},
-                     {"поднялись", "B-SKAZ", "сказуемое", 4, 13},
-                     {"по", "B-DR", "частица", 14, 16},
-                     {"знакомой", "B-OPR", "определение", 17, 25},
-                     {"лестнице", "B-OBST", "обстоятельство", 26, 34},
-                     {"и", "B-DR", "частица", 35, 36},
-                     {"вошли", "B-SKAZ", "сказуемое", 37, 42},
-                     {"в", "B-DR", "частица", 43, 44},
-                     {"комнату", "B-OBST", "обстоятельство", 45, 52}};
-  result.tokens = {"Они", "поднялись", "по", "знакомой", "лестнице",
-                   "и",   "вошли",     "в",  "комнату"};
-  result.token_labels = {4, 2, 5, 3, 1, 5, 2, 5, 1};
-  data.push_back(result);
-
-  // 5
-  result.text = "Здесь ничего не изменилось.";
-  result.entities = {{"Здесь", "B-OBST", "обстоятельство", 0, 5},
-                     {"ничего", "B-DOP", "дополнение", 6, 12},
-                     {"не", "B-DR", "частица", 13, 15},
-                     {"изменилось", "B-SKAZ", "сказуемое", 16, 26}};
-  result.tokens = {"Здесь", "ничего", "не", "изменилось"};
-  result.token_labels = {1, 6, 5, 2};
-  data.push_back(result);
-
-  // 6
-  result.text = "Цветущие розовые кусты заглядывали с крыши в открытое окошко.";
-  result.entities = {{"Цветущие", "B-OPR", "определение", 0, 8},
-                     {"розовые", "B-OPR", "определение", 9, 16},
-                     {"кусты", "B-PODL", "подлежащее", 17, 22},
-                     {"заглядывали", "B-SKAZ", "сказуемое", 23, 35},
-                     {"с", "B-DR", "частица", 36, 37},
-                     {"крыши", "B-OBST", "обстоятельство", 38, 43},
-                     {"в", "B-DR", "частица", 44, 45},
-                     {"открытое", "B-OPR", "определение", 46, 54},
-                     {"окошко", "B-DOP", "дополнение", 55, 61}};
-  result.tokens = {"Цветущие", "розовые", "кусты",    "заглядывали", "с",
-                   "крыши",    "в",       "открытое", "окошко"};
-  result.token_labels = {3, 3, 4, 2, 5, 1, 5, 3, 6};
-  data.push_back(result);
-
-  // 7
-  result.text = "Тут же стояли их детские стульчики.";
-  result.entities = {{"Тут", "B-OBST", "обстоятельство", 0, 3},
-                     {"же", "B-OBST", "обстоятельство", 4, 6},
-                     {"стояли", "B-SKAZ", "сказуемое", 7, 13},
-                     {"их", "B-OPR", "определение", 14, 16},
-                     {"детские", "B-OPR", "определение", 17, 24},
-                     {"стульчики", "B-PODL", "подлежащее", 25, 35}};
-  result.tokens = {"Тут", "же", "стояли", "их", "детские", "стульчики"};
-  result.token_labels = {1, 1, 2, 3, 3, 4};
-  data.push_back(result);
-
-  // 8
-  result.text = "Кай с Гердой сели каждый на свой и взялись за руки.";
-  result.entities = {{"Кай", "B-PODL", "подлежащее", 0, 3},
-                     {"с", "B-DR", "частица", 4, 5},
-                     {"Гердой", "B-DOP", "дополнение", 6, 12},
-                     {"сели", "B-SKAZ", "сказуемое", 13, 17},
-                     {"каждый", "B-OPR", "определение", 18, 24},
-                     {"на", "B-DR", "частица", 25, 27},
-                     {"свой", "B-OBST", "обстоятельство", 28, 32},
-                     {"и", "B-DR", "частица", 33, 34},
-                     {"взялись", "B-SKAZ", "сказуемое", 35, 42},
-                     {"за", "B-DR", "частица", 43, 45},
-                     {"руки", "B-DOP", "дополнение", 46, 50}};
-  result.tokens = {"Кай",  "с", "Гердой",  "сели", "каждый", "на",
-                   "свой", "и", "взялись", "за",   "руки"};
-  result.token_labels = {4, 5, 6, 2, 3, 5, 1, 5, 2, 5, 6};
-  data.push_back(result);
-
-  // 9
-  result.text = "Холодное великолепие чертогов Снежной королевы забылось.";
-  result.entities = {{"Холодное", "B-OPR", "определение", 0, 8},
-                     {"великолепие", "B-PODL", "подлежащее", 9, 20},
-                     {"чертогов", "B-DOP", "дополнение", 21, 29},
-                     {"Снежной", "B-OPR", "определение", 30, 37},
-                     {"королевы", "B-OPR", "определение", 38, 46},
-                     {"забылось", "B-SKAZ", "сказуемое", 47, 55}};
-  result.tokens = {"Холодное", "великолепие", "чертогов",
-                   "Снежной",  "королевы",    "забылось"};
-  result.token_labels = {3, 4, 6, 3, 3, 2};
-  data.push_back(result);
-
-  // 10
-  result.text = "Они стали совсем взрослыми, но были детьми сердцем и душой.";
-  result.entities = {{"Они", "B-PODL", "подлежащее", 0, 3},
-                     {"стали", "B-SKAZ", "сказуемое", 4, 9},
-                     {"совсем", "B-OBST", "обстоятельство", 10, 16},
-                     {"взрослыми", "B-OPR", "определение", 17, 26},
-                     {"но", "B-DR", "частица", 27, 29},
-                     {"были", "B-SKAZ", "сказуемое", 30, 34},
-                     {"детьми", "B-DOP", "дополнение", 35, 42},
-                     {"сердцем", "B-OBST", "обстоятельство", 43, 50},
-                     {"и", "B-DR", "частица", 51, 52},
-                     {"душой", "B-OBST", "обстоятельство", 53, 58}};
-  result.tokens = {"Они",  "стали",  "совсем",  "взрослыми", "но",
-                   "были", "детьми", "сердцем", "и",         "душой"};
-  result.token_labels = {4, 2, 1, 3, 5, 2, 6, 1, 5, 1};
-  data.push_back(result);
-
-  // 11
-  result.text = "На дворе стояло тёплое благодатное лето.";
-  result.entities = {{"На", "B-OBST", "обстоятельство", 0, 2},
-                     {"дворе", "B-OBST", "обстоятельство", 3, 8},
-                     {"стояло", "B-SKAZ", "сказуемое", 9, 15},
-                     {"тёплое", "B-OPR", "определение", 16, 22},
-                     {"благодатное", "B-OPR", "определение", 23, 34},
-                     {"лето", "B-DOP", "дополнение", 35, 39}};
-  result.tokens = {"На", "дворе", "стояло", "тёплое", "благодатное", "лето"};
-  result.token_labels = {1, 1, 2, 3, 3, 6};
-  data.push_back(result);
-
-  return data;
+void ResultPage::setGloabalStats(const GlobalStats statistics) {
+  stats = statistics;
 }
 
 /**
  * @brief Обновляет отображение статистики на интерфейсе.
  * @param stats Структура с готовыми данными для отображения.
  */
-void ResultPage::updateStatsDisplay(/*GlobalStats& stats*/) {
+void ResultPage::updateStatsDisplay() {
   // Проверяем, что виджет был создан (чтобы избежать краша при старте)
   if (!statsWidget)
     return;

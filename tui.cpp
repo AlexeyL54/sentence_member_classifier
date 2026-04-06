@@ -3,9 +3,9 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "src/back/bert_onnx_inference.hpp"
-#include "src/back/cJSON.h"
 #include "src/back/onnx_model.hpp"
 #include "src/back/simple_tokenizer.hpp"
 
@@ -17,57 +17,6 @@ struct Config {
   std::string model_path = "model/bert_ner_model.onnx";
   size_t max_len = 128;
 };
-
-// Загрузка меток из config.json
-std::map<int, std::pair<std::string, std::string>>
-load_labels(const std::string &path) {
-  std::map<int, std::pair<std::string, std::string>> labels;
-
-  FILE *file = fopen(path.c_str(), "rb");
-  if (!file)
-    return labels;
-
-  fseek(file, 0, SEEK_END);
-  long size = ftell(file);
-  fseek(file, 0, SEEK_SET);
-
-  std::vector<char> buffer(size + 1);
-  fread(buffer.data(), 1, size, file);
-  fclose(file);
-
-  cJSON *config = cJSON_Parse(buffer.data());
-  if (!config)
-    return labels;
-
-  cJSON *id2label = cJSON_GetObjectItem(config, "id2label");
-  if (id2label && id2label->type == cJSON_Object) {
-    for (cJSON *child = id2label->child; child; child = child->next) {
-      int id = std::stoi(child->string);
-      std::string eng = child->valuestring;
-      std::string rus;
-
-      if (eng == "O")
-        rus = "Не член предложения";
-      else if (eng.find("SUBJECT") != std::string::npos)
-        rus = "Подлежащее";
-      else if (eng.find("PREDICATE") != std::string::npos)
-        rus = "Сказуемое";
-      else if (eng.find("DEFINITION") != std::string::npos)
-        rus = "Определение";
-      else if (eng.find("ADDITION") != std::string::npos)
-        rus = "Дополнение";
-      else if (eng.find("ADVERBIAL") != std::string::npos)
-        rus = "Обстоятельство";
-      else
-        rus = eng;
-
-      labels[id] = {eng, rus};
-    }
-  }
-
-  cJSON_Delete(config);
-  return labels;
-}
 
 int main() {
   try {
@@ -95,10 +44,11 @@ int main() {
         break;
 
       // Анализ
-      auto sentences = inferrer.extract_sentence_parts(line);
+      std::vector<SentenceResult> sentences =
+          inferrer.extract_sentence_parts(line);
 
       // Вывод результатов
-      for (const auto &sent : sentences) {
+      for (const SentenceResult &sent : sentences) {
         std::cout << "\nПредложение: " << sent.text << "\n";
 
         if (sent.entities.empty()) {
@@ -108,7 +58,7 @@ int main() {
 
         // Группировка по типам
         std::map<std::string, std::vector<std::string>> by_type;
-        for (const auto &e : sent.entities) {
+        for (const Entity &e : sent.entities) {
           by_type[e.type_ru].push_back(e.text);
         }
 

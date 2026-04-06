@@ -1,12 +1,16 @@
 // src/back/bert_onnx_inference.cpp
 #include "bert_onnx_inference.hpp"
+#include "cJSON.h"
+#include <iostream>
+#include <ostream>
 
 BertOnnxInference::BertOnnxInference(
-    std::unique_ptr<onnx_infer::BertNerModel> model, SimpleTokenizer &tokenizer,
+    std::unique_ptr<onnx_infer::BertNerModel> model,
+    std::shared_ptr<SimpleTokenizer> tokenizer,
     const std::map<int, std::pair<std::string, std::string>> &labels,
     size_t max_len)
-    : model_(std::move(model)), tokenizer_(tokenizer), labels_(labels),
-      max_len_(max_len) {}
+    : model_(std::move(model)), tokenizer_(std::move(tokenizer)),
+      labels_(labels), max_len_(max_len) {}
 
 std::vector<std::string>
 BertOnnxInference::split_into_sentences(const std::string &text) {
@@ -57,19 +61,23 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
   return sentences;
 }
 
-BertOnnxInference::SentenceResult
+SentenceResult
 BertOnnxInference::process_sentence(const std::string &sentence) {
+  std::cout << "Вызван метод process_sentence" << std::endl;
   SentenceResult result;
   result.text = sentence;
 
   // Токенизация
-  auto encoding = tokenizer_.encode(sentence, max_len_);
+  std::cout << "Вызываем encode" << std::endl;
+  auto encoding = tokenizer_->encode(sentence, max_len_);
 
   if (encoding.input_ids.empty()) {
+    std::cout << "input_ids пуст" << std::endl;
     return result;
   }
 
   // Получаем предсказания модели
+  std::cout << "Получаем предсказание модели" << std::endl;
   auto predictions =
       model_->predict_labels(encoding.input_ids, encoding.attention_mask);
 
@@ -81,10 +89,12 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   result.entities =
       merge_subwords(encoding.tokens, predictions, encoding.offsets, sentence);
 
+  std::cout << "Конец process_sentence" << std::endl;
+
   return result;
 }
 
-std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
+std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
     const std::vector<std::pair<size_t, size_t>> &offsets,
@@ -168,7 +178,7 @@ std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
       entity.text = entity_text;
 
       // Упрощенная уверенность (можно улучшить)
-      entity.confidence = 0.95f;
+      // entity.confidence = 0.95f;
 
       entities.push_back(entity);
     }
@@ -178,18 +188,73 @@ std::vector<BertOnnxInference::Entity> BertOnnxInference::merge_subwords(
   return entities;
 }
 
-std::vector<BertOnnxInference::SentenceResult>
+// Загрузка меток из config.json
+std::map<int, std::pair<std::string, std::string>>
+load_labels(const std::string &path) {
+  std::map<int, std::pair<std::string, std::string>> labels;
+
+  FILE *file = fopen(path.c_str(), "rb");
+  if (!file)
+    return labels;
+
+  fseek(file, 0, SEEK_END);
+  long size = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  std::vector<char> buffer(size + 1);
+  fread(buffer.data(), 1, size, file);
+  fclose(file);
+
+  cJSON *config = cJSON_Parse(buffer.data());
+  if (!config)
+    return labels;
+
+  cJSON *id2label = cJSON_GetObjectItem(config, "id2label");
+  if (id2label && id2label->type == cJSON_Object) {
+    for (cJSON *child = id2label->child; child; child = child->next) {
+      int id = std::stoi(child->string);
+      std::string eng = child->valuestring;
+      std::string rus;
+
+      if (eng == "O")
+        rus = "другое";
+      else if (eng.find("SUBJECT") != std::string::npos)
+        rus = "подлежащее";
+      else if (eng.find("PREDICATE") != std::string::npos)
+        rus = "сказуемое";
+      else if (eng.find("DEFINITION") != std::string::npos)
+        rus = "определение";
+      else if (eng.find("ADDITION") != std::string::npos)
+        rus = "дополнение";
+      else if (eng.find("ADVERBIAL") != std::string::npos)
+        rus = "обстоятельство";
+      else
+        rus = eng;
+
+      labels[id] = {eng, rus};
+    }
+  }
+
+  cJSON_Delete(config);
+  return labels;
+}
+
+std::vector<SentenceResult>
 BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<SentenceResult> results;
 
+  std::cout << "Вызван метод extract_sentence_parts" << std::endl;
   // Разбиваем на предложения
   auto sentences = split_into_sentences(text);
+  std::cout << "Текст разбит на предложения" << std::endl;
 
   for (const auto &sentence : sentences) {
     if (sentence.length() < 3)
       continue; // Пропускаем слишком короткие
 
+    std::cout << "Обрабатываем предложени: " << sentence << std::endl;
     auto result = process_sentence(sentence);
+    std::cout << "Обработали" << std::endl;
     results.push_back(result);
   }
 

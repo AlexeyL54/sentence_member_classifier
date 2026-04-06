@@ -33,6 +33,9 @@ struct SentenceResult {
   std::vector<int> token_labels;   // Метки для каждого токена
 };
 
+std::map<int, std::pair<std::string, std::string>>
+load_labels(const std::string &path);
+
 /**
  * @brief Класс для объединения токенизатора и ONNX модели для NER
  */
@@ -48,7 +51,7 @@ public:
    */
   BertOnnxInference(
       std::unique_ptr<onnx_infer::BertNerModel> model,
-      SimpleTokenizer &tokenizer,
+      std::shared_ptr<SimpleTokenizer> tokenizer,
       const std::map<int, std::pair<std::string, std::string>> &labels,
       size_t max_len = 128);
 
@@ -70,7 +73,7 @@ public:
 
 private:
   std::unique_ptr<onnx_infer::BertNerModel> model_;
-  SimpleTokenizer &tokenizer_;
+  std::shared_ptr<SimpleTokenizer> tokenizer_;
   std::map<int, std::pair<std::string, std::string>> labels_;
   size_t max_len_;
 
