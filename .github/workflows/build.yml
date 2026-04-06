@@ -139,7 +139,8 @@ jobs:
         }
 
         Write-Host "🚀 Running windeployqt..."
-        & $winDeployQt --release --no-compiler-runtime --no-opengl-sw "$appPath"
+        # ДОБАВЛЕН ФЛАГ --no-translations
+        & $winDeployQt --release --no-compiler-runtime --no-opengl-sw --no-translations "$appPath"
         
         if ($LASTEXITCODE -ne 0) {
             Write-Error "❌ windeployqt failed with exit code $LASTEXITCODE"
@@ -165,7 +166,7 @@ jobs:
             Write-Host "✅ ONNX Runtime DLL copied successfully."
         } else {
             Write-Host "❌ ONNX Runtime DLL not found at: $onnxDllSource"
-            Write-Host "Contents of lib folder:"
+            Write-Host "Contents of lib folder: "
             if (Test-Path $onnxLibPath) {
                 Get-ChildItem -Path $onnxLibPath | Select-Object Name
             } else {
