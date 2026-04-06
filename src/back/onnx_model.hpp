@@ -4,7 +4,7 @@
 
 #include <memory>
 #ifdef WIN32
-#include "../../onnxruntime/include/onnxruntime/onnxruntime_cxx_api.h"
+#include "D:/a/sentence_member_classifier/sentence_member_classifier/onnxruntime/include/onnxruntime/onnxruntime_cxx_api.h"
 #else
 #include <onnxruntime/onnxruntime_cxx_api.h>
 #endif
