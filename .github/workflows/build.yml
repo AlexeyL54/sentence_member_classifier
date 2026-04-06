@@ -102,31 +102,44 @@ jobs:
         cmake --install build --config Release
 
     - name: Deploy Qt DLLs (windeployqt)
+      shell: pwsh
       run: |
-        # ... предыдущий код для Qt ...
+        # 1. Запуск windeployqt для Qt
+        $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
+        $appPath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
         
-        # 4. Копируем ONNX Runtime DLL из vcpkg
-        # vcpkg устанавливает DLL в: ${{ env.VCPKG_ROOT }}/installed/x64-windows/bin/
-        $onnxDllSource = "${{ env.VCPKG_ROOT }}/installed/x64-windows/bin/onnxruntime.dll"
+        Write-Host "🚀 Running windeployqt..."
+        & "$qtBinPath/windeployqt.exe" --release --no-compiler-runtime --no-opengl-sw "$appPath"
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ windeployqt failed with exit code $LASTEXITCODE"
+            exit 1
+        }
+        Write-Host "✅ Qt dependencies deployed."
+
+        # 2. Копирование ONNX Runtime DLL
+        # Мы знаем, что ONNXRUNTIME_ROOT установлен в предыдущем шаге
+        $onnxRoot = $env:ONNXRUNTIME_ROOT
+        $onnxLibPath = Join-Path $onnxRoot "lib"
+        $onnxDllSource = Join-Path $onnxLibPath "onnxruntime.dll"
         $onnxDllDest = "${{ github.workspace }}/install/bin/onnxruntime.dll"
 
+        Write-Host "🔍 Looking for ONNX Runtime DLL at: $onnxLibPath"
+        
+        if (Test-Path $onnxLibPath) {
+            Write-Host "📂 Contents of lib folder:"
+            Get-ChildItem -Path $onnxLibPath | Select-Object Name
+        }
+
         if (Test-Path $onnxDllSource) {
-            Copy-Item -Path $onnxDllSource -Destination $onnxDllDest
-            Write-Host "✅ ONNX Runtime DLL скопирован из vcpkg"
+            Copy-Item -Path $onnxDllSource -Destination $onnxDllDest -Force
+            Write-Host "✅ ONNX Runtime DLL copied successfully from manual install."
         } else {
-            # Пробуем альтернативный путь (если используется статическая сборка или другая конфигурация)
-            Write-Warning "⚠️ DLL не найден по основному пути, ищем альтернативы..."
-            $altPath = "${{ env.VCPKG_ROOT }}/installed/x64-windows/debug/bin/onnxruntime.dll"
-            if (Test-Path $altPath) {
-                Copy-Item -Path $altPath -Destination $onnxDllDest
-                Write-Host "✅ ONNX Runtime DLL скопирован из debug-папки"
-            } else {
-                Write-Error "❌ ONNX Runtime DLL не найден ни в одном из путей"
-                exit 1
-            }
+            Write-Error "❌ ONNX Runtime DLL not found at expected path: $onnxDllSource"
+            exit 1
         }
         
-        Write-Host "✅ Деплой успешно завершен!"
+        Write-Host "✅ Deployment completed successfully!"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
