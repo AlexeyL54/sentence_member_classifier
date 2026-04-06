@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)  # Повысим версию для лучшей поддержки Windows
 project(TextAnalyzer VERSION 1.0.0)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -52,7 +54,11 @@ set(HEADERS
 
 # Поиск Qt
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-find_package(onnxruntime REQUIRED)
+if(WIN32)
+    find_package(ONNXRUNTIME REQUIRED)
+else()
+    find_package(onnxruntime REQUIRED)
+endif()
 
 # Создание исполняемого файла
 add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
