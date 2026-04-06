@@ -90,6 +90,8 @@ signals:
    */
   void searchRequested();
 
+  void newewAnalysisRequested();
+
 private slots:
   /**
    * @brief Слот, обрабатывающий нажатие кнопки поиска.
@@ -110,7 +112,8 @@ private slots:
 public:
   void setData(const std::vector<SentenceResult> &results);
   std::vector<SentenceResult> makeData();
-  void updateStatsDisplay(/*GlobalStats& stats*/);
+  void updateStatsDisplay();
+  void setGloabalStats(const GlobalStats stats);
 
 private:
   TextMarkupWidget *widgetText;
@@ -125,6 +128,8 @@ private:
   QPushButton *btnAnalize;
 
   QVector<QCheckBox *> m_checkBoxes;
+
+  GlobalStats stats;
 
   /**
    * @brief Структура для хранения частей предложения.
@@ -160,23 +165,6 @@ private:
   QLabel *top_addition;
   QLabel *top_adverbial;
   QWidget *statsWidget;
-
-  // это здесь временно
-  struct GlobalStats {
-    int sentences_total = 11;
-    int words_total = 81;
-    int members_total = 81;
-    int subjects_total = 11;
-    int predicates_total = 15;
-    int definitions_total = 9;
-    int additions_total = 16;
-    int adverbials_total = 16;
-    std::pair<std::string, int> top_subject{"нет", 0};
-    std::pair<std::string, int> top_predicate{"нет", 0};
-    std::pair<std::string, int> top_definition{"нет", 0};
-    std::pair<std::string, int> top_addition{"нет", 0};
-    std::pair<std::string, int> top_adverbial{"нет", 0};
-  } stats;
 };
 
 #endif // RESULTPAGE_H

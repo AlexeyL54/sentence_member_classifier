@@ -4,9 +4,7 @@
 #include <QStringConverter>
 #include <QTextStream>
 #include <QVBoxLayout>
-#include <iostream>
 #include <memory>
-#include <ostream>
 #include <vector>
 
 #include "../back/bert_onnx_inference.hpp"
@@ -75,39 +73,17 @@ void MainWindow::setupConnections() {
 }
 
 void MainWindow::onAnalyzeRequested(const std::string &text) {
-  std::cout << "[DEBUG] onAnalyzeRequested called" << std::endl;
-
-  if (!inferer) {
-    std::cerr << "[ERROR] inferer is null!" << std::endl;
-    return;
-  }
-
-  std::cout << "[DEBUG] Calling extract_sentence_parts..." << std::endl;
   results = inferer->extract_sentence_parts(text);
-  std::cout << "[DEBUG] Got " << results.size() << " sentences" << std::endl;
 
   std::vector<SearchItem> items = build_search_items(results);
-
-  std::cout << "Search Items:" << std::endl;
-  for (const SearchItem &item : items) {
-    std::cout << item.text << std::endl;
-    std::cout << item.type << std::endl;
-    std::cout << item.amount << std::endl;
-    std::cout << std::endl;
-  }
+  GlobalStats statistics = build_global_stats(results);
 
   searchPage->setSearchItems(items);
+  resultPage->setGloabalStats(statistics);
   resultPage->setData(results);
   resultPage->updateCounts();
   resultPage->updateChart();
-
-  // Вместо этого пока просто выводим результат в консоль
-  for (const auto &sent : results) {
-    std::cout << "Sentence: " << sent.text << std::endl;
-    for (const auto &ent : sent.entities) {
-      std::cout << "  " << ent.type_ru << ": " << ent.text << std::endl;
-    }
-  }
+  resultPage->updateStatsDisplay();
 
   // Переходим на страницу результатов
   stackedWidget->setCurrentWidget(resultPage);
@@ -116,6 +92,10 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
 void MainWindow::onSearchRequested() {
   // Переход на страницу поиска
   stackedWidget->setCurrentWidget(searchPage);
+}
+
+void MainWindow::onNewAnalysisRequested() {
+  stackedWidget->setCurrentWidget(inputPage);
 }
 
 void MainWindow::onBackToResultRequested() {

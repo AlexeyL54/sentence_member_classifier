@@ -60,7 +60,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Правая часть: чекбоксы и лейблы с количеством
   rightWidget = new QWidget(centralWidget);
   rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  rightWidget->setFixedWidth(300);
+  rightWidget->setFixedWidth(400);
 
   QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
   rightLayout->setContentsMargins(15, 15, 15, 15);
@@ -81,7 +81,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
     QCheckBox *cb = new QCheckBox(partNames[i], rowWidget);
     cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    cb->setFixedWidth(110);
+    cb->setFixedWidth(180);
 
     QString role = roles.at(i);
     // connect(cb, &QCheckBox::stateChanged, this,
@@ -99,7 +99,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
     bars[i] = new QProgressBar(rowWidget);
     bars[i]->setTextVisible(false);
     bars[i]->setRange(0, 1);
-    bars[i]->setFixedWidth(90);
+    bars[i]->setFixedWidth(120);
     bars[i]->setFixedHeight(20);
 
     hLayout->addWidget(cb);
@@ -388,11 +388,15 @@ void ResultPage::buildWordRoleMap() {
   }
 }
 
+void ResultPage::setGloabalStats(const GlobalStats statistics) {
+  stats = statistics;
+}
+
 /**
  * @brief Обновляет отображение статистики на интерфейсе.
  * @param stats Структура с готовыми данными для отображения.
  */
-void ResultPage::updateStatsDisplay(/*GlobalStats& stats*/) {
+void ResultPage::updateStatsDisplay() {
   // Проверяем, что виджет был создан (чтобы избежать краша при старте)
   if (!statsWidget)
     return;

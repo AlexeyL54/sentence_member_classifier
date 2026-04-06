@@ -62,15 +62,15 @@ static void pushUniqueIfMissing(std::vector<std::string> &strings,
  */
 static void incrementCategoryTotal(GlobalStats &stats,
                                    const std::string &categoryRu) {
-  if (categoryRu == "Подлежащее") {
+  if (categoryRu == "подлежащее") {
     stats.subjects_total += 1;
-  } else if (categoryRu == "Сказуемое") {
+  } else if (categoryRu == "сказуемое") {
     stats.predicates_total += 1;
-  } else if (categoryRu == "Определение") {
+  } else if (categoryRu == "определение") {
     stats.definitions_total += 1;
-  } else if (categoryRu == "Дополнение") {
+  } else if (categoryRu == "дополнение") {
     stats.additions_total += 1;
-  } else if (categoryRu == "Обстоятельство") {
+  } else if (categoryRu == "обстоятельство") {
     stats.adverbials_total += 1;
   }
 }

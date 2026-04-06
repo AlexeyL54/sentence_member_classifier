@@ -22,6 +22,7 @@ private slots:
   void onAnalyzeRequested(const std::string &text);
   void onSearchRequested();
   void onBackToResultRequested();
+  void onNewAnalysisRequested();
 
 private:
   std::unique_ptr<BertOnnxInference> inferer;
