@@ -28,86 +28,12 @@ jobs:
         dir: ${{ github.workspace }}/Qt
 
     # Скачивание и установка ONNX Runtime
-    - name: Download and Setup ONNX Runtime
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = "Stop"
-        
-        # 1. Настройка переменных (убраны лишние пробелы)
-        $onnxRuntimeVersion = "1.16.0"
-        $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
-        $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
-        $extractBase = "${{ github.workspace }}/onnxruntime_extracted"
-        $finalPath = "${{ github.workspace }}/onnxruntime"
-
-        # 2. Скачивание
-        Write-Host "Downloading ONNX Runtime from $downloadUrl ..."
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
-
-        # 3. Распаковка
-        Write-Host "Extracting to $extractBase ..."
-        New-Item -ItemType Directory -Force -Path $extractBase | Out-Null
-        Expand-Archive -Path $downloadPath -DestinationPath $extractBase -Force
-
-        # 4. Определение правильной папки внутри архива
-        # Стандартный архив содержит одну папку вида onnxruntime-win-x64-1.16.0
-        $innerDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
-        
-        if ($null -eq $innerDir) {
-            # Если папок нет, значит файлы распаковались прямо в extractBase
-            $sourceInclude = Join-Path $extractBase "include"
-        } else {
-            # Иначе берем папку внутри
-            $sourceInclude = Join-Path $innerDir.FullName "include"
-        }
-
-        # Проверка, нашли ли мы вообще папку include
-        if (-not (Test-Path $sourceInclude)) {
-            Write-Host "❌ Error: Could not find 'include' directory in extracted archive."
-            Write-Host "Contents of extractBase:"
-            Get-ChildItem -Path $extractBase -Recurse -Depth 1 | Select-Object FullName
-            throw "Include directory not found in archive"
-        }
-
-        # 5. Перемещение в целевую директорию
-        # Мы хотим, чтобы $finalPath/include/onnxruntime/... существовал
-        Write-Host "Moving to final destination: $finalPath"
-        if (Test-Path $finalPath) {
-            Remove-Item -Path $finalPath -Recurse -Force
-        }
-        New-Item -ItemType Directory -Force -Path $finalPath | Out-Null
-        
-        # Копируем include и lib вручную, чтобы гарантировать структуру
-        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "include") -Destination $finalPath -Recurse -Force
-        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "lib") -Destination $finalPath -Recurse -Force
-        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "bin") -Destination $finalPath -Recurse -Force -ErrorAction SilentlyContinue
-
-        # Очистка временных файлов
-        Remove-Item -Path $downloadPath -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path $extractBase -Recurse -Force -ErrorAction SilentlyContinue
-
-        # 6. Финальная проверка структуры
-        $expectedHeader = Join-Path $finalPath "include/onnxruntime/onnxruntime_cxx_api.h"
-        Write-Host "Checking for header at: $expectedHeader"
-        
-        if (Test-Path $expectedHeader) {
-            Write-Host "✅ Structure is correct."
-        } else {
-            Write-Host "❌ Structure is WRONG. Listing include dir:"
-            if (Test-Path (Join-Path $finalPath "include")) {
-                Get-ChildItem -Path (Join-Path $finalPath "include") -Recurse | Select-Object FullName
-            } else {
-                Write-Host "Include folder missing entirely."
-                Get-ChildItem -Path $finalPath | Select-Object Name
-            }
-            throw "Invalid ONNX Runtime structure"
-        }
-
-        # 7. Запись переменной окружения
-        # Используем Add-Content для надежности
-        $envFile = $env:GITHUB_ENV
-        Write-Host "Writing ONNXRUNTIME_ROOT=$finalPath to GITHUB_ENV"
-        Add-Content -Path $envFile -Value "ONNXRUNTIME_ROOT=$finalPath"
+    - name: Setup vcpkg and install ONNX Runtime
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '2024.02.14'  # Зафиксируем версию для воспроизводимости
+        vcpkgTriplet: 'x64-windows'
+        vcpkgArguments: 'onnxruntime'
 
     - name: Configure CMake
       run: |
@@ -116,9 +42,8 @@ jobs:
           -A x64 `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_PREFIX_PATH="${{ github.workspace }}/Qt/6.5.0/msvc2019_64" `
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
           -DCMAKE_INSTALL_PREFIX=install
-          # Убрали явную передачу onnxruntime_INCLUDE_DIRS и LIB_DIRS
-          # FindONNXRUNTIME.cmake найдет их сам через $ENV{ONNXRUNTIME_ROOT}
 
     - name: Build
       run: |
@@ -130,48 +55,30 @@ jobs:
 
     - name: Deploy Qt DLLs (windeployqt)
       run: |
-        # 1. Добавляем путь к утилитам Qt в PATH
-        $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
-        $env:PATH = "$qtBinPath;$env:PATH"
+        # ... предыдущий код для Qt ...
         
-        # 2. Путь к вашему исполняемому файлу
-        $exePath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
-        
-        Write-Host "🚀 Starting deployment for: $exePath"
-        
-        if (!(Test-Path $exePath)) {
-            Write-Error "❌ Ошибка: Файл $exePath не найден. Проверьте шаг 'Install'."
-            exit 1
-        }
-
-        # 3. Запуск windeployqt
-        # --release: используем релизные версии DLL
-        # --force: перезаписывать существующие файлы
-        # --no-translations: НЕ копировать файлы переводов (.qm), так как интерфейс только на русском
-        # --no-compiler-runtime: не пытаться копировать VC++ редистрибьютив (избегаем ошибок без VCINSTALLDIR)
-        windeployqt --release --force --no-translations --no-compiler-runtime "$exePath"
-        
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ windeployqt завершился с ошибкой (код $LASTEXITCODE)"
-            exit 1
-        }
-
-        # 4. Копируем ONNX Runtime DLL
-        $onnxDllSource = "${{ github.workspace }}/onnxruntime/bin/onnxruntime.dll"
+        # 4. Копируем ONNX Runtime DLL из vcpkg
+        # vcpkg устанавливает DLL в: ${{ env.VCPKG_ROOT }}/installed/x64-windows/bin/
+        $onnxDllSource = "${{ env.VCPKG_ROOT }}/installed/x64-windows/bin/onnxruntime.dll"
         $onnxDllDest = "${{ github.workspace }}/install/bin/onnxruntime.dll"
 
         if (Test-Path $onnxDllSource) {
             Copy-Item -Path $onnxDllSource -Destination $onnxDllDest
-            Write-Host "✅ ONNX Runtime DLL скопирован в install/bin"
+            Write-Host "✅ ONNX Runtime DLL скопирован из vcpkg"
         } else {
-            Write-Warning "⚠️ ONNX Runtime DLL не найден по пути $onnxDllSource"
+            # Пробуем альтернативный путь (если используется статическая сборка или другая конфигурация)
+            Write-Warning "⚠️ DLL не найден по основному пути, ищем альтернативы..."
+            $altPath = "${{ env.VCPKG_ROOT }}/installed/x64-windows/debug/bin/onnxruntime.dll"
+            if (Test-Path $altPath) {
+                Copy-Item -Path $altPath -Destination $onnxDllDest
+                Write-Host "✅ ONNX Runtime DLL скопирован из debug-папки"
+            } else {
+                Write-Error "❌ ONNX Runtime DLL не найден ни в одном из путей"
+                exit 1
+            }
         }
         
         Write-Host "✅ Деплой успешно завершен!"
-        Write-Host "📦 Размер папки install/bin:"
-        Get-ChildItem "${{ github.workspace }}/install/bin" -Recurse | Measure-Object -Property Length -Sum | ForEach-Object { "{0:N2} MB" -f ($_.Sum / 1MB) }
-
-      working-directory: ${{ github.workspace }}
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

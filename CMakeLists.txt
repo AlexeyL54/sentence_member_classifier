@@ -55,7 +55,11 @@ set(HEADERS
 # Поиск Qt
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 if(WIN32)
-    find_package(ONNXRUNTIME REQUIRED)
+    # Поиск ONNX Runtime (работает и с vcpkg, и с ручной установкой)
+    find_package(onnxruntime CONFIG QUIET)  # Сначала пробуем config-mode (vcpkg)
+    if(NOT onnxruntime_FOUND)
+        find_package(ONNXRUNTIME REQUIRED)  # Fallback на наш Find-скрипт
+    endif()
 else()
     find_package(onnxruntime REQUIRED)
 endif()
