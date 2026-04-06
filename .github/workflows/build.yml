@@ -34,40 +34,40 @@ jobs:
         $onnxRuntimeVersion = "1.16.0"
         $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
         $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
-        $extractBase = "${{ github.workspace }}/onnxruntime_base"
+        $extractBase = "${{ github.workspace }}/onnxruntime_tmp"
         $finalPath = "${{ github.workspace }}/onnxruntime"
 
-        Write-Host "Downloading..."
+        Write-Host "Downloading ONNX Runtime..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
 
         Write-Host "Extracting..."
         Expand-Archive -Path $downloadPath -DestinationPath $extractBase -Force
 
-        # Внутри архива обычно лежит папка onnxruntime-win-x64-1.16.0
-        # Мы переименуем её в onnxruntime
+        # Находим извлеченную папку (обычно onnxruntime-win-x64-1.16.0)
         $extractedDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
         
         if ($extractedDir) {
-            # Перемещаем всю папку целиком, сохраняя внутреннюю структуру (include/onnxruntime/...)
+            # Переименовываем/Перемещаем её в целевую папку, сохраняя внутреннюю структуру
             Move-Item -Path $extractedDir.FullName -Destination $finalPath -Force
         } else {
-            # Если вдруг архив без корневой папки (маловероятно)
+            # Fallback, если архив без корневой папки
             New-Item -ItemType Directory -Force -Path $finalPath
             Move-Item -Path "$extractBase/*" -Destination $finalPath -Force
         }
 
+        # Очистка
         Remove-Item -Path $downloadPath -Force
         Remove-Item -Path $extractBase -Recurse -Force
 
         Write-Host "✅ ONNX Runtime installed to: $finalPath"
         
-        # Проверка структуры
-        Write-Host "Checking structure:"
+        # Проверка правильной структуры
         if (Test-Path "$finalPath/include/onnxruntime/onnxruntime_cxx_api.h") {
-            Write-Host "✅ Correct structure found: include/onnxruntime/onnxruntime_cxx_api.h"
+            Write-Host "✅ Structure is correct: include/onnxruntime/onnxruntime_cxx_api.h exists"
         } else {
-            Write-Host "❌ Structure incorrect. Listing include:"
+            Write-Host "❌ Structure is WRONG. Listing include dir:"
             Get-ChildItem -Path "$finalPath/include" -Recurse | Select-Object FullName
+            throw "Invalid ONNX Runtime structure"
         }
 
         echo "ONNXRUNTIME_ROOT=$finalPath" >> $env:GITHUB_ENV
