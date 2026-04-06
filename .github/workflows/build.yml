@@ -27,10 +27,12 @@ jobs:
         install-deps: 'true'
         dir: ${{ github.workspace }}/Qt
 
-    # Скачивание и установка ONNX Runtime
+  # Скачивание и установка ONNX Runtime
+  # Скачивание и установка ONNX Runtime
     - name: Download and Setup ONNX Runtime
       shell: pwsh
       run: |
+        # Убираем пробелы в версиях и URL
         $onnxRuntimeVersion = "1.16.0"
         $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
         $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
@@ -43,11 +45,11 @@ jobs:
         Write-Host "Extracting..."
         Expand-Archive -Path $downloadPath -DestinationPath $extractBase -Force
 
-        # Находим извлеченную папку (обычно onnxruntime-win-x64-1.16.0)
+        # Находим извлеченную папку
         $extractedDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
         
         if ($extractedDir) {
-            # Переименовываем/Перемещаем её в целевую папку, сохраняя внутреннюю структуру
+            # Перемещаем содержимое в целевую папку
             Move-Item -Path $extractedDir.FullName -Destination $finalPath -Force
         } else {
             # Fallback, если архив без корневой папки
@@ -55,22 +57,61 @@ jobs:
             Move-Item -Path "$extractBase/*" -Destination $finalPath -Force
         }
 
-        # Очистка
-        Remove-Item -Path $downloadPath -Force
-        Remove-Item -Path $extractBase -Recurse -Force
+        # Очистка временных файлов
+        Remove-Item -Path $downloadPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $extractBase -Recurse -Force -ErrorAction SilentlyContinue
 
         Write-Host "✅ ONNX Runtime installed to: $finalPath"
         
-        # Проверка правильной структуры
-        if (Test-Path "$finalPath/include/onnxruntime/onnxruntime_cxx_api.h") {
+        # Проверка структуры
+        $includePath = Join-Path $finalPath "include"
+        $headerPath = Join-Path $includePath "onnxruntime/onnxruntime_cxx_api.h"
+        
+        Write-Host "Checking for header at: $headerPath"
+        
+        if (Test-Path $headerPath) {
             Write-Host "✅ Structure is correct: include/onnxruntime/onnxruntime_cxx_api.h exists"
         } else {
             Write-Host "❌ Structure is WRONG. Listing include dir:"
-            Get-ChildItem -Path "$finalPath/include" -Recurse | Select-Object FullName
+            if (Test-Path $includePath) {
+                Get-ChildItem -Path $includePath -Recurse | Select-Object FullName
+            } else {
+                Write-Host "Include directory not found at $includePath"
+                Get-ChildItem -Path $finalPath -Depth 1 | Select-Object Name
+            }
             throw "Invalid ONNX Runtime structure"
         }
 
-        echo "ONNXRUNTIME_ROOT=$finalPath" >> $env:GITHUB_ENV
+        # Правильная запись переменной окружения для GitHub Actions
+        # Используем Add-Content или прямой вызов .NET для избежания проблем с кодировкой и пробелами
+        $envFile = $env:GITHUB_ENV
+        Write-Host "Writing ONNXRUNTIME_ROOT to $envFile"
+        Add-Content -Path $envFile -Value "ONNXRUNTIME_ROOT=$finalPath"
+        
+        # Для отладки выведем содержимое файла env
+        Get-Content $envFile
+
+    - name: Debug ONNX Structure
+      shell: pwsh
+      run: |
+        Write-Host "=== Checking ONNX Runtime Structure ==="
+        $root = $env:ONNXRUNTIME_ROOT
+        Write-Host "Root: $root"
+        
+        if (Test-Path "$root/include/onnxruntime/onnxruntime_cxx_api.h") {
+            Write-Host "✅ Header found: $root/include/onnxruntime/onnxruntime_cxx_api.h"
+        } else {
+            Write-Host "❌ Header NOT found at expected path!"
+            Write-Host "Listing include directory:"
+            Get-ChildItem -Path "$root/include" -Recurse | Select-Object FullName
+        }
+
+        if (Test-Path "$root/lib/onnxruntime.lib") {
+            Write-Host "✅ Lib found: $root/lib/onnxruntime.lib"
+        } else {
+            Write-Host "❌ Lib NOT found!"
+            Get-ChildItem -Path "$root/lib" | Select-Object Name
+        }
 
     - name: Configure CMake
       run: |
