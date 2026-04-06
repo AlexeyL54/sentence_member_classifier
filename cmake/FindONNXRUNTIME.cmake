@@ -2,7 +2,7 @@
 
 if(NOT DEFINED onnxruntime_INCLUDE_DIRS)
     find_path(onnxruntime_INCLUDE_DIRS
-        NAMES onnxruntime/onnxruntime_cxx_api.h # Ищем вложенную папку
+        NAMES onnxruntime/onnxruntime_cxx_api.h # Ищем файл внутри подпапки onnxruntime
         PATHS
             $ENV{ONNXRUNTIME_ROOT}
             ${CMAKE_PREFIX_PATH}
