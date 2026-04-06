@@ -2,7 +2,7 @@
 
 if(NOT DEFINED onnxruntime_INCLUDE_DIRS)
     find_path(onnxruntime_INCLUDE_DIRS
-        NAMES onnxruntime/onnxruntime_cxx_api.h # Ищем файл внутри подпапки onnxruntime
+        NAMES onnxruntime_cxx_api.h  # Ищем файл прямо в include
         PATHS
             $ENV{ONNXRUNTIME_ROOT}
             ${CMAKE_PREFIX_PATH}
@@ -29,6 +29,7 @@ if(ONNXRUNTIME_FOUND)
     if(NOT TARGET onnxruntime)
         add_library(onnxruntime INTERFACE IMPORTED)
         
+        # Добавляем include директорию как есть (без подпапки onnxruntime)
         target_include_directories(onnxruntime INTERFACE
             ${onnxruntime_INCLUDE_DIRS}
         )
