@@ -104,12 +104,42 @@ jobs:
     - name: Deploy Qt DLLs (windeployqt)
       shell: pwsh
       run: |
-        # 1. Запуск windeployqt для Qt
-        $qtBinPath = "${{ github.workspace }}/Qt/6.5.0/msvc2019_64/bin"
-        $appPath = "${{ github.workspace }}/install/bin/TextAnalyzer.exe"
+        # 1. Находим windeployqt.exe
+        # Action install-qt-action обычно добавляет Qt bin в PATH. Попробуем найти его там.
+        $winDeployQt = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
         
+        if (-not $winDeployQt) {
+            # Если не в PATH, пробуем стандартный путь установки действия
+            $qtRoot = "C:\Qt\6.5.0\msvc2019_64"
+            $winDeployQtPath = Join-Path $qtRoot "bin\windeployqt.exe"
+            
+            if (Test-Path $winDeployQtPath) {
+                $winDeployQt = $winDeployQtPath
+            } else {
+                # Попытка найти в папке workspace, если action вел себя нестандартно
+                $wsQtPath = "${{ github.workspace }}\Qt\6.5.0\msvc2019_64\bin\windeployqt.exe"
+                if (Test-Path $wsQtPath) {
+                    $winDeployQt = $wsQtPath
+                } else {
+                    Write-Error "❌ windeployqt.exe not found in PATH or standard locations."
+                    exit 1
+                }
+            }
+        } else {
+            $winDeployQt = $winDeployQt.Source
+        }
+
+        Write-Host "🛠 Using windeployqt from: $winDeployQt"
+
+        $appPath = "${{ github.workspace }}\install\bin\TextAnalyzer.exe"
+        
+        if (-not (Test-Path $appPath)) {
+            Write-Error "❌ Application executable not found at: $appPath"
+            exit 1
+        }
+
         Write-Host "🚀 Running windeployqt..."
-        & "$qtBinPath/windeployqt.exe" --release --no-compiler-runtime --no-opengl-sw "$appPath"
+        & $winDeployQt --release --no-compiler-runtime --no-opengl-sw "$appPath"
         
         if ($LASTEXITCODE -ne 0) {
             Write-Error "❌ windeployqt failed with exit code $LASTEXITCODE"
@@ -118,24 +148,29 @@ jobs:
         Write-Host "✅ Qt dependencies deployed."
 
         # 2. Копирование ONNX Runtime DLL
-        # Мы знаем, что ONNXRUNTIME_ROOT установлен в предыдущем шаге
         $onnxRoot = $env:ONNXRUNTIME_ROOT
-        $onnxLibPath = Join-Path $onnxRoot "lib"
-        $onnxDllSource = Join-Path $onnxLibPath "onnxruntime.dll"
-        $onnxDllDest = "${{ github.workspace }}/install/bin/onnxruntime.dll"
-
-        Write-Host "🔍 Looking for ONNX Runtime DLL at: $onnxLibPath"
-        
-        if (Test-Path $onnxLibPath) {
-            Write-Host "📂 Contents of lib folder:"
-            Get-ChildItem -Path $onnxLibPath | Select-Object Name
+        if (-not $onnxRoot) {
+            Write-Error "❌ Environment variable ONNXRUNTIME_ROOT is not set."
+            exit 1
         }
 
+        $onnxLibPath = Join-Path $onnxRoot "lib"
+        $onnxDllSource = Join-Path $onnxLibPath "onnxruntime.dll"
+        $onnxDllDest = "${{ github.workspace }}\install\bin\onnxruntime.dll"
+
+        Write-Host "🔍 Looking for ONNX Runtime DLL at: $onnxDllSource"
+        
         if (Test-Path $onnxDllSource) {
             Copy-Item -Path $onnxDllSource -Destination $onnxDllDest -Force
-            Write-Host "✅ ONNX Runtime DLL copied successfully from manual install."
+            Write-Host "✅ ONNX Runtime DLL copied successfully."
         } else {
-            Write-Error "❌ ONNX Runtime DLL not found at expected path: $onnxDllSource"
+            Write-Host "❌ ONNX Runtime DLL not found at: $onnxDllSource"
+            Write-Host "Contents of lib folder:"
+            if (Test-Path $onnxLibPath) {
+                Get-ChildItem -Path $onnxLibPath | Select-Object Name
+            } else {
+                Write-Host "Lib folder does not exist: $onnxLibPath"
+            }
             exit 1
         }
         
