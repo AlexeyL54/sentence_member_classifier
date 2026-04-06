@@ -72,28 +72,6 @@ jobs:
 
         echo "ONNXRUNTIME_ROOT=$finalPath" >> $env:GITHUB_ENV
 
-    - name: Debug ONNX Structure
-      shell: pwsh
-      run: |
-        Write-Host "=== Checking ONNX Runtime Structure ==="
-        $root = $env:ONNXRUNTIME_ROOT
-        Write-Host "Root: $root"
-        
-        if (Test-Path "$root/include/onnxruntime/onnxruntime_cxx_api.h") {
-            Write-Host "✅ Header found: $root/include/onnxruntime/onnxruntime_cxx_api.h"
-        } else {
-            Write-Host "❌ Header NOT found at expected path!"
-            Write-Host "Listing include directory:"
-            Get-ChildItem -Path "$root/include" -Recurse | Select-Object FullName
-        }
-
-        if (Test-Path "$root/lib/onnxruntime.lib") {
-            Write-Host "✅ Lib found: $root/lib/onnxruntime.lib"
-        } else {
-            Write-Host "❌ Lib NOT found!"
-            Get-ChildItem -Path "$root/lib" | Select-Object Name
-        }
-
     - name: Configure CMake
       run: |
         cmake -B build `
