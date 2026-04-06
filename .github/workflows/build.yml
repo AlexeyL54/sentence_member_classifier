@@ -27,91 +27,87 @@ jobs:
         install-deps: 'true'
         dir: ${{ github.workspace }}/Qt
 
-  # Скачивание и установка ONNX Runtime
-  # Скачивание и установка ONNX Runtime
+    # Скачивание и установка ONNX Runtime
     - name: Download and Setup ONNX Runtime
       shell: pwsh
       run: |
-        # Убираем пробелы в версиях и URL
+        $ErrorActionPreference = "Stop"
+        
+        # 1. Настройка переменных (убраны лишние пробелы)
         $onnxRuntimeVersion = "1.16.0"
         $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
         $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
-        $extractBase = "${{ github.workspace }}/onnxruntime_tmp"
+        $extractBase = "${{ github.workspace }}/onnxruntime_extracted"
         $finalPath = "${{ github.workspace }}/onnxruntime"
 
-        Write-Host "Downloading ONNX Runtime..."
+        # 2. Скачивание
+        Write-Host "Downloading ONNX Runtime from $downloadUrl ..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
 
-        Write-Host "Extracting..."
+        # 3. Распаковка
+        Write-Host "Extracting to $extractBase ..."
+        New-Item -ItemType Directory -Force -Path $extractBase | Out-Null
         Expand-Archive -Path $downloadPath -DestinationPath $extractBase -Force
 
-        # Находим извлеченную папку
-        $extractedDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
+        # 4. Определение правильной папки внутри архива
+        # Стандартный архив содержит одну папку вида onnxruntime-win-x64-1.16.0
+        $innerDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
         
-        if ($extractedDir) {
-            # Перемещаем содержимое в целевую папку
-            Move-Item -Path $extractedDir.FullName -Destination $finalPath -Force
+        if ($null -eq $innerDir) {
+            # Если папок нет, значит файлы распаковались прямо в extractBase
+            $sourceInclude = Join-Path $extractBase "include"
         } else {
-            # Fallback, если архив без корневой папки
-            New-Item -ItemType Directory -Force -Path $finalPath
-            Move-Item -Path "$extractBase/*" -Destination $finalPath -Force
+            # Иначе берем папку внутри
+            $sourceInclude = Join-Path $innerDir.FullName "include"
         }
+
+        # Проверка, нашли ли мы вообще папку include
+        if (-not (Test-Path $sourceInclude)) {
+            Write-Host "❌ Error: Could not find 'include' directory in extracted archive."
+            Write-Host "Contents of extractBase:"
+            Get-ChildItem -Path $extractBase -Recurse -Depth 1 | Select-Object FullName
+            throw "Include directory not found in archive"
+        }
+
+        # 5. Перемещение в целевую директорию
+        # Мы хотим, чтобы $finalPath/include/onnxruntime/... существовал
+        Write-Host "Moving to final destination: $finalPath"
+        if (Test-Path $finalPath) {
+            Remove-Item -Path $finalPath -Recurse -Force
+        }
+        New-Item -ItemType Directory -Force -Path $finalPath | Out-Null
+        
+        # Копируем include и lib вручную, чтобы гарантировать структуру
+        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "include") -Destination $finalPath -Recurse -Force
+        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "lib") -Destination $finalPath -Recurse -Force
+        Copy-Item -Path (Join-Path (Split-Path $sourceInclude -Parent) "bin") -Destination $finalPath -Recurse -Force -ErrorAction SilentlyContinue
 
         # Очистка временных файлов
         Remove-Item -Path $downloadPath -Force -ErrorAction SilentlyContinue
         Remove-Item -Path $extractBase -Recurse -Force -ErrorAction SilentlyContinue
 
-        Write-Host "✅ ONNX Runtime installed to: $finalPath"
+        # 6. Финальная проверка структуры
+        $expectedHeader = Join-Path $finalPath "include/onnxruntime/onnxruntime_cxx_api.h"
+        Write-Host "Checking for header at: $expectedHeader"
         
-        # Проверка структуры
-        $includePath = Join-Path $finalPath "include"
-        $headerPath = Join-Path $includePath "onnxruntime/onnxruntime_cxx_api.h"
-        
-        Write-Host "Checking for header at: $headerPath"
-        
-        if (Test-Path $headerPath) {
-            Write-Host "✅ Structure is correct: include/onnxruntime/onnxruntime_cxx_api.h exists"
+        if (Test-Path $expectedHeader) {
+            Write-Host "✅ Structure is correct."
         } else {
             Write-Host "❌ Structure is WRONG. Listing include dir:"
-            if (Test-Path $includePath) {
-                Get-ChildItem -Path $includePath -Recurse | Select-Object FullName
+            if (Test-Path (Join-Path $finalPath "include")) {
+                Get-ChildItem -Path (Join-Path $finalPath "include") -Recurse | Select-Object FullName
             } else {
-                Write-Host "Include directory not found at $includePath"
-                Get-ChildItem -Path $finalPath -Depth 1 | Select-Object Name
+                Write-Host "Include folder missing entirely."
+                Get-ChildItem -Path $finalPath | Select-Object Name
             }
             throw "Invalid ONNX Runtime structure"
         }
 
-        # Правильная запись переменной окружения для GitHub Actions
-        # Используем Add-Content или прямой вызов .NET для избежания проблем с кодировкой и пробелами
+        # 7. Запись переменной окружения
+        # Используем Add-Content для надежности
         $envFile = $env:GITHUB_ENV
-        Write-Host "Writing ONNXRUNTIME_ROOT to $envFile"
+        Write-Host "Writing ONNXRUNTIME_ROOT=$finalPath to GITHUB_ENV"
         Add-Content -Path $envFile -Value "ONNXRUNTIME_ROOT=$finalPath"
-        
-        # Для отладки выведем содержимое файла env
-        Get-Content $envFile
-
-    - name: Debug ONNX Structure
-      shell: pwsh
-      run: |
-        Write-Host "=== Checking ONNX Runtime Structure ==="
-        $root = $env:ONNXRUNTIME_ROOT
-        Write-Host "Root: $root"
-        
-        if (Test-Path "$root/include/onnxruntime/onnxruntime_cxx_api.h") {
-            Write-Host "✅ Header found: $root/include/onnxruntime/onnxruntime_cxx_api.h"
-        } else {
-            Write-Host "❌ Header NOT found at expected path!"
-            Write-Host "Listing include directory:"
-            Get-ChildItem -Path "$root/include" -Recurse | Select-Object FullName
-        }
-
-        if (Test-Path "$root/lib/onnxruntime.lib") {
-            Write-Host "✅ Lib found: $root/lib/onnxruntime.lib"
-        } else {
-            Write-Host "❌ Lib NOT found!"
-            Get-ChildItem -Path "$root/lib" | Select-Object Name
-        }
 
     - name: Configure CMake
       run: |
