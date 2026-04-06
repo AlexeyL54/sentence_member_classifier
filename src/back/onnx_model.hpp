@@ -3,7 +3,11 @@
 #define ONNX_MODEL_H
 
 #include <memory>
+#ifdef WIN32
+#include "../../onnxruntime/include/onnxruntime/onnxruntime_cxx_api.h"
+#else
 #include <onnxruntime/onnxruntime_cxx_api.h>
+#endif
 #include <string>
 #include <vector>
 

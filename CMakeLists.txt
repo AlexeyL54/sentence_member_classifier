@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)  # Повысим версию для лучшей поддержки Windows
 project(TextAnalyzer VERSION 1.0.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -11,7 +11,10 @@ set(CMAKE_AUTOUIC ON)
 
 # Опции сборки
 if(MSVC)
+    # Для MSVC добавляем флаги для консольного/оконного приложения
     add_compile_options(/W3 /MP)
+    
+    # Устанавливаем уровень предупреждений
     if(CMAKE_BUILD_TYPE MATCHES "Release")
         add_compile_options(/O2 /MT)
     else()
@@ -51,52 +54,42 @@ set(HEADERS
 
 # Поиск Qt
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-
-# СНАЧАЛА создаем исполняемый файл
-add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
-
-# ПОТОМ добавляем include директории и линковку
 if(WIN32)
-    # Указываем путь к ONNX Runtime
-    if(EXISTS "${CMAKE_SOURCE_DIR}/onnxruntime/include")
-        set(ONNXRUNTIME_ROOT "${CMAKE_SOURCE_DIR}/onnxruntime")
-        message(STATUS "Found ONNX Runtime at: ${ONNXRUNTIME_ROOT}")
-    elseif(EXISTS "C:/onnxruntime")
-        set(ONNXRUNTIME_ROOT "C:/onnxruntime")
-        message(STATUS "Found ONNX Runtime at: ${ONNXRUNTIME_ROOT}")
-    else()
-        message(FATAL_ERROR "ONNX Runtime not found! Please place onnxruntime folder in project root or set ONNXRUNTIME_ROOT")
-    endif()
-    
-    # Добавляем include директорию для компилятора
-    target_include_directories(TextAnalyzer PRIVATE 
-        "${ONNXRUNTIME_ROOT}/include"
-    )
-    
-    # Добавляем библиотеку для линковки
-    target_link_libraries(TextAnalyzer 
-        Qt6::Core 
-        Qt6::Widgets
-        "${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib"
-    )
-    
-    # Копируем DLL после сборки
-    if(EXISTS "${ONNXRUNTIME_ROOT}/bin/onnxruntime.dll")
-        add_custom_command(TARGET TextAnalyzer POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${ONNXRUNTIME_ROOT}/bin/onnxruntime.dll"
-                $<TARGET_FILE_DIR:TextAnalyzer>
-            COMMENT "Copying onnxruntime.dll to output directory"
-        )
-    endif()
+    find_package(ONNXRUNTIME REQUIRED)
 else()
-    # Linux/macOS
     find_package(onnxruntime REQUIRED)
-    target_link_libraries(TextAnalyzer 
-        Qt6::Core 
-        Qt6::Widgets
-        onnxruntime
-    )
+endif()
+
+# Создание исполняемого файла
+add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
+# WIN32 означает, что это GUI-приложение (не консольное)
+
+# Подключение Qt библиотек
+target_link_libraries(TextAnalyzer 
+    Qt6::Core 
+    Qt6::Widgets
+    onnxruntime
+)
+
+# if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
+#     set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
+#     file(WRITE ${RESOURCE_FILE}
+#     "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/resources/app.ico\"
+#     ")
+#     target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
+# endif()
+# ----------------------------------
+
+# Установка правил для сборки
+install(TARGETS TextAnalyzer
+    RUNTIME DESTINATION bin
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION lib
+)
+
+# Опционально: копирование ресурсов
+if(EXISTS "${CMAKE_SOURCE_DIR}/resources/")
+    install(DIRECTORY resources/ DESTINATION resources)
 endif()
 
 # Вывод информации о сборке
@@ -105,5 +98,4 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Qt version: ${Qt6_VERSION}")
 if(MSVC)
     message(STATUS "Compiler: MSVC ${MSVC_VERSION}")
-    target_compile_definitions(TextAnalyzer PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
