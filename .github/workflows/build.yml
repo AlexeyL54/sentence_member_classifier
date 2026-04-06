@@ -60,6 +60,28 @@ jobs:
         # Сохраняем путь для использования в CMake
         echo "ONNXRUNTIME_ROOT=$extractPath" >> $env:GITHUB_ENV
 
+    - name: Debug ONNX Structure
+      shell: pwsh
+      run: |
+        Write-Host "=== Checking ONNX Runtime Structure ==="
+        $root = $env:ONNXRUNTIME_ROOT
+        Write-Host "Root: $root"
+        
+        if (Test-Path "$root/include/onnxruntime/onnxruntime_cxx_api.h") {
+            Write-Host "✅ Header found: $root/include/onnxruntime/onnxruntime_cxx_api.h"
+        } else {
+            Write-Host "❌ Header NOT found at expected path!"
+            Write-Host "Listing include directory:"
+            Get-ChildItem -Path "$root/include" -Recurse | Select-Object FullName
+        }
+
+        if (Test-Path "$root/lib/onnxruntime.lib") {
+            Write-Host "✅ Lib found: $root/lib/onnxruntime.lib"
+        } else {
+            Write-Host "❌ Lib NOT found!"
+            Get-ChildItem -Path "$root/lib" | Select-Object Name
+        }
+
     - name: Configure CMake
       run: |
         cmake -B build `
@@ -67,9 +89,9 @@ jobs:
           -A x64 `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_PREFIX_PATH="${{ github.workspace }}/Qt/6.5.0/msvc2019_64" `
-          -Donnxruntime_INCLUDE_DIRS="${{ github.workspace }}/onnxruntime/include" `
-          -Donnxruntime_LIB_DIRS="${{ github.workspace }}/onnxruntime/lib" `
           -DCMAKE_INSTALL_PREFIX=install
+          # Убрали явную передачу onnxruntime_INCLUDE_DIRS и LIB_DIRS
+          # FindONNXRUNTIME.cmake найдет их сам через $ENV{ONNXRUNTIME_ROOT}
 
     - name: Build
       run: |
