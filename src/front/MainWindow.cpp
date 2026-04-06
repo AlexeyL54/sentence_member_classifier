@@ -67,6 +67,9 @@ void MainWindow::setupConnections() {
   connect(resultPage, &ResultPage::searchRequested, this,
           &MainWindow::onSearchRequested);
 
+  connect(resultPage, &ResultPage::newAnalysisRequested, this,
+          &MainWindow::onNewAnalysisRequested);
+
   // Связываем сигналы SearchPage
   connect(searchPage, &SearchPage::backRequested, this,
           &MainWindow::onBackToResultRequested);
@@ -95,6 +98,7 @@ void MainWindow::onSearchRequested() {
 }
 
 void MainWindow::onNewAnalysisRequested() {
+  results.clear();
   stackedWidget->setCurrentWidget(inputPage);
 }
 

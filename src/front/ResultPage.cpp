@@ -249,7 +249,37 @@ void ResultPage::onAnalyzeClicked() {
 
   if (ret == QMessageBox::Yes) {
     // Пользователь выбрал "Да" — здесь можно вызвать логику анализа
-    QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+    // QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+    m_results.clear();
+    fullText.clear();
+    members.clear();
+
+    // Очищаем структуру частей предложения
+    parts.subject.clear();
+    parts.predicate.clear();
+    parts.object.clear();
+    parts.attribute.clear();
+    parts.adverbial.clear();
+    parts.other.clear();
+
+    // Сбрасываем флаг сохранения
+    isSaved = false;
+
+    // Обновляем отображение (очищаем виджеты)
+    // refreshDisplay();
+
+    // Сбрасываем статистику
+    // stats = GlobalStats();
+    // updateStatsDisplay();
+
+    // Снимаем выделение со всех чекбоксов и разблокируем их
+    foreach (QCheckBox *box, m_checkBoxes) {
+      box->setChecked(false);
+      box->setEnabled(true);
+    }
+
+    emit newAnalysisRequested();
+
   } else {
     // Пользователь выбрал "Нет" или закрыл окно
     QMessageBox::information(this, "Отмена", "Анализ отменён.");

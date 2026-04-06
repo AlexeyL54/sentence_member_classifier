@@ -90,7 +90,7 @@ signals:
    */
   void searchRequested();
 
-  void newewAnalysisRequested();
+  void newAnalysisRequested();
 
 private slots:
   /**
