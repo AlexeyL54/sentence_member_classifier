@@ -82,6 +82,7 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
   GlobalStats statistics = build_global_stats(results);
 
   searchPage->setSearchItems(items);
+  resultPage->setSearchItems(items);
   resultPage->setGloabalStats(statistics);
   resultPage->setData(results);
   resultPage->updateCounts();

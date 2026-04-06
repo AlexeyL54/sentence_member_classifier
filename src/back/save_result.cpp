@@ -1,20 +1,20 @@
 
 #include "save_result.hpp"
+#include "statistics.hpp"
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#include <sstream>
 #include <fstream>
-
-#include <map>
 #include <vector>
-#include <sstream>
 
 #ifdef WIN32
 #include <windows.h>
 #endif
+
+const std::string SEARCH_FILE = "list.html";
+const std::string REVIEW_FILE = "statistics.html";
 
 size_t length(const std::string &str) {
   size_t len = 0;
@@ -85,8 +85,8 @@ std::string to_lower(std::string lower_str) {
   return std::string(lower_str);
 }
 
-void saveHTMLWithAdvancedSearch(const std::vector<SearchItem> &items,
-                                const std::string &filename) {
+void saveHTMLWithAdvancedSearch(const std::string filename,
+                                const std::vector<SearchItem> &items) {
   std::ofstream htmlFile(filename);
 
   if (!htmlFile.is_open()) {
@@ -279,228 +279,278 @@ void saveHTMLWithAdvancedSearch(const std::vector<SearchItem> &items,
   htmlFile.close();
 }
 
-std::string generateHTMLCharts(const GlobalStats& stats) {
-    std::stringstream html;
-    
-    html << "<!DOCTYPE html>\n";
-    html << "<html lang=\"ru\">\n";
-    html << "<head>\n";
-    html << "    <meta charset=\"UTF-8\">\n";
-    html << "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
-    html << "    <title>Статистика синтаксического анализа текста</title>\n";
-    html << "    <script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\"></script>\n";
-    html << "    <style>\n";
-    html << "        body {\n";
-    html << "            font-family: 'Segoe UI', Arial, sans-serif;\n";
-    html << "            margin: 20px;\n";
-    html << "            background-color: #f5f5f5;\n";
-    html << "        }\n";
-    html << "        .container {\n";
-    html << "            max-width: 1200px;\n";
-    html << "            margin: 0 auto;\n";
-    html << "        }\n";
-    html << "        h1 {\n";
-    html << "            color: #333;\n";
-    html << "            text-align: center;\n";
-    html << "            font-weight: normal;\n";
-    html << "        }\n";
-    html << "        .stats-summary {\n";
-    html << "            display: grid;\n";
-    html << "            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n";
-    html << "            gap: 20px;\n";
-    html << "            margin-bottom: 30px;\n";
-    html << "        }\n";
-    html << "        .stat-card {\n";
-    html << "            background: white;\n";
-    html << "            border: 1px solid #ddd;\n";
-    html << "            border-radius: 4px;\n";
-    html << "            padding: 20px;\n";
-    html << "            text-align: center;\n";
-    html << "        }\n";
-    html << "        .stat-value {\n";
-    html << "            font-size: 32px;\n";
-    html << "            font-weight: bold;\n";
-    html << "            color: #333;\n";
-    html << "        }\n";
-    html << "        .stat-label {\n";
-    html << "            color: #666;\n";
-    html << "            margin-top: 5px;\n";
-    html << "        }\n";
-    html << "        .charts-grid {\n";
-    html << "            display: grid;\n";
-    html << "            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));\n";
-    html << "            gap: 20px;\n";
-    html << "            margin-bottom: 30px;\n";
-    html << "        }\n";
-    html << "        .chart-card {\n";
-    html << "            background: white;\n";
-    html << "            border: 1px solid #ddd;\n";
-    html << "            border-radius: 4px;\n";
-    html << "            padding: 20px;\n";
-    html << "        }\n";
-    html << "        .chart-card h3 {\n";
-    html << "            text-align: center;\n";
-    html << "            color: #333;\n";
-    html << "            margin-bottom: 20px;\n";
-    html << "            font-weight: normal;\n";
-    html << "        }\n";
-    html << "        canvas {\n";
-    html << "            max-height: 300px;\n";
-    html << "            margin: 0 auto;\n";
-    html << "        }\n";
-    html << "        .top-items {\n";
-    html << "            background: white;\n";
-    html << "            border: 1px solid #ddd;\n";
-    html << "            border-radius: 4px;\n";
-    html << "            padding: 20px;\n";
-    html << "            margin-top: 20px;\n";
-    html << "        }\n";
-    html << "        .top-items h3 {\n";
-    html << "            text-align: center;\n";
-    html << "            color: #333;\n";
-    html << "            margin-bottom: 20px;\n";
-    html << "            font-weight: normal;\n";
-    html << "        }\n";
-    html << "        .top-grid {\n";
-    html << "            display: grid;\n";
-    html << "            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n";
-    html << "            gap: 15px;\n";
-    html << "        }\n";
-    html << "        .top-item {\n";
-    html << "            background-color: #f9f9f9;\n";
-    html << "            border-radius: 4px;\n";
-    html << "            padding: 12px;\n";
-    html << "            text-align: center;\n";
-    html << "            border-left: 3px solid #999;\n";
-    html << "        }\n";
-    html << "        .top-item .part {\n";
-    html << "            font-size: 14px;\n";
-    html << "            color: #666;\n";
-    html << "            margin-bottom: 6px;\n";
-    html << "        }\n";
-    html << "        .top-item .word {\n";
-    html << "            font-weight: bold;\n";
-    html << "            font-size: 18px;\n";
-    html << "            color: #333;\n";
-    html << "            margin: 5px 0;\n";
-    html << "        }\n";
-    html << "        .top-item .count {\n";
-    html << "            font-size: 20px;\n";
-    html << "            font-weight: bold;\n";
-    html << "            color: #333;\n";
-    html << "        }\n";
-    html << "        .footer {\n";
-    html << "            text-align: center;\n";
-    html << "            margin-top: 30px;\n";
-    html << "            color: #999;\n";
-    html << "            font-size: 12px;\n";
-    html << "        }\n";
-    html << "    </style>\n";
-    html << "</head>\n";
-    html << "<body>\n";
-    html << "<div class=\"container\">\n";
-    html << "    <h1>Статистика синтаксического анализа текста</h1>\n";
-    html << "    \n";
-    html << "    <div class=\"stats-summary\">\n";
-    html << "        <div class=\"stat-card\">\n";
-    html << "            <div class=\"stat-value\">" << stats.sentences_total << "</div>\n";
-    html << "            <div class=\"stat-label\">Предложений</div>\n";
-    html << "        </div>\n";
-    html << "        <div class=\"stat-card\">\n";
-    html << "            <div class=\"stat-value\">" << stats.words_total << "</div>\n";
-    html << "            <div class=\"stat-label\">Слов</div>\n";
-    html << "        </div>\n";
-    html << "        <div class=\"stat-card\">\n";
-    html << "            <div class=\"stat-value\">" << stats.members_total << "</div>\n";
-    html << "            <div class=\"stat-label\">Членов предложения</div>\n";
-    html << "        </div>\n";
-    html << "    </div>\n";
-    html << "    \n";
-    html << "    <div class=\"charts-grid\">\n";
-    html << "        <div class=\"chart-card\">\n";
-    html << "            <h3>Распределение членов предложения</h3>\n";
-    html << "            <canvas id=\"membersChart\"></canvas>\n";
-    html << "        </div>\n";
-    html << "    </div>\n";
-    html << "    \n";
-    html << "    <div class=\"top-items\">\n";
-    html << "        <h3>Самые популярные слова</h3>\n";
-    html << "        <div class=\"top-grid\">\n";
-    html << "            <div class=\"top-item\">\n";
-    html << "                <div class=\"part\">Подлежащее</div>\n";
-    html << "                <div class=\"word\">«" << stats.top_subject.first << "»</div>\n";
-    html << "                <div class=\"count\">" << stats.top_subject.second << " раз(а)</div>\n";
-    html << "            </div>\n";
-    html << "            <div class=\"top-item\">\n";
-    html << "                <div class=\"part\">Сказуемое</div>\n";
-    html << "                <div class=\"word\">«" << stats.top_predicate.first << "»</div>\n";
-    html << "                <div class=\"count\">" << stats.top_predicate.second << " раз(а)</div>\n";
-    html << "            </div>\n";
-    html << "            <div class=\"top-item\">\n";
-    html << "                <div class=\"part\">Определение</div>\n";
-    html << "                <div class=\"word\">«" << stats.top_definition.first << "»</div>\n";
-    html << "                <div class=\"count\">" << stats.top_definition.second << " раз(а)</div>\n";
-    html << "            </div>\n";
-    html << "            <div class=\"top-item\">\n";
-    html << "                <div class=\"part\">Дополнение</div>\n";
-    html << "                <div class=\"word\">«" << stats.top_addition.first << "»</div>\n";
-    html << "                <div class=\"count\">" << stats.top_addition.second << " раз(а)</div>\n";
-    html << "            </div>\n";
-    html << "            <div class=\"top-item\">\n";
-    html << "                <div class=\"part\">Обстоятельство</div>\n";
-    html << "                <div class=\"word\">«" << stats.top_adverbial.first << "»</div>\n";
-    html << "                <div class=\"count\">" << stats.top_adverbial.second << " раз(а)</div>\n";
-    html << "            </div>\n";
-    html << "        </div>\n";
-    html << "    </div>\n";
-    html << "    \n";
-    html << "    <div class=\"footer\">\n";
-    html << "        Giga Голиков AI\n";
-    html << "    </div>\n";
-    html << "</div>\n";
-    html << "\n";
-    html << "<script>\n";
-    html << "    const membersCtx = document.getElementById('membersChart').getContext('2d');\n";
-    html << "    new Chart(membersCtx, {\n";
-    html << "        type: 'pie',\n";
-    html << "        data: {\n";
-    html << "            labels: [\n";
-    html << "                'Подлежащие (" << stats.subjects_total << ")',\n";
-    html << "                'Сказуемые (" << stats.predicates_total << ")',\n";
-    html << "                'Определения (" << stats.definitions_total << ")',\n";
-    html << "                'Дополнения (" << stats.additions_total << ")',\n";
-    html << "                'Обстоятельства (" << stats.adverbials_total << ")'\n";
-    html << "            ],\n";
-    html << "            datasets: [{\n";
-    html << "                data: [" << stats.subjects_total << ", " << stats.predicates_total << ", " 
-         << stats.definitions_total << ", " << stats.additions_total << ", " << stats.adverbials_total << "],\n";
-    html << "                backgroundColor: ['#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF6B6B'],\n";
-    html << "                borderWidth: 1,\n";
-    html << "                borderColor: '#fff'\n";
-    html << "            }]\n";
-    html << "        },\n";
-    html << "        options: {\n";
-    html << "            responsive: true,\n";
-    html << "            maintainAspectRatio: true,\n";
-    html << "            plugins: {\n";
-    html << "                legend: { position: 'bottom' },\n";
-    html << "                tooltip: {\n";
-    html << "                    callbacks: {\n";
-    html << "                        label: function(context) {\n";
-    html << "                            const label = context.label || '';\n";
-    html << "                            const value = context.parsed || 0;\n";
-    html << "                            const total = context.dataset.data.reduce((a, b) => a + b, 0);\n";
-    html << "                            const percent = ((value / total) * 100).toFixed(1);\n";
-    html << "                            return label + ': ' + value + ' (' + percent + '%)';\n";
-    html << "                        }\n";
-    html << "                    }\n";
-    html << "                }\n";
-    html << "            }\n";
-    html << "        }\n";
-    html << "    });\n";
-    html << "</script>\n";
-    html << "</body>\n";
-    html << "</html>\n";
-    
-    return html.str();
+void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
+  std::ofstream htmlFile(filename);
+
+  if (!htmlFile.is_open()) {
+    std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
+    return;
+  }
+
+  htmlFile << "<!DOCTYPE html>\n";
+  htmlFile << "<html lang=\"ru\">\n";
+  htmlFile << "<head>\n";
+  htmlFile << "    <meta charset=\"UTF-8\">\n";
+  htmlFile << "    <meta name=\"viewport\" content=\"width=device-width, "
+              "initial-scale=1.0\">\n";
+  htmlFile << "    <title>Статистика синтаксического анализа текста</title>\n";
+  htmlFile << "    <script "
+              "src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/"
+              "chart.umd.min.js\"></script>\n";
+  htmlFile << "    <style>\n";
+  htmlFile << "        body {\n";
+  htmlFile << "            font-family: 'Segoe UI', Arial, sans-serif;\n";
+  htmlFile << "            margin: 20px;\n";
+  htmlFile << "            background-color: #f5f5f5;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .container {\n";
+  htmlFile << "            max-width: 1200px;\n";
+  htmlFile << "            margin: 0 auto;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        h1 {\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "            font-weight: normal;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .stats-summary {\n";
+  htmlFile << "            display: grid;\n";
+  htmlFile
+      << "            grid-template-columns: repeat(auto-fit, minmax(200px, "
+         "1fr));\n";
+  htmlFile << "            gap: 20px;\n";
+  htmlFile << "            margin-bottom: 30px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .stat-card {\n";
+  htmlFile << "            background: white;\n";
+  htmlFile << "            border: 1px solid #ddd;\n";
+  htmlFile << "            border-radius: 4px;\n";
+  htmlFile << "            padding: 20px;\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .stat-value {\n";
+  htmlFile << "            font-size: 32px;\n";
+  htmlFile << "            font-weight: bold;\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .stat-label {\n";
+  htmlFile << "            color: #666;\n";
+  htmlFile << "            margin-top: 5px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .charts-grid {\n";
+  htmlFile << "            display: grid;\n";
+  htmlFile
+      << "            grid-template-columns: repeat(auto-fit, minmax(400px, "
+         "1fr));\n";
+  htmlFile << "            gap: 20px;\n";
+  htmlFile << "            margin-bottom: 30px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .chart-card {\n";
+  htmlFile << "            background: white;\n";
+  htmlFile << "            border: 1px solid #ddd;\n";
+  htmlFile << "            border-radius: 4px;\n";
+  htmlFile << "            padding: 20px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .chart-card h3 {\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "            margin-bottom: 20px;\n";
+  htmlFile << "            font-weight: normal;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        canvas {\n";
+  htmlFile << "            max-height: 300px;\n";
+  htmlFile << "            margin: 0 auto;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-items {\n";
+  htmlFile << "            background: white;\n";
+  htmlFile << "            border: 1px solid #ddd;\n";
+  htmlFile << "            border-radius: 4px;\n";
+  htmlFile << "            padding: 20px;\n";
+  htmlFile << "            margin-top: 20px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-items h3 {\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "            margin-bottom: 20px;\n";
+  htmlFile << "            font-weight: normal;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-grid {\n";
+  htmlFile << "            display: grid;\n";
+  htmlFile
+      << "            grid-template-columns: repeat(auto-fit, minmax(200px, "
+         "1fr));\n";
+  htmlFile << "            gap: 15px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-item {\n";
+  htmlFile << "            background-color: #f9f9f9;\n";
+  htmlFile << "            border-radius: 4px;\n";
+  htmlFile << "            padding: 12px;\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "            border-left: 3px solid #999;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-item .part {\n";
+  htmlFile << "            font-size: 14px;\n";
+  htmlFile << "            color: #666;\n";
+  htmlFile << "            margin-bottom: 6px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-item .word {\n";
+  htmlFile << "            font-weight: bold;\n";
+  htmlFile << "            font-size: 18px;\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "            margin: 5px 0;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .top-item .count {\n";
+  htmlFile << "            font-size: 20px;\n";
+  htmlFile << "            font-weight: bold;\n";
+  htmlFile << "            color: #333;\n";
+  htmlFile << "        }\n";
+  htmlFile << "        .footer {\n";
+  htmlFile << "            text-align: center;\n";
+  htmlFile << "            margin-top: 30px;\n";
+  htmlFile << "            color: #999;\n";
+  htmlFile << "            font-size: 12px;\n";
+  htmlFile << "        }\n";
+  htmlFile << "    </style>\n";
+  htmlFile << "</head>\n";
+  htmlFile << "<body>\n";
+  htmlFile << "<div class=\"container\">\n";
+  htmlFile << "    <h1>Статистика синтаксического анализа текста</h1>\n";
+  htmlFile << "    \n";
+  htmlFile << "    <div class=\"stats-summary\">\n";
+  htmlFile << "        <div class=\"stat-card\">\n";
+  htmlFile << "            <div class=\"stat-value\">" << stats.sentences_total
+           << "</div>\n";
+  htmlFile << "            <div class=\"stat-label\">Предложений</div>\n";
+  htmlFile << "        </div>\n";
+  htmlFile << "        <div class=\"stat-card\">\n";
+  htmlFile << "            <div class=\"stat-value\">" << stats.words_total
+           << "</div>\n";
+  htmlFile << "            <div class=\"stat-label\">Слов</div>\n";
+  htmlFile << "        </div>\n";
+  htmlFile << "        <div class=\"stat-card\">\n";
+  htmlFile << "            <div class=\"stat-value\">" << stats.members_total
+           << "</div>\n";
+  htmlFile
+      << "            <div class=\"stat-label\">Членов предложения</div>\n";
+  htmlFile << "        </div>\n";
+  htmlFile << "    </div>\n";
+  htmlFile << "    \n";
+  htmlFile << "    <div class=\"charts-grid\">\n";
+  htmlFile << "        <div class=\"chart-card\">\n";
+  htmlFile << "            <h3>Распределение членов предложения</h3>\n";
+  htmlFile << "            <canvas id=\"membersChart\"></canvas>\n";
+  htmlFile << "        </div>\n";
+  htmlFile << "    </div>\n";
+  htmlFile << "    \n";
+  htmlFile << "    <div class=\"top-items\">\n";
+  htmlFile << "        <h3>Самые популярные слова</h3>\n";
+  htmlFile << "        <div class=\"top-grid\">\n";
+  htmlFile << "            <div class=\"top-item\">\n";
+  htmlFile << "                <div class=\"part\">Подлежащее</div>\n";
+  htmlFile << "                <div class=\"word\">«" << stats.top_subject.first
+           << "»</div>\n";
+  htmlFile << "                <div class=\"count\">"
+           << stats.top_subject.second << " раз(а)</div>\n";
+  htmlFile << "            </div>\n";
+  htmlFile << "            <div class=\"top-item\">\n";
+  htmlFile << "                <div class=\"part\">Сказуемое</div>\n";
+  htmlFile << "                <div class=\"word\">«"
+           << stats.top_predicate.first << "»</div>\n";
+  htmlFile << "                <div class=\"count\">"
+           << stats.top_predicate.second << " раз(а)</div>\n";
+  htmlFile << "            </div>\n";
+  htmlFile << "            <div class=\"top-item\">\n";
+  htmlFile << "                <div class=\"part\">Определение</div>\n";
+  htmlFile << "                <div class=\"word\">«"
+           << stats.top_definition.first << "»</div>\n";
+  htmlFile << "                <div class=\"count\">"
+           << stats.top_definition.second << " раз(а)</div>\n";
+  htmlFile << "            </div>\n";
+  htmlFile << "            <div class=\"top-item\">\n";
+  htmlFile << "                <div class=\"part\">Дополнение</div>\n";
+  htmlFile << "                <div class=\"word\">«"
+           << stats.top_addition.first << "»</div>\n";
+  htmlFile << "                <div class=\"count\">"
+           << stats.top_addition.second << " раз(а)</div>\n";
+  htmlFile << "            </div>\n";
+  htmlFile << "            <div class=\"top-item\">\n";
+  htmlFile << "                <div class=\"part\">Обстоятельство</div>\n";
+  htmlFile << "                <div class=\"word\">«"
+           << stats.top_adverbial.first << "»</div>\n";
+  htmlFile << "                <div class=\"count\">"
+           << stats.top_adverbial.second << " раз(а)</div>\n";
+  htmlFile << "            </div>\n";
+  htmlFile << "        </div>\n";
+  htmlFile << "    </div>\n";
+  htmlFile << "    \n";
+  htmlFile << "    <div class=\"footer\">\n";
+  htmlFile << "        Giga Голиков AI\n";
+  htmlFile << "    </div>\n";
+  htmlFile << "</div>\n";
+  htmlFile << "\n";
+  htmlFile << "<script>\n";
+  htmlFile << "    const membersCtx = "
+              "document.getElementById('membersChart').getContext('2d');\n";
+  htmlFile << "    new Chart(membersCtx, {\n";
+  htmlFile << "        type: 'pie',\n";
+  htmlFile << "        data: {\n";
+  htmlFile << "            labels: [\n";
+  htmlFile << "                'Подлежащие (" << stats.subjects_total
+           << ")',\n";
+  htmlFile << "                'Сказуемые (" << stats.predicates_total
+           << ")',\n";
+  htmlFile << "                'Определения (" << stats.definitions_total
+           << ")',\n";
+  htmlFile << "                'Дополнения (" << stats.additions_total
+           << ")',\n";
+  htmlFile << "                'Обстоятельства (" << stats.adverbials_total
+           << ")'\n";
+  htmlFile << "            ],\n";
+  htmlFile << "            datasets: [{\n";
+  htmlFile << "                data: [" << stats.subjects_total << ", "
+           << stats.predicates_total << ", " << stats.definitions_total << ", "
+           << stats.additions_total << ", " << stats.adverbials_total << "],\n";
+  htmlFile
+      << "                backgroundColor: ['#4ECDC4', '#45B7D1', '#96CEB4', "
+         "'#FFEAA7', '#FF6B6B'],\n";
+  htmlFile << "                borderWidth: 1,\n";
+  htmlFile << "                borderColor: '#fff'\n";
+  htmlFile << "            }]\n";
+  htmlFile << "        },\n";
+  htmlFile << "        options: {\n";
+  htmlFile << "            responsive: true,\n";
+  htmlFile << "            maintainAspectRatio: true,\n";
+  htmlFile << "            plugins: {\n";
+  htmlFile << "                legend: { position: 'bottom' },\n";
+  htmlFile << "                tooltip: {\n";
+  htmlFile << "                    callbacks: {\n";
+  htmlFile << "                        label: function(context) {\n";
+  htmlFile
+      << "                            const label = context.label || '';\n";
+  htmlFile
+      << "                            const value = context.parsed || 0;\n";
+  htmlFile << "                            const total = "
+              "context.dataset.data.reduce((a, b) => a + b, 0);\n";
+  htmlFile << "                            const percent = ((value / total) * "
+              "100).toFixed(1);\n";
+  htmlFile
+      << "                            return label + ': ' + value + ' (' + "
+         "percent + '%)';\n";
+  htmlFile << "                        }\n";
+  htmlFile << "                    }\n";
+  htmlFile << "                }\n";
+  htmlFile << "            }\n";
+  htmlFile << "        }\n";
+  htmlFile << "    });\n";
+  htmlFile << "</script>\n";
+  htmlFile << "</body>\n";
+  htmlFile << "</html>\n";
+
+  htmlFile.close();
+}
+
+void saveAnalysis(const std::string path, std::vector<SearchItem> &items,
+                  GlobalStats &stats) {
+
+  saveHTMLWithAdvancedSearch(path + "/" + SEARCH_FILE, items);
+  generateHTMLCharts(path + "/" + REVIEW_FILE, stats);
 }
