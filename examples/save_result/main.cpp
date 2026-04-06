@@ -1,89 +1,47 @@
-
-#include "save_result.hpp"
-#include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
+#include <windows.h>
+//#include "../../src/back/statistics.hpp"
+//#include "../../src/back/save_result.hpp"
 
-#include <sstream>
-#include <fstream>
 
 #include <map>
 #include <vector>
 #include <sstream>
 
-#ifdef WIN32
-#include <windows.h>
-#endif
 
-size_t length(const std::string &str) {
-  size_t len = 0;
-  u_int bytes_to_decode_symbol;
-  unsigned char first_byte_of_symbol;
+// Вектор из 10 заполненных элементов
 
-  for (size_t i = 0; i < str.length();) {
-    first_byte_of_symbol = static_cast<unsigned char>(str[i]);
 
-    if (first_byte_of_symbol == 0xD0 or first_byte_of_symbol == 0xD1) {
-      bytes_to_decode_symbol = 2;
-    } else {
-      bytes_to_decode_symbol = 1;
-    }
-    len++;
-    i += bytes_to_decode_symbol;
-  }
-  return len;
-}
 
-std::string to_lower(std::string lower_str) {
+#include <vector>
+#include <sstream>
+#include <fstream>
 
-  size_t len = length(lower_str);
+struct SearchItem {
+  std::string text; // член предложения
+  std::string type; // вид члена предложения (подлежащее, сказуемое, ...)
+  std::vector<std::string>
+      sentences;  // предложения, в которых встречается этот член предложения
+  int amount = 0; // количество появлений в тексте
+};
 
-  for (size_t i = 0; i < len;) {
-    unsigned char c1 = static_cast<unsigned char>(lower_str[i]);
-
-    // Если это начало 2-байтового символа UTF-8 (110xxxxx)
-    if ((c1 & 0xE0) == 0xC0) {
-
-      // Защита от некорректной UTF-8
-      if (i + 1 >= len)
-        break;
-
-      unsigned char c2 = static_cast<unsigned char>(lower_str[i + 1]);
-
-      // Специальные случаи (Ё, І, Є)
-      if (c1 == 0xD0) {
-        if (c2 == 0x81) { // Ё -> ё
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x91;
-        } else if (c2 == 0x86) { // І -> і
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x96;
-        } else if (c2 == 0x88) { // Є -> є
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x94;
-        }
-        // А-П (D0 90-9F) -> а-п (D0 B0-BF)
-        else if (c2 >= 0x90 && c2 <= 0x9F) {
-          lower_str[i] = 0xD0;
-          lower_str[i + 1] = c2 + 0x20;
-        }
-        // Р-Я (D0 A0-AF) -> р-я (D1 80-8F)
-        else if (c2 >= 0xA0 && c2 <= 0xAF) {
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = c2 - 0x20;
-        }
-      }
-
-      i += 2;
-    } else {
-      // TODO: Однобайтовый символ (ASCII) или другая длина UTF-8
-      i++;
-    }
-  }
-
-  return std::string(lower_str);
-}
+struct GlobalStats {
+  int sentences_total = 0; // количество предложений в тексте
+  int words_total =
+      0; // количество слов в тексте (подсчёт по SentenceResult::text)
+  int members_total = 0;     // количество членов предложения в тексте
+  int subjects_total = 0;    // количество подлежащих в тексте
+  int predicates_total = 0;  // количество сказуемых в тексте
+  int definitions_total = 0; // количество определений в тексте
+  int additions_total = 0;   // количество дополнений в тексте
+  int adverbials_total = 0;  // количество обстоятельств в тексте
+  std::pair<std::string, int> top_subject;    // самое популярное подлежащее
+  std::pair<std::string, int> top_predicate;  // самое популярное сказуемое
+  std::pair<std::string, int> top_definition; // самое популярное определение
+  std::pair<std::string, int> top_addition;   // самое популярное дополнение
+  std::pair<std::string, int> top_adverbial;  // самое популярное обстоятельство
+};
 
 void saveHTMLWithAdvancedSearch(const std::vector<SearchItem> &items,
                                 const std::string &filename) {
@@ -278,7 +236,298 @@ void saveHTMLWithAdvancedSearch(const std::vector<SearchItem> &items,
 
   htmlFile.close();
 }
-
+/*
+std::string generateHTMLCharts(const GlobalStats& stats) {
+    std::stringstream html;
+    
+    html << R"(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Статистика синтаксического анализа текста</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .stats-summary {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .chart-card h3 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        canvas {
+            max-height: 300px;
+            margin: 0 auto;
+        }
+        .top-items {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .top-items h3 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .top-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .top-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        .top-word {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+        .top-count {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Статистика синтаксического анализа текста</h1>
+        
+        <div class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-value">)" << stats.sentences_total << R"(</div>
+                <div class="stat-label">📝 Предложений</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">)" << stats.words_total << R"(</div>
+                <div class="stat-label">📖 Слов</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">)" << stats.members_total << R"(</div>
+                <div class="stat-label">🔤 Членов предложения</div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📊 Распределение членов предложения</h3>
+                <canvas id="membersChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>⭐ Самые частотные элементы</h3>
+                <canvas id="topElementsChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="top-items">
+            <h3>🏆 Самые популярные слова</h3>
+            <div class="top-grid">
+                <div class="top-item">
+                    <div class="top-word">📖 Подлежащее</div>
+                    <div class="top-word">«)" << stats.top_subject.first << R"(»</div>
+                    <div class="top-count">)" << stats.top_subject.second << R"( раз(а)</div>
+                </div>
+                <div class="top-item">
+                    <div class="top-word">⚡ Сказуемое</div>
+                    <div class="top-word">«)" << stats.top_predicate.first << R"(»</div>
+                    <div class="top-count">)" << stats.top_predicate.second << R"( раз(а)</div>
+                </div>
+                <div class="top-item">
+                    <div class="top-word">🎨 Определение</div>
+                    <div class="top-word">«)" << stats.top_definition.first << R"(»</div>
+                    <div class="top-count">)" << stats.top_definition.second << R"( раз(а)</div>
+                </div>
+                <div class="top-item">
+                    <div class="top-word">📦 Дополнение</div>
+                    <div class="top-word">«)" << stats.top_addition.first << R"(»</div>
+                    <div class="top-count">)" << stats.top_addition.second << R"( раз(а)</div>
+                </div>
+                <div class="top-item">
+                    <div class="top-word">📍 Обстоятельство</div>
+                    <div class="top-word">«)" << stats.top_adverbial.first << R"(»</div>
+                    <div class="top-count">)" << stats.top_adverbial.second << R"( раз(а)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Данные для круговой диаграммы членов предложения
+        const membersCtx = document.getElementById('membersChart').getContext('2d');
+        new Chart(membersCtx, {
+            type: 'pie',
+            data: {
+                labels: [
+                    'Подлежащие (' + )" << stats.subjects_total << R"( + ')',
+                    'Сказуемые (' + )" << stats.predicates_total << R"( + ')',
+                    'Определения (' + )" << stats.definitions_total << R"( + ')',
+                    'Дополнения (' + )" << stats.additions_total << R"( + ')',
+                    'Обстоятельства (' + )" << stats.adverbials_total << R"( + ')'
+                ],
+                datasets: [{
+                    data: [)" << stats.subjects_total << ", " << stats.predicates_total << ", " 
+                           << stats.definitions_total << ", " << stats.additions_total << ", " 
+                           << stats.adverbials_total << R"(],
+                    backgroundColor: [
+                        '#FF6B6B',
+                        '#4ECDC4',
+                        '#45B7D1',
+                        '#96CEB4',
+                        '#FFEAA7'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percent = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percent}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Данные для круговой диаграммы популярных элементов (по частотности)
+        const topCtx = document.getElementById('topElementsChart').getContext('2d');
+        new Chart(topCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    'Подлежащее: «)" << stats.top_subject.first << R"(»',
+                    'Сказуемое: «)" << stats.top_predicate.first << R"(»',
+                    'Определение: «)" << stats.top_definition.first << R"(»',
+                    'Дополнение: «)" << stats.top_addition.first << R"(»',
+                    'Обстоятельство: «)" << stats.top_adverbial.first << R"(»'
+                ],
+                datasets: [{
+                    data: [)" << stats.top_subject.second << ", " << stats.top_predicate.second << ", "
+                           << stats.top_definition.second << ", " << stats.top_addition.second << ", "
+                           << stats.top_adverbial.second << R"(],
+                    backgroundColor: [
+                        '#FF6B6B',
+                        '#4ECDC4',
+                        '#45B7D1',
+                        '#96CEB4',
+                        '#FFEAA7'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                return `${label}: ${value} раз(а)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+)";
+    
+    return html.str();
+}
+*/
 std::string generateHTMLCharts(const GlobalStats& stats) {
     std::stringstream html;
     
@@ -504,3 +753,132 @@ std::string generateHTMLCharts(const GlobalStats& stats) {
     
     return html.str();
 }
+  
+// Пример использования
+int main() {
+    // Настройка консоли для корректного отображения русских символов
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
+
+    std::vector<SearchItem> searchItems = {
+    // 1. Подлежащее
+    {"кот", "подлежащее", 
+     {"Пушистый кот спит на диване.", "Кот ловит мышь.", "Мой кот очень умный."}, 
+     3},
+    
+    // 2. Сказуемое
+    {"бежит", "сказуемое", 
+     {"Спортсмен быстро бежит по стадиону.", "Кот бежит за мышью."}, 
+     2},
+    
+    // 3. Дополнение
+    {"книгу", "дополнение", 
+     {"Я читаю интересную книгу.", "Он купил новую книгу.", "Дай мне эту книгу."}, 
+     3},
+    
+    // 4. Определение
+    {"красивый", "определение", 
+     {"Красивый закат над морем.", "Это очень красивый цветок."}, 
+     2},
+    
+    // 5. Обстоятельство
+    {"быстро", "обстоятельство", 
+     {"Машина быстро едет по трассе.", "Он быстро решил задачу.", "Время быстро летит."}, 
+     3},
+    
+    // 6. Подлежащее
+    {"солнце", "подлежащее", 
+     {"Яркое солнце светит утром.", "Солнце заходит за горизонт."}, 
+     2},
+    
+    // 7. Сказуемое
+    {"работает", "сказуемое", 
+     {"Программист работает за компьютером.", "Она работает в офисе.", "Завод работает круглосуточно."}, 
+     3},
+    
+    // 8. Дополнение
+    {"чай", "дополнение", 
+     {"Я люблю пить горячий чай.", "Она налила чай в чашку."}, 
+     2},
+    
+    // 9. Определение
+    {"зимний", "определение", 
+     {"Наступил холодный зимний вечер.", "Мы ждем зимний отпуск.", "Зимний пейзаж завораживает."}, 
+     3},
+    
+    // 10. Обстоятельство
+    {"вчера", "обстоятельство", 
+     {"Вчера был дождливый день.", "Мы встречались вчера вечером."}, 
+     2}
+};
+    // Создаем HTML страницу с расширенным поиском
+    saveHTMLWithAdvancedSearch(searchItems, "search.html");
+    std::cout << "Откройте search.html в браузере" << std::endl;
+    
+    GlobalStats stats;
+    
+    // Ваши реальные данные
+    stats.sentences_total = 45;
+    stats.words_total = 732;
+    stats.members_total = 580;
+    stats.subjects_total = 112;
+    stats.predicates_total = 98;
+    stats.definitions_total = 145;
+    stats.additions_total = 103;
+    stats.adverbials_total = 122;
+    
+    stats.top_subject = {"солнце", 15};
+    stats.top_predicate = {"стоит", 8};
+    stats.top_definition = {"яркий", 7};
+    stats.top_addition = {"лес", 12};
+    stats.top_adverbial = {"тихо", 9};
+
+        // Генерируем HTML
+    std::string html = generateHTMLCharts(stats);
+    
+    // Сохраняем в файл
+    std::ofstream file("statistics.html");
+    file << html;
+    file.close();
+    
+    std::cout << "HTML файл создан: statistics.html" << std::endl;
+    
+    return 0;
+}
+  
+
+
+/*
+int main() {
+
+    GlobalStats stats;
+    
+    // Ваши реальные данные
+    stats.sentences_total = 45;
+    stats.words_total = 732;
+    stats.members_total = 580;
+    stats.subjects_total = 112;
+    stats.predicates_total = 98;
+    stats.definitions_total = 145;
+    stats.additions_total = 103;
+    stats.adverbials_total = 122;
+    
+    stats.top_subject = {"солнце", 15};
+    stats.top_predicate = {"стоит", 8};
+    stats.top_definition = {"яркий", 7};
+    stats.top_addition = {"лес", 12};
+    stats.top_adverbial = {"тихо", 9};
+
+        // Генерируем HTML
+    std::string html = generateHTMLCharts(stats);
+    
+    // Сохраняем в файл
+    std::ofstream file("statistics.html");
+    file << html;
+    file.close();
+    
+    std::cout << "HTML файл создан: statistics.html" << std::endl;
+    
+    return 0;
+}
+*/
