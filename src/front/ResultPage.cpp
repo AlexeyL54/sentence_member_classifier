@@ -86,8 +86,13 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
     QString role = roles.at(i);
     // connect(cb, &QCheckBox::stateChanged, this,
     // &ResultPage::onCheckboxStateChanged);
+#ifdef WIN32
+    connect(cb, &QCheckBox::stateChanged, this,
+            [this, role](int state) { onCheckboxStateChanged(state, role); });
+#else
     connect(cb, &QCheckBox::checkStateChanged, this,
             [this, role](int state) { onCheckboxStateChanged(state, role); });
+#endif
 
     m_checkBoxes.append(cb);
 

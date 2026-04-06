@@ -193,7 +193,13 @@ std::map<int, std::pair<std::string, std::string>>
 load_labels(const std::string &path) {
   std::map<int, std::pair<std::string, std::string>> labels;
 
+#ifdef _MSC_VER
+  FILE *file = nullptr;
+  fopen_s(&file, path.c_str(), "rb");
+#else
   FILE *file = fopen(path.c_str(), "rb");
+#endif
+
   if (!file)
     return labels;
 
