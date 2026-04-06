@@ -28,12 +28,59 @@ jobs:
         dir: ${{ github.workspace }}/Qt
 
     # Скачивание и установка ONNX Runtime
-    - name: Setup vcpkg and install ONNX Runtime
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: '2024.02.14'  # Зафиксируем версию для воспроизводимости
-        vcpkgTriplet: 'x64-windows'
-        vcpkgArguments: 'onnxruntime'
+    - name: Download and Setup ONNX Runtime
+      shell: pwsh
+      run: |
+        # URL для скачивания pre-built ONNX Runtime для Windows (DirectML/CPU, MSVC 2019)
+        $onnxRuntimeVersion = "1.16.0"
+        $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
+        $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
+        $extractPath = "${{ github.workspace }}/onnxruntime"
+
+        Write-Host "📥 Downloading ONNX Runtime v$onnxRuntimeVersion..."
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
+
+        Write-Host "📦 Extracting ONNX Runtime..."
+        Expand-Archive -Path $downloadPath -DestinationPath $extractPath -Force
+
+        # Перемещаем содержимое в корневую папку onnxruntime
+        $extractedDir = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
+        if ($extractedDir) {
+            Move-Item -Path "$($extractedDir.FullName)\*" -Destination $extractPath -Force
+            Remove-Item -Path $extractedDir.FullName -Recurse -Force
+        }
+
+        # Удаляем архив
+        Remove-Item -Path $downloadPath -Force
+
+        Write-Host "✅ ONNX Runtime installed to: $extractPath"
+        Write-Host "📁 Contents:"
+        Get-ChildItem -Path $extractPath | Select-Object Name | Format-Table
+
+        # Сохраняем путь для использования в CMake
+        echo "ONNXRUNTIME_ROOT=$extractPath" >> $env:GITHUB_ENV
+
+    - name: Debug ONNX Structure
+      shell: pwsh
+      run: |
+        Write-Host "=== Checking ONNX Runtime Structure ==="
+        $root = $env:ONNXRUNTIME_ROOT
+        Write-Host "Root: $root"
+        
+        if (Test-Path "$root/include/onnxruntime/onnxruntime_cxx_api.h") {
+            Write-Host "✅ Header found: $root/include/onnxruntime/onnxruntime_cxx_api.h"
+        } else {
+            Write-Host "❌ Header NOT found at expected path!"
+            Write-Host "Listing include directory:"
+            Get-ChildItem -Path "$root/include" -Recurse | Select-Object FullName
+        }
+
+        if (Test-Path "$root/lib/onnxruntime.lib") {
+            Write-Host "✅ Lib found: $root/lib/onnxruntime.lib"
+        } else {
+            Write-Host "❌ Lib NOT found!"
+            Get-ChildItem -Path "$root/lib" | Select-Object Name
+        }
 
     - name: Configure CMake
       run: |
@@ -42,8 +89,9 @@ jobs:
           -A x64 `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_PREFIX_PATH="${{ github.workspace }}/Qt/6.5.0/msvc2019_64" `
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
           -DCMAKE_INSTALL_PREFIX=install
+          # Убрали явную передачу onnxruntime_INCLUDE_DIRS и LIB_DIRS
+          # FindONNXRUNTIME.cmake найдет их сам через $ENV{ONNXRUNTIME_ROOT}
 
     - name: Build
       run: |
