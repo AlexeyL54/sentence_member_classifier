@@ -31,34 +31,46 @@ jobs:
     - name: Download and Setup ONNX Runtime
       shell: pwsh
       run: |
-        # URL для скачивания pre-built ONNX Runtime для Windows (DirectML/CPU, MSVC 2019)
         $onnxRuntimeVersion = "1.16.0"
         $downloadUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$onnxRuntimeVersion/onnxruntime-win-x64-$onnxRuntimeVersion.zip"
         $downloadPath = "${{ github.workspace }}/onnxruntime.zip"
-        $extractPath = "${{ github.workspace }}/onnxruntime"
+        $extractBase = "${{ github.workspace }}/onnxruntime_base"
+        $finalPath = "${{ github.workspace }}/onnxruntime"
 
-        Write-Host "📥 Downloading ONNX Runtime v$onnxRuntimeVersion..."
+        Write-Host "Downloading..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
 
-        Write-Host "📦 Extracting ONNX Runtime..."
-        Expand-Archive -Path $downloadPath -DestinationPath $extractPath -Force
+        Write-Host "Extracting..."
+        Expand-Archive -Path $downloadPath -DestinationPath $extractBase -Force
 
-        # Перемещаем содержимое в корневую папку onnxruntime
-        $extractedDir = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
+        # Внутри архива обычно лежит папка onnxruntime-win-x64-1.16.0
+        # Мы переименуем её в onnxruntime
+        $extractedDir = Get-ChildItem -Path $extractBase -Directory | Select-Object -First 1
+        
         if ($extractedDir) {
-            Move-Item -Path "$($extractedDir.FullName)\*" -Destination $extractPath -Force
-            Remove-Item -Path $extractedDir.FullName -Recurse -Force
+            # Перемещаем всю папку целиком, сохраняя внутреннюю структуру (include/onnxruntime/...)
+            Move-Item -Path $extractedDir.FullName -Destination $finalPath -Force
+        } else {
+            # Если вдруг архив без корневой папки (маловероятно)
+            New-Item -ItemType Directory -Force -Path $finalPath
+            Move-Item -Path "$extractBase/*" -Destination $finalPath -Force
         }
 
-        # Удаляем архив
         Remove-Item -Path $downloadPath -Force
+        Remove-Item -Path $extractBase -Recurse -Force
 
-        Write-Host "✅ ONNX Runtime installed to: $extractPath"
-        Write-Host "📁 Contents:"
-        Get-ChildItem -Path $extractPath | Select-Object Name | Format-Table
+        Write-Host "✅ ONNX Runtime installed to: $finalPath"
+        
+        # Проверка структуры
+        Write-Host "Checking structure:"
+        if (Test-Path "$finalPath/include/onnxruntime/onnxruntime_cxx_api.h") {
+            Write-Host "✅ Correct structure found: include/onnxruntime/onnxruntime_cxx_api.h"
+        } else {
+            Write-Host "❌ Structure incorrect. Listing include:"
+            Get-ChildItem -Path "$finalPath/include" -Recurse | Select-Object FullName
+        }
 
-        # Сохраняем путь для использования в CMake
-        echo "ONNXRUNTIME_ROOT=$extractPath" >> $env:GITHUB_ENV
+        echo "ONNXRUNTIME_ROOT=$finalPath" >> $env:GITHUB_ENV
 
     - name: Debug ONNX Structure
       shell: pwsh
