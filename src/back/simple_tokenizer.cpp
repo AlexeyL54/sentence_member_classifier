@@ -152,7 +152,6 @@ vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
         words.push_back(current_word);
         current_word.clear();
       }
-      words.push_back(c);
       continue;
     }
 
