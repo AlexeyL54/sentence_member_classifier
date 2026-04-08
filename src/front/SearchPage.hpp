@@ -16,6 +16,8 @@
 #include <QVector>
 #include <QWidget>
 
+#include <QtGlobal>
+
 #include "../back/statistics.hpp"
 
 class SearchResultsList : public QWidget {
@@ -71,6 +73,10 @@ private:
   QComboBox *sortCombo_ = nullptr;
   QStandardItemModel *memberModel_ = nullptr;
   QVector<QString> selectedMembers_;
+  qint64 memberBlockShowPopupUntilMs_ = 0;
+  bool memberSkipBlockOnNextHide_ = false;
+  bool pendingMemberFilterApply_ = false;
+  static constexpr int kMemberPopupBlockMs = 40;
   int sortModeIndex_ = 0;
 };
 

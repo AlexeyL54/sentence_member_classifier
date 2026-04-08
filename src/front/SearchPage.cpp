@@ -4,6 +4,7 @@
 #include <string>
 
 #include <QAbstractItemView>
+#include <QDateTime>
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
@@ -194,9 +195,10 @@ SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
     // Перехватываем клики по popup, чтобы галочки ставились без закрытия
     // списка.
     view->viewport()->installEventFilter(this);
+    view->installEventFilter(this);
   }
-  // Делаем кликабельной всю область combo (как у обычного списка сортировки).
-  memberFilterCombo_->installEventFilter(this);
+  // Открытие/закрытие — только с lineEdit (не вешать фильтр на весь QComboBox:
+  // иначе двойная обработка и popup не открывается стабильно).
   memberFilterCombo_->lineEdit()->installEventFilter(this);
 
   // Сортировка: выпадающий список (1 вариант)
@@ -255,6 +257,7 @@ SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
 
 void SearchPage::setSearchItems(std::vector<SearchItem> &items) {
   allItems_ = items;
+  pendingMemberFilterApply_ = false;
   applyCurrentFilters();
 }
 
@@ -270,16 +273,48 @@ bool SearchPage::eventFilter(QObject *watched, QEvent *event) {
   if (!memberFilterCombo_ || !memberModel_)
     return QWidget::eventFilter(watched, event);
 
-  // Клик по полю "члены предложения" (вся область combo) открывает/закрывает
-  // popup.
-  if ((watched == memberFilterCombo_ ||
-       watched == memberFilterCombo_->lineEdit()) &&
+  // Пока открыт popup фильтра — не перерисовывать тяжёлый список карточек под
+  // ним (иначе главный поток занят и выпадашка «рвётся»).
+  if (memberFilterCombo_->view() && watched == memberFilterCombo_->view()) {
+    if (event->type() == QEvent::Show) {
+      if (resultsList_)
+        resultsList_->setUpdatesEnabled(false);
+      return false;
+    }
+    if (event->type() == QEvent::Hide) {
+      if (resultsList_)
+        resultsList_->setUpdatesEnabled(true);
+      if (pendingMemberFilterApply_) {
+        pendingMemberFilterApply_ = false;
+        applyCurrentFilters();
+      }
+      if (memberSkipBlockOnNextHide_) {
+        memberSkipBlockOnNextHide_ = false;
+      } else {
+        memberBlockShowPopupUntilMs_ =
+            QDateTime::currentMSecsSinceEpoch() + kMemberPopupBlockMs;
+      }
+      return false;
+    }
+  }
+
+  // Клик по строке с текстом: открыть/закрыть список (только lineEdit).
+  if (watched == memberFilterCombo_->lineEdit() &&
       event->type() == QEvent::MouseButtonPress) {
-    if (memberFilterCombo_->view() && memberFilterCombo_->view()->isVisible())
-      memberFilterCombo_->hidePopup();
-    else
+    auto *me = static_cast<QMouseEvent *>(event);
+    if (me->button() != Qt::LeftButton)
+      return QWidget::eventFilter(watched, event);
+    if (QAbstractItemView *v = memberFilterCombo_->view()) {
+      if (v->isVisible()) {
+        memberSkipBlockOnNextHide_ = true;
+        memberFilterCombo_->hidePopup();
+        return true;
+      }
+      if (QDateTime::currentMSecsSinceEpoch() < memberBlockShowPopupUntilMs_)
+        return true;
       memberFilterCombo_->showPopup();
-    return true;
+      return true;
+    }
   }
 
   // Клик по элементам popup: переключаем галку и не закрываем список.
@@ -326,7 +361,9 @@ bool SearchPage::eventFilter(QObject *watched, QEvent *event) {
 
     updateSelectedMembers();
     updateMemberComboSummary();
-    applyCurrentFilters();
+    // Не вызываем applyCurrentFilters здесь: setItems пересоздаёт виджеты и
+    // мешает плавности popup. Пересборка — в QEvent::Hide у view (см. выше).
+    pendingMemberFilterApply_ = true;
     return true;
   }
 
