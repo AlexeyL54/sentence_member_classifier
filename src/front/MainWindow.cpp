@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include <QCoreApplication>
 #include <QFile>
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -24,21 +25,23 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
 MainWindow::~MainWindow() {}
 
 void MainWindow::setupUI() {
+  QString appDirPath = QCoreApplication::applicationDirPath();
+  QString modelDir = appDirPath + "/model";
+
   std::map<int, std::pair<std::string, std::string>> labels;
   std::shared_ptr<SimpleTokenizer> tokenizer;
   std::unique_ptr<onnx_infer::BertNerModel> model;
 
   try {
-
-    labels = load_labels("../model/config.json");
-    tokenizer = std::make_shared<SimpleTokenizer>("../model/vocab.txt");
+    labels = load_labels((modelDir + "/config.json").toStdString());
+    tokenizer = std::make_shared<SimpleTokenizer>(
+        (modelDir + "/vocab.txt").toStdString());
     model = std::make_unique<onnx_infer::BertNerModel>(
-        "../model/bert_ner_model.onnx");
+        (modelDir + "/bert_ner_model.onnx").toStdString());
 
   } catch (const std::exception &e) {
-    QMessageBox::warning(
-        this, "Ошибка",
-        "Не удалось загрузить конфигурационный файл, словарь или модель!");
+    QMessageBox::warning(this, "Ошибка",
+                         "Не найдена директория, содержащая модель!");
   }
 
   inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
