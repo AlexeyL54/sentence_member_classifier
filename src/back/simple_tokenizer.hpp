@@ -2,7 +2,6 @@
 #ifndef SIMPLE_TOKENIZER_H
 #define SIMPLE_TOKENIZER_H
 
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>

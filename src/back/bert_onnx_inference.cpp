@@ -3,6 +3,7 @@
 #include "cJSON.h"
 #include <iostream>
 #include <ostream>
+#include <vector>
 
 BertOnnxInference::BertOnnxInference(
     std::unique_ptr<onnx_infer::BertNerModel> model,
@@ -63,12 +64,10 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
 
 SentenceResult
 BertOnnxInference::process_sentence(const std::string &sentence) {
-  std::cout << "Вызван метод process_sentence" << std::endl;
   SentenceResult result;
   result.text = sentence;
 
   // Токенизация
-  std::cout << "Вызываем encode" << std::endl;
   auto encoding = tokenizer_->encode(sentence, max_len_);
 
   if (encoding.input_ids.empty()) {
@@ -77,8 +76,7 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   }
 
   // Получаем предсказания модели
-  std::cout << "Получаем предсказание модели" << std::endl;
-  auto predictions =
+  std::vector<int> predictions =
       model_->predict_labels(encoding.input_ids, encoding.attention_mask);
 
   // Сохраняем токены и метки
@@ -88,8 +86,6 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   // Объединяем подслова в сущности
   result.entities =
       merge_subwords(encoding.tokens, predictions, encoding.offsets, sentence);
-
-  std::cout << "Конец process_sentence" << std::endl;
 
   return result;
 }
@@ -249,18 +245,14 @@ std::vector<SentenceResult>
 BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<SentenceResult> results;
 
-  std::cout << "Вызван метод extract_sentence_parts" << std::endl;
   // Разбиваем на предложения
-  auto sentences = split_into_sentences(text);
-  std::cout << "Текст разбит на предложения" << std::endl;
+  std::vector<std::string> sentences = split_into_sentences(text);
 
-  for (const auto &sentence : sentences) {
+  for (const std::string &sentence : sentences) {
     if (sentence.length() < 3)
       continue; // Пропускаем слишком короткие
 
-    std::cout << "Обрабатываем предложени: " << sentence << std::endl;
-    auto result = process_sentence(sentence);
-    std::cout << "Обработали" << std::endl;
+    SentenceResult result = process_sentence(sentence);
     results.push_back(result);
   }
 

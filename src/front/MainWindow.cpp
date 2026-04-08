@@ -1,9 +1,11 @@
 #include "MainWindow.hpp"
 #include <QFile>
+#include <QMessageBox>
 #include <QRegularExpression>
 #include <QStringConverter>
 #include <QTextStream>
 #include <QVBoxLayout>
+#include <exception>
 #include <memory>
 #include <vector>
 
@@ -22,15 +24,22 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
 MainWindow::~MainWindow() {}
 
 void MainWindow::setupUI() {
+  std::map<int, std::pair<std::string, std::string>> labels;
+  std::shared_ptr<SimpleTokenizer> tokenizer;
+  std::unique_ptr<onnx_infer::BertNerModel> model;
 
-  std::map<int, std::pair<std::string, std::string>> labels =
-      load_labels("../model/config.json");
+  try {
 
-  auto tokenizer = std::make_shared<SimpleTokenizer>("../model/vocab.txt");
+    labels = load_labels("../model/config.json");
+    tokenizer = std::make_shared<SimpleTokenizer>("../model/vocab.txt");
+    model = std::make_unique<onnx_infer::BertNerModel>(
+        "../model/bert_ner_model.onnx");
 
-  std::unique_ptr<onnx_infer::BertNerModel> model =
-      std::make_unique<onnx_infer::BertNerModel>(
-          "../model/bert_ner_model.onnx");
+  } catch (const std::exception &e) {
+    QMessageBox::warning(
+        this, "Ошибка",
+        "Не удалось загрузить конфигурационный файл, словарь или модель!");
+  }
 
   inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
                                                 labels, 128);
