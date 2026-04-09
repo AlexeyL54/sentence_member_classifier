@@ -63,7 +63,7 @@ else()
 endif()
 
 # Создание исполняемого файла
-add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
+add_executable(TextAnalyzer ${SOURCES} ${HEADERS})
 # WIN32 означает, что это GUI-приложение (не консольное)
 
 # Подключение Qt библиотек
