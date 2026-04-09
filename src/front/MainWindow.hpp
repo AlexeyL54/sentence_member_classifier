@@ -25,10 +25,18 @@ private slots:
   void onNewAnalysisRequested();
 
 private:
+  std::map<int, std::pair<std::string, std::string>> labels;
+  std::shared_ptr<SimpleTokenizer> tokenizer;
+  std::unique_ptr<onnx_infer::BertNerModel> model;
   std::unique_ptr<BertOnnxInference> inferer;
   std::vector<SentenceResult> results;
+
   void setupUI();
   void setupConnections();
+  void ckeckAppDirs();
+  void setLabels();
+  void setTokenizer();
+  void setModel();
   void createSearchItems(); // Создаёт элементы для поиска из готовых файлов
 
   QStackedWidget *stackedWidget = nullptr;

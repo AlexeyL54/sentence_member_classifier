@@ -20,32 +20,17 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
 
   setupUI();
   setupConnections();
+
+  setLabels();
+  setTokenizer();
+  setModel();
+  inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
+                                                labels, 128);
 }
 
 MainWindow::~MainWindow() {}
 
 void MainWindow::setupUI() {
-  QString appDirPath = QCoreApplication::applicationDirPath();
-  QString modelDir = appDirPath + "/model";
-
-  std::map<int, std::pair<std::string, std::string>> labels;
-  std::shared_ptr<SimpleTokenizer> tokenizer;
-  std::unique_ptr<onnx_infer::BertNerModel> model;
-
-  try {
-    labels = load_labels((modelDir + "/config.json").toStdString());
-    tokenizer = std::make_shared<SimpleTokenizer>(
-        (modelDir + "/vocab.txt").toStdString());
-    model = std::make_unique<onnx_infer::BertNerModel>(
-        (modelDir + "/bert_ner_model.onnx").toStdString());
-
-  } catch (const std::exception &e) {
-    QMessageBox::warning(this, "Ошибка",
-                         "Не найдена директория, содержащая модель!");
-  }
-
-  inferer = std::make_unique<BertOnnxInference>(std::move(model), tokenizer,
-                                                labels, 128);
 
   // Создаём стековый виджет для переключения страниц
   stackedWidget = new QStackedWidget(this);
@@ -53,7 +38,6 @@ void MainWindow::setupUI() {
   // Создаём страницы
   inputPage = new InputPage(this);
   resultPage = new ResultPage(this);
-
   searchPage = new SearchPage(this);
 
   // Добавляем страницы в стек
@@ -68,6 +52,42 @@ void MainWindow::setupUI() {
 
   // Показываем страницу ввода
   stackedWidget->setCurrentWidget(inputPage);
+}
+
+void MainWindow::ckeckAppDirs() {
+  if (!std::filesystem::exists("../model")) {
+    QMessageBox::warning(this, "Ошибка", "Директория ../model не существует!");
+    this->close();
+  }
+}
+
+void MainWindow::setTokenizer() {
+  try {
+    tokenizer = std::make_shared<SimpleTokenizer>(("../model/vocab.txt"));
+  } catch (std::exception &e) {
+    QMessageBox::warning(this, "Ошибка", "Не удалось загрузить словарь!");
+    this->close();
+  }
+}
+
+void MainWindow::setLabels() {
+  try {
+    labels = load_labels(("../model/config.json"));
+  } catch (const std::exception &) {
+    QMessageBox::warning(this, "Ошибка",
+                         "Не удалось загрузить конфигурацию модели!");
+    this->close();
+  }
+}
+
+void MainWindow::setModel() {
+  try {
+    model = std::make_unique<onnx_infer::BertNerModel>(
+        ("../model/bert_ner_model.onnx"));
+  } catch (std::exception &e) {
+    QMessageBox::warning(this, "Ошибка", "Не удалось загрузить модель!");
+    this->close();
+  }
 }
 
 void MainWindow::setupConnections() {
@@ -101,12 +121,10 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
   resultPage->updateChart();
   resultPage->updateStatsDisplay();
 
-  // Переходим на страницу результатов
   stackedWidget->setCurrentWidget(resultPage);
 }
 
 void MainWindow::onSearchRequested() {
-  // Переход на страницу поиска
   stackedWidget->setCurrentWidget(searchPage);
 }
 
@@ -121,6 +139,5 @@ void MainWindow::onBackToResultRequested() {
   resultPage->updateCounts();
   resultPage->updateChart();
 
-  // Возврат на страницу результатов
   stackedWidget->setCurrentWidget(resultPage);
 }
