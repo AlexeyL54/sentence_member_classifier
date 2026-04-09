@@ -1,8 +1,12 @@
 // src/back/onnx_model.cpp
 #include "onnx_model.hpp"
+#include <cstdint>
 #include <iostream>
-#include <stdexcept>
 #include <vector>
+
+#ifdef _WIN32
+#include <filesystem>
+#endif
 
 namespace onnx_infer {
 
@@ -13,7 +17,10 @@ BertNerModel::BertNerModel(const std::string &model_path) {
 
   try {
 #ifdef _WIN32
-    std::wstring wide_model_path(model_path.begin(), model_path.end());
+#include <filesystem>
+    std::filesystem::path fs_path(model_path);
+    std::wstring wide_model_path = fs_path.wstring();
+    std::cout << wide_model_path.c_str() << std::endl;
     session_ = std::make_unique<Ort::Session>(env_, wide_model_path.c_str(),
                                               session_options_);
 #else
@@ -35,8 +42,7 @@ BertNerModel::BertNerModel(const std::string &model_path) {
     }
 
   } catch (const Ort::Exception &e) {
-    throw std::runtime_error(std::string("Failed to load ONNX model: ") +
-                             e.what());
+    std::cerr << "Failed to load ONNX model: " << e.what();
   }
 }
 
@@ -69,12 +75,14 @@ BertNerModel::predict(const std::vector<int64_t> &input_ids,
   const char *output_names[] = {"logits"};
 
   // Запуск инференса
-  auto output_tensors = session_->Run(Ort::RunOptions{nullptr}, input_names,
-                                      input_tensors.data(), 2, output_names, 1);
+  std::vector<Ort::Value> output_tensors =
+      session_->Run(Ort::RunOptions{nullptr}, input_names, input_tensors.data(),
+                    2, output_names, 1);
 
   // Извлечение logits
   float *logits_ptr = output_tensors[0].GetTensorMutableData<float>();
-  auto output_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+  std::vector<int64_t> output_shape =
+      output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
 
   // output_shape: [1, seq_len, num_labels]
   size_t seq_len = output_shape[1];
