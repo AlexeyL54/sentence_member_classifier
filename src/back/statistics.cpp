@@ -46,6 +46,21 @@ pickTopWord(const std::unordered_map<std::string, int> &freq) {
 }
 
 /**
+ * @brief Самый частый фрагмент по категории или «нет», если выделить нельзя.
+ *
+ * Если категория пуста или максимальная частота равна 1 (все члены этой
+ * категории встречаются по одному разу — нет «самого популярного»), возвращается
+ * пара ("нет", 0).
+ */
+static std::pair<std::string, int>
+pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
+  const std::pair<std::string, int> best = pickTopWord(freq);
+  if (freq.empty() || best.second <= 1)
+    return {"нет", 0};
+  return best;
+}
+
+/**
  * @brief Добавляет строку в вектор, если её там ещё нет.
  * @param strings Вектор уникальных строк.
  * @param value Новое значение.
@@ -144,13 +159,13 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
     }
   }
 
-  // Для каждой категории выбираем самый частый фрагмент (и его число
-  // вхождений).
-  stats.top_subject = pickTopWord(subjectFreq);
-  stats.top_predicate = pickTopWord(predicateFreq);
-  stats.top_definition = pickTopWord(definitionFreq);
-  stats.top_addition = pickTopWord(additionFreq);
-  stats.top_adverbial = pickTopWord(adverbialFreq);
+  // Для каждой категории — самый частый фрагмент; если все по разу (max==1) —
+  // «нет».
+  stats.top_subject = pickTopWordOrNone(subjectFreq);
+  stats.top_predicate = pickTopWordOrNone(predicateFreq);
+  stats.top_definition = pickTopWordOrNone(definitionFreq);
+  stats.top_addition = pickTopWordOrNone(additionFreq);
+  stats.top_adverbial = pickTopWordOrNone(adverbialFreq);
 
   return stats;
 }
