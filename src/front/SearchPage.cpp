@@ -1,6 +1,7 @@
 #include "SearchPage.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 
 #include <QAbstractItemView>
@@ -87,34 +88,31 @@ void SearchResultsList::setItems(const std::vector<SearchItem> &items) {
 
     // 3) Встречаемость (как раньше счётчик в данных)
     QLabel *countLabel = new QLabel(
-        QStringLiteral("Встречаемость в тексте: %1").arg(it.amount), card);
+        QStringLiteral("Количество вхождений: %1").arg(it.amount), card);
     countLabel->setWordWrap(true);
 
     cardLayout->addWidget(wordLabel);
     cardLayout->addWidget(memberLabel);
     cardLayout->addWidget(countLabel);
 
-    // 4) Предложения-контексты (в SearchItem — массив строк)
+    // 4) Предложения-контексты (номер предложения в тексте + превью)
     if (it.sentences.empty()) {
       QLabel *emptyLabel = new QLabel(QStringLiteral("Предложения: нет"), card);
       emptyLabel->setWordWrap(true);
       cardLayout->addWidget(emptyLabel);
     } else {
-      int idx = 1;
-      for (const std::string &sent : it.sentences) {
-        QString snippet = QString::fromStdString(sent).trimmed();
+      for (const auto &ctx : it.sentences) {
+        QString snippet = QString::fromStdString(ctx.second).trimmed();
         if (!snippet.isEmpty()) {
-          // Чтобы строка не разъезжалась на десятки строк, обрезаем
-          // предложение.
           if (snippet.size() > 90)
             snippet = snippet.left(90) + QStringLiteral("...");
-          QString sentenceLine =
-              QStringLiteral("В предложении: №%1: %2").arg(idx).arg(snippet);
+          QString sentenceLine = QStringLiteral("В предложении №%1: %2")
+                                     .arg(ctx.first)
+                                     .arg(snippet);
           QLabel *sentenceLabel = new QLabel(sentenceLine, card);
           sentenceLabel->setWordWrap(true);
           cardLayout->addWidget(sentenceLabel);
         }
-        ++idx;
       }
     }
 
@@ -456,12 +454,14 @@ void SearchPage::filterAndRender(const QString &text) {
     return QString::fromStdString(it.text).toLower();
   };
 
-  // В SearchItem нет номера предложения: для режимов 4–5 сортируем по первой
-  // строке из sentences (лексикографически).
-  auto firstSentenceKey = [](const SearchItem &it) {
+  // Режимы 4–5: по минимальному номеру предложения среди контекстов.
+  auto minSentenceNumber = [](const SearchItem &it) {
     if (it.sentences.empty())
-      return QString();
-    return QString::fromStdString(it.sentences.front()).toLower();
+      return std::numeric_limits<int>::max();
+    int m = it.sentences.front().first;
+    for (const auto &c : it.sentences)
+      m = std::min(m, c.first);
+    return m;
   };
 
   // Применяем сортировку
@@ -494,19 +494,19 @@ void SearchPage::filterAndRender(const QString &text) {
                 return wordKey(a) < wordKey(b);
               });
     break;
-  case 4: // Подпись как раньше; фактически — по первому контексту в списке
+  case 4:
     std::sort(filtered.begin(), filtered.end(),
               [&](const SearchItem &a, const SearchItem &b) {
-                if (firstSentenceKey(a) != firstSentenceKey(b))
-                  return firstSentenceKey(a) < firstSentenceKey(b);
+                if (minSentenceNumber(a) != minSentenceNumber(b))
+                  return minSentenceNumber(a) < minSentenceNumber(b);
                 return wordKey(a) < wordKey(b);
               });
     break;
   case 5:
     std::sort(filtered.begin(), filtered.end(),
               [&](const SearchItem &a, const SearchItem &b) {
-                if (firstSentenceKey(a) != firstSentenceKey(b))
-                  return firstSentenceKey(a) > firstSentenceKey(b);
+                if (minSentenceNumber(a) != minSentenceNumber(b))
+                  return minSentenceNumber(a) > minSentenceNumber(b);
                 return wordKey(a) < wordKey(b);
               });
     break;

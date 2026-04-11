@@ -36,27 +36,20 @@ private:
 class SearchPage : public QWidget {
   Q_OBJECT
 public:
-  // Создаёт страницу поиска и принимает исходный набор данных.
   explicit SearchPage(QWidget *parent = nullptr);
 
   void setSearchItems(std::vector<SearchItem> &items);
 
 signals:
-  // Нажатие на кнопку "Назад".
   void backRequested();
 
 protected:
-  // Нужен для обработки кликов в выпадающем списке с мультивыбором.
   bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-  // Фильтрация + сортировка данных и обновление списка карточек.
   void filterAndRender(const QString &text);
-  // Считывает выбранные пункты из чекбоксов "члены предложения".
   void updateSelectedMembers();
-  // Обновляет текст в поле combo по выбранным пунктам.
   void updateMemberComboSummary();
-  // Применяет текущие параметры поиска/фильтра/сортировки.
   void applyCurrentFilters();
 
 private slots:
