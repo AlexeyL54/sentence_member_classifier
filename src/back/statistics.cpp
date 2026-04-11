@@ -59,15 +59,16 @@ pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
 }
 
 /**
- * @brief Добавляет строку в вектор, если её там ещё нет.
- * @param strings Вектор уникальных строк.
- * @param value Новое значение.
+ * @brief Добавляет контекст предложения, если для этого номера записи ещё нет.
  */
-static void pushUniqueIfMissing(std::vector<std::string> &strings,
-                                const std::string &value) {
-  if (std::find(strings.begin(), strings.end(), value) == strings.end()) {
-    strings.push_back(value);
+static void pushSentenceContextIfMissing(
+    std::vector<std::pair<int, std::string>> &contexts, int sentence_number,
+    const std::string &text) {
+  for (const auto &c : contexts) {
+    if (c.first == sentence_number)
+      return;
   }
+  contexts.push_back({sentence_number, text});
 }
 
 /**
@@ -179,7 +180,10 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
   // тексту.
   std::map<std::pair<std::string, std::string>, SearchItem> itemsByKey;
 
-  for (const auto &sentenceResult : analysis_results) {
+  for (size_t si = 0; si < analysis_results.size(); ++si) {
+    const auto &sentenceResult = analysis_results[si];
+    const int sentence_number = static_cast<int>(si) + 1;
+
     for (const auto &entity : sentenceResult.entities) {
       const std::string word = entity.text;
       const std::string categoryRu = entity.type_ru;
@@ -192,8 +196,10 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
       item.text = word;
       item.type = categoryRu;
       item.amount += 1;
-      // Разные предложения, где встретилась эта пара; без дублей одной строки.
-      pushUniqueIfMissing(item.sentences, sentenceResult.text);
+      // Одно предложение на номер: без дубликатов при нескольких сущностях
+      // в одном предложении.
+      pushSentenceContextIfMissing(item.sentences, sentence_number,
+                                   sentenceResult.text);
     }
   }
 
