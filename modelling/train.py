@@ -367,7 +367,7 @@ def main() -> None:
     7. Экспортирует модель в ONNX
     """
     # Загрузка конфигурации
-    Config.load_train_config()
+    # Config.load_train_config()
     display_training_configuration()
 
     # Загрузка данных

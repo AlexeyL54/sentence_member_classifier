@@ -436,7 +436,10 @@ def collect_predictions(
     for text, true_seq in zip(texts, labels):
         tokens, offsets = predictor.predict_sentence(text)
         pred_ids = _get_prediction_ids(tokens)
-        true_ids = _align_true_labels(tokens, true_seq)
+
+        # Извлекаем смещения из объектов TokenInfo
+        token_offsets = [(o[0], o[1]) for o in offsets]
+        true_ids = _align_true_labels(tokens, true_seq, token_offsets, text)
 
         pred_ids, true_ids = _align_lengths(pred_ids, true_ids)
 
@@ -463,23 +466,64 @@ def _get_prediction_ids(tokens: List) -> List[int]:
     return pred_ids
 
 
-def _align_true_labels(tokens: List, true_seq: List[str]) -> List[int]:
+def _align_true_labels(tokens: List, true_seq: List[str], offsets: List[Tuple[int, int]], original_texts: str) -> List[int]:
     """
-    Выравнивание истинных меток с токенами.
+    Выравнивание истинных меток с токенами на основе символьных смещений.
 
     Args:
-        tokens (List): Список токенов
-        true_seq (List[str]): Список истинных меток
+        tokens (List): Список токенов из модели
+        true_seq (List[str]): Список истинных меток для оригинальных токенов
+        offsets (List[Tuple[int, int]]): Смещения токенов модели в тексте
+        original_texts (str): Исходный текст для вычисления позиций
 
     Returns:
         List[int]: Список ID истинных меток, выровненных по длине токенов
     """
+    # Сначала восстанавливаем позиции оригинальных токенов в тексте
+    # Это нужно потому, что true_seq соответствует оригинальным токенам,
+    # а не субтокенам BERT
+
+    # Разбираем текст на оригинальные токены с их позициями
+    # Предполагаем, что true_seq соответствует токенам, разделенным пробелами
+    words = original_texts.split()
+
+    if len(words) != len(true_seq):
+        # Если количество слов не совпадает с количеством меток,
+        # используем fallback стратегию
+        true_ids = []
+        for i in range(len(tokens)):
+            if i < len(true_seq):
+                true_ids.append(Config.LABEL2ID.get(true_seq[i], Config.LABEL2ID["O"]))
+            else:
+                true_ids.append(Config.LABEL2ID["O"])
+        return true_ids
+
+    # Строим маппинг от позиции в тексте к метке
+    word_offsets = []
+    pos = 0
+    for i, word in enumerate(words):
+        start = original_texts.find(word, pos)
+        if start == -1:
+            # Слово не найдено, используем текущую позицию
+            start = pos
+        end = start + len(word)
+        word_offsets.append((start, end, true_seq[i]))
+        pos = end
+
+    # Для каждого токена модели находим соответствующую метку
     true_ids = []
-    for i in range(len(tokens)):
-        if i < len(true_seq):
-            true_ids.append(Config.LABEL2ID.get(true_seq[i], Config.LABEL2ID["O"]))
-        else:
-            true_ids.append(Config.LABEL2ID["O"])
+    for token, offset in zip(tokens, offsets):
+        char_pos = offset[0]
+        assigned_label = "O"
+
+        # Находим, какому оригинальному токену принадлежит этот субтокен
+        for orig_start, orig_end, orig_label in word_offsets:
+            if orig_start <= char_pos < orig_end:
+                assigned_label = orig_label
+                break
+
+        true_ids.append(Config.LABEL2ID.get(assigned_label, Config.LABEL2ID["O"]))
+
     return true_ids
 
 

@@ -20,7 +20,6 @@ BertNerModel::BertNerModel(const std::string &model_path) {
 #include <filesystem>
     std::filesystem::path fs_path(model_path);
     std::wstring wide_model_path = fs_path.wstring();
-    std::cout << wide_model_path.c_str() << std::endl;
     session_ = std::make_unique<Ort::Session>(env_, wide_model_path.c_str(),
                                               session_options_);
 #else

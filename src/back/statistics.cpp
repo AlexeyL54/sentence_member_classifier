@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <iostream>
 #include <map>
 #include <unordered_map>
 
@@ -170,7 +169,6 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
     for (const Entity &entity : sentenceResult.entities) {
       const std::string word = entity.text;
       const std::string categoryRu = entity.type_ru;
-      std::cout << entity.text << std::endl;
       if (word.empty() || categoryRu.empty()) {
         continue;
       }
