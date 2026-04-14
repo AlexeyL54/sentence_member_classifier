@@ -1,7 +1,6 @@
 #include "statistics.hpp"
 #include "bert_onnx_inference.hpp"
 
-#include <algorithm>
 #include <cctype>
 #include <map>
 #include <unordered_map>
@@ -48,8 +47,8 @@ pickTopWord(const std::unordered_map<std::string, int> &freq) {
  * @brief Самый частый фрагмент по категории или «нет», если выделить нельзя.
  *
  * Если категория пуста или максимальная частота равна 1 (все члены этой
- * категории встречаются по одному разу — нет «самого популярного»), возвращается
- * пара ("нет", 0).
+ * категории встречаются по одному разу — нет «самого популярного»),
+ * возвращается пара ("нет", 0).
  */
 static std::pair<std::string, int>
 pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
@@ -62,9 +61,9 @@ pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
 /**
  * @brief Добавляет контекст предложения, если для этого номера записи ещё нет.
  */
-static void pushSentenceContextIfMissing(
-    std::vector<std::pair<int, std::string>> &contexts, int sentence_number,
-    const std::string &text) {
+static void
+pushSentenceContextIfMissing(std::vector<std::pair<int, std::string>> &contexts,
+                             int sentence_number, const std::string &text) {
   for (const auto &c : contexts) {
     if (c.first == sentence_number)
       return;
@@ -89,6 +88,9 @@ static void incrementCategoryTotal(GlobalStats &stats,
     stats.additions_total += 1;
   } else if (categoryRu == "обстоятельство") {
     stats.adverbials_total += 1;
+  } else if (categoryRu == "другое") {
+    // Слова, не являющиеся членами предложения, тоже считаем
+    stats.members_total += 0; // уже учтено выше
   }
 }
 
@@ -101,6 +103,7 @@ static void incrementCategoryTotal(GlobalStats &stats,
  * @param definitionFreq Словарь определений.
  * @param additionFreq Словарь дополнений.
  * @param adverbialFreq Словарь обстоятельств.
+ * @param otherFreq Словарь слов категории "другое".
  */
 static void
 incrementTopCounter(const std::string &categoryRu, const std::string &word,
@@ -108,7 +111,8 @@ incrementTopCounter(const std::string &categoryRu, const std::string &word,
                     std::unordered_map<std::string, int> &predicateFreq,
                     std::unordered_map<std::string, int> &definitionFreq,
                     std::unordered_map<std::string, int> &additionFreq,
-                    std::unordered_map<std::string, int> &adverbialFreq) {
+                    std::unordered_map<std::string, int> &adverbialFreq,
+                    std::unordered_map<std::string, int> &otherFreq) {
   if (categoryRu == "подлежащее") {
     subjectFreq[word] += 1;
   } else if (categoryRu == "сказуемое") {
@@ -119,6 +123,8 @@ incrementTopCounter(const std::string &categoryRu, const std::string &word,
     additionFreq[word] += 1;
   } else if (categoryRu == "обстоятельство") {
     adverbialFreq[word] += 1;
+  } else if (categoryRu == "другое") {
+    otherFreq[word] += 1;
   }
 }
 
@@ -140,6 +146,7 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
   std::unordered_map<std::string, int> definitionFreq;
   std::unordered_map<std::string, int> additionFreq;
   std::unordered_map<std::string, int> adverbialFreq;
+  std::unordered_map<std::string, int> otherFreq;
 
   for (const auto &sentenceResult : analysis_results) {
     stats.words_total += countWordsInText(sentenceResult.text);
@@ -155,7 +162,7 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
       stats.members_total += 1;
       incrementCategoryTotal(stats, categoryRu);
       incrementTopCounter(categoryRu, word, subjectFreq, predicateFreq,
-                          definitionFreq, additionFreq, adverbialFreq);
+                          definitionFreq, additionFreq, adverbialFreq, otherFreq);
     }
   }
 
@@ -166,6 +173,7 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
   stats.top_definition = pickTopWordOrNone(definitionFreq);
   stats.top_addition = pickTopWordOrNone(additionFreq);
   stats.top_adverbial = pickTopWordOrNone(adverbialFreq);
+  // top_other не используется в текущей реализации, но можно добавить при необходимости
 
   return stats;
 }

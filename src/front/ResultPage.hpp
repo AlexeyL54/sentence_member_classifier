@@ -105,10 +105,10 @@ private slots:
   void onAnalyzeClicked();
 
   /**
-     * @brief Слот, обрабатывающий выбор чекбокса
-     * @param state - признак установки/снятия чекбокса
-     * @param role - название члена предложения
-     */
+   * @brief Слот, обрабатывающий выбор чекбокса
+   * @param state - признак установки/снятия чекбокса
+   * @param role - название члена предложения
+   */
   void onCheckboxStateChanged(int state, const QString &role);
 
 public:
