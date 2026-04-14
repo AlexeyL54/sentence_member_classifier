@@ -37,6 +37,7 @@ set(SOURCES
     src/back/cJSON.c
     src/back/simple_tokenizer.cpp
     src/back/save_result.cpp
+    src/back/unistring.cpp
 )
 
 set(HEADERS
@@ -52,6 +53,7 @@ set(HEADERS
     src/back/cJSON.h
     src/back/simple_tokenizer.hpp
     src/back/save_result.hpp
+    src/back/unistring.hpp
 )
 
 # Поиск Qt
