@@ -153,11 +153,13 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Создаем контейнер для этого блока
   QWidget *popularWidget = new QWidget(statsWidget);
   QVBoxLayout *popularLayout = new QVBoxLayout(popularWidget);
-  popularLayout->setContentsMargins(0, 10, 0, 0); // Отступ сверху для отделения от общей статистики
+  popularLayout->setContentsMargins(
+      0, 10, 0, 0); // Отступ сверху для отделения от общей статистики
   popularLayout->setSpacing(6);
 
   // Заголовок блока
-  QLabel *popularTitle = new QLabel("Самые популярные члены предложения", popularWidget);
+  QLabel *popularTitle =
+      new QLabel("Самые популярные члены предложения", popularWidget);
   popularTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
   popularLayout->addWidget(popularTitle);
 
@@ -273,6 +275,7 @@ void ResultPage::refreshDisplay() {
   updateChart();
   if (widgetText) {
     widgetText->setMarkupText(fullText, m_results);
+    // widgetText->setMarkupText(fullText, members);
   }
 }
 
@@ -427,11 +430,12 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
   }
 
   // 3. Строим карту разметки для виджета (берем только первое предложение)
- // buildWordRoleMap();
+  // buildWordRoleMap();
 
   if (widgetText) {
     // Передаём заполненный вектор в виджет для разметки
-      widgetText->setMarkupText(fullText, m_results);
+    widgetText->setMarkupText(fullText, m_results);
+    // widgetText->setMarkupText(fullText, members);
   }
 }
 
@@ -440,7 +444,7 @@ void ResultPage::buildWordRoleMap() {
 
   if (m_results.empty() || fullText.isEmpty()) {
     if (widgetText) {
-     // widgetText->setMarkupText(fullText, members);
+      // widgetText->setMarkupText(fullText, members);
     }
     return;
   }
@@ -466,6 +470,7 @@ void ResultPage::buildWordRoleMap() {
 
   if (widgetText) {
     widgetText->setMarkupText(fullText, m_results);
+    // widgetText->setMarkupText(fullText, members);
   }
 }
 
