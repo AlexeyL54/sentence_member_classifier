@@ -95,20 +95,20 @@ TEST_F(TokenizerTest, FindTokenInText) {
   std::pair<size_t, size_t> result1 =
       tokenizer->find_token_in_text(text, "при", 0);
   std::pair<size_t, size_t> result2 =
-      tokenizer->find_token_in_text(text, "##ет", 0);
+      tokenizer->find_token_in_text(text, "##вет", 0);
   std::pair<size_t, size_t> result3 =
       tokenizer->find_token_in_text(text, ",", 0);
   std::pair<size_t, size_t> result4 =
       tokenizer->find_token_in_text(text, "как", 0);
 
   std::pair<size_t, size_t> correct_result1 =
-      std::make_pair<size_t, size_t>(0, 2);
+      std::make_pair<size_t, size_t>(0, 3);
   std::pair<size_t, size_t> correct_result2 =
-      std::make_pair<size_t, size_t>(3, 5);
+      std::make_pair<size_t, size_t>(3, 6);
   std::pair<size_t, size_t> correct_result3 =
-      std::make_pair<size_t, size_t>(6, 6);
+      std::make_pair<size_t, size_t>(6, 7);
   std::pair<size_t, size_t> correct_result4 =
-      std::make_pair<size_t, size_t>(13, 15);
+      std::make_pair<size_t, size_t>(13, 16);
 
   EXPECT_EQ(correct_result1, result1);
   EXPECT_EQ(correct_result2, result2);
@@ -124,28 +124,28 @@ TEST_F(TokenizerTest, Encode) {
   EXPECT_EQ(128, res.input_ids.size());
   EXPECT_EQ(128, res.tokens.size());
   EXPECT_EQ(128, res.attention_mask.size());
-  EXPECT_EQ(4, res.word_ids.size());
+  EXPECT_EQ(128, res.word_ids.size());
 
-  EXPECT_EQ(4, res.input_ids[0]);
-  EXPECT_EQ(5, res.input_ids[1]);
-  EXPECT_EQ(6, res.input_ids[2]);
-  EXPECT_EQ(7, res.input_ids[3]);
-  EXPECT_EQ(11, res.input_ids[4]);
-  EXPECT_EQ(8, res.input_ids[5]);
-  EXPECT_EQ(9, res.input_ids[6]);
-  EXPECT_EQ(10, res.input_ids[7]);
-  EXPECT_EQ(1, res.input_ids[8]);
-  EXPECT_EQ(1, res.input_ids[127]);
+  EXPECT_EQ(4, res.input_ids[1]);
+  EXPECT_EQ(5, res.input_ids[2]);
+  EXPECT_EQ(6, res.input_ids[3]);
+  EXPECT_EQ(7, res.input_ids[4]);
+  EXPECT_EQ(11, res.input_ids[5]);
+  EXPECT_EQ(8, res.input_ids[6]);
+  EXPECT_EQ(9, res.input_ids[7]);
+  EXPECT_EQ(10, res.input_ids[8]);
+  EXPECT_EQ(102, res.input_ids[9]);
+  EXPECT_EQ(0, res.input_ids[127]);
 
-  EXPECT_EQ("при", res.tokens[0]);
-  EXPECT_EQ("##вет", res.tokens[1]);
-  EXPECT_EQ(",", res.tokens[2]);
-  EXPECT_EQ("мир", res.tokens[3]);
-  EXPECT_EQ("!", res.tokens[4]);
-  EXPECT_EQ("как", res.tokens[5]);
-  EXPECT_EQ("дела", res.tokens[6]);
-  EXPECT_EQ("?", res.tokens[7]);
-  EXPECT_EQ("[PAD]", res.tokens[8]);
+  EXPECT_EQ("при", res.tokens[1]);
+  EXPECT_EQ("##вет", res.tokens[2]);
+  EXPECT_EQ(",", res.tokens[3]);
+  EXPECT_EQ("мир", res.tokens[4]);
+  EXPECT_EQ("!", res.tokens[5]);
+  EXPECT_EQ("как", res.tokens[6]);
+  EXPECT_EQ("дела", res.tokens[7]);
+  EXPECT_EQ("?", res.tokens[8]);
+  EXPECT_EQ("[SEP]", res.tokens[9]);
   EXPECT_EQ("[PAD]", res.tokens[127]);
 
   EXPECT_EQ(1, res.attention_mask[0]);
@@ -155,6 +155,6 @@ TEST_F(TokenizerTest, Encode) {
   EXPECT_EQ(1, res.attention_mask[5]);
   EXPECT_EQ(1, res.attention_mask[6]);
   EXPECT_EQ(1, res.attention_mask[7]);
-  EXPECT_EQ(0, res.attention_mask[8]);
+  EXPECT_EQ(1, res.attention_mask[8]);
   EXPECT_EQ(0, res.attention_mask[127]);
 }

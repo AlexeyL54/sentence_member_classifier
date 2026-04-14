@@ -41,9 +41,9 @@ TextMarkupWidget::TextMarkupWidget(QWidget *parent)
  * @param members Карта соответствия: слово -> роль в предложении.
  */
 void TextMarkupWidget::setMarkupText(const QString &text,
-                                     const QMap<QString, QString> &members) {
+                                     std::vector<SentenceResult> &results) {
   m_text = text;
-  m_members = members;
+  m_results = results;
   rebuild();
 }
 
@@ -87,136 +87,128 @@ QString TextMarkupWidget::labelColor() const { return m_labelColor; }
  * Очищает текущее содержимое и заново создает все элементы
  * на основе текущих значений m_text и m_members.
  */
-void TextMarkupWidget::rebuild() {
-  // Очищаем layout
-  QLayoutItem *child;
-  while ((child = m_flowLayout->takeAt(0)) != nullptr) {
-    delete child->widget();
-    delete child;
-  }
-
-  if (m_text.isEmpty()) {
-    return;
-  }
-
-  // Разбиваем текст на слова с прикрепленными знаками препинания
-  QRegularExpression re("(\\p{L}+[.,!?;:()\"'-]*|\\s+)");
-  QRegularExpressionMatchIterator i = re.globalMatch(m_text);
-
-  QList<QString> tokens;
-  while (i.hasNext()) {
-    QRegularExpressionMatch match = i.next();
-    QString token = match.captured(0);
-    if (!token.trimmed().isEmpty()) {
-      tokens.append(token.trimmed());
-    }
-  }
-
-  // Определяем высоту для контейнеров
-  QFont wordFont("", 11);
-  QFontMetrics wordFm(wordFont);
-  QFont labelFont("", 7);
-  QFontMetrics labelFm(labelFont);
-  int containerHeight = wordFm.height() + labelFm.height() + 6;
-
-  for (const QString &token : tokens) {
-    // Проверяем, содержит ли токен буквы
-    QRegularExpression wordRe("\\p{L}+");
-    bool hasWord = wordRe.match(token).hasMatch();
-
-    QWidget *container = new QWidget();
-    container->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
-    container->setMinimumHeight(containerHeight);
-    container->setMaximumHeight(containerHeight);
-
-    if (hasWord) {
-      // Разделяем слово и знаки препинания
-      QRegularExpression wordOnlyRe("(\\p{L}+)");
-      QRegularExpressionMatch wordMatch = wordOnlyRe.match(token);
-      QString word = wordMatch.captured(1);
-
-      // Знаки препинания (все, что после слова)
-      QString punctuation = token;
-      punctuation.remove(word);
-
-      QVBoxLayout *wordLayout = new QVBoxLayout(container);
-      wordLayout->setSpacing(0);
-      wordLayout->setContentsMargins(2, 0, 2, 0);
-
-      // Подпись члена предложения
-      // QString memberText = m_members.value(word, "-");
-      QString wordLower = word.toLower();
-      QString memberText = m_members.value(wordLower, "-");
-      QLabel *memberLabel = new QLabel(memberText);
-      memberLabel->setAlignment(Qt::AlignCenter);
-      memberLabel->setStyleSheet(
-          QString("font-size: 7pt; color: %1; font-weight: normal; "
-                  "letter-spacing: 0.5px;")
-              .arg(m_labelColor));
-
-      // Горизонтальный layout для слова и знаков препинания
-      QHBoxLayout *wordWithPunctLayout = new QHBoxLayout();
-      wordWithPunctLayout->setSpacing(0);
-      wordWithPunctLayout->setContentsMargins(0, 0, 0, 0);
-
-      // Само слово
-      QLabel *wordLabel = new QLabel(word);
-      wordLabel->setAlignment(Qt::AlignCenter);
-      wordLabel->setStyleSheet(
-          QString("font-size: 11pt; color: %1; font-weight: normal;")
-              .arg(m_wordColor));
-
-      // Устанавливаем всплывающую подсказку с ролью слова
-      QString toolTipText;
-      if (!memberText.isEmpty() && memberText != "-") {
-        toolTipText = memberText;
-      } else {
-        toolTipText = word;
-      }
-      wordLabel->setToolTip(toolTipText);
-
-      wordWithPunctLayout->addWidget(wordLabel);
-
-      // Знаки препинания (если есть)
-      if (!punctuation.isEmpty()) {
-        QLabel *punctLabel = new QLabel(punctuation);
-        punctLabel->setAlignment(Qt::AlignCenter);
-        punctLabel->setStyleSheet(
-            QString("font-size: 11pt; color: %1; font-weight: normal; "
-                    "margin-left: -2px;")
-                .arg(m_wordColor));
-        wordWithPunctLayout->addWidget(punctLabel);
-      }
-
-      wordWithPunctLayout->addStretch();
-
-      wordLayout->addWidget(memberLabel);
-      wordLayout->addLayout(wordWithPunctLayout);
-
-    } else {
-      // Для одиночных знаков препинания
-      QVBoxLayout *punctLayout = new QVBoxLayout(container);
-      punctLayout->setSpacing(0);
-      punctLayout->setContentsMargins(2, 0, 2, 0);
-
-      QLabel *spacerLabel = new QLabel("");
-      spacerLabel->setFixedHeight(labelFm.height());
-
-      QLabel *punctLabel = new QLabel(token);
-      punctLabel->setAlignment(Qt::AlignCenter);
-      punctLabel->setStyleSheet(
-          QString("font-size: 11pt; color: %1; font-weight: normal;")
-              .arg(m_wordColor));
-
-      punctLayout->addWidget(spacerLabel);
-      punctLayout->addWidget(punctLabel);
+void TextMarkupWidget::rebuild()
+{
+    // 1. Очищаем текущий layout
+    QLayoutItem *child;
+    while ((child = m_flowLayout->takeAt(0)) != nullptr) {
+        delete child->widget();
+        delete child;
     }
 
-    m_flowLayout->addWidget(container);
-  }
+    if (m_results.empty()) {
+        return;
+    }
 
-  update();
-  m_scrollArea->widget()->update();
+    static const QMap<QString, QString> roleMap = {
+        {"подлежащее", "подл."},
+        {"сказуемое", "сказ."},
+        {"обстоятельство", "обст."},
+        {"определение", "опр."},
+        {"дополнение", "доп."},
+        {"другое", "др."}
+    };
+
+    QFont wordFont("", 11);
+    QFontMetrics wordFm(wordFont);
+    QFont labelFont("", 7);
+    QFontMetrics labelFm(labelFont);
+    int containerHeight = wordFm.height() + labelFm.height() + 6;
+
+    for (const auto &sentence : m_results) {
+        const QString fullText = QString::fromStdString(sentence.text);
+
+        // Используем итератор
+        auto entityIt = sentence.entities.begin();
+        auto entityEnd = sentence.entities.end();
+
+        int textPos = 0;
+
+        while (textPos < fullText.length()) {
+            QChar ch = fullText.at(textPos);
+
+            if (ch.isSpace()) {
+                textPos++;
+                continue;
+            }
+
+            // Проверяем, указывает ли итератор на сущность, которая начинается здесь
+            if (entityIt != entityEnd && textPos == static_cast<int>(entityIt->start)) {
+                // --- ВЫВОД СЛОВА ---
+                //const Entity &entity = *entityIt;
+
+                QString wordText = QString::fromStdString(entityIt->text.c_str()); //fullText.mid(textPos, static_cast<int>(entity.end - entity.start + 1));
+                QString fullRole = QString::fromStdString(entityIt->type_ru);
+                QString shortRole = roleMap.value(fullRole, fullRole);
+
+                // Переходим за конец текущего слова
+                textPos = static_cast<int>(entityIt->end) + 1;
+
+                if (static_cast<int>(entityIt->end) + 1 == fullText.length() - 1) {
+                    QChar nextChar = fullText.at(fullText.length() - 1);
+                    wordText+=nextChar;
+                    textPos++;
+                }
+
+
+                QWidget *container = new QWidget();
+                container->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+                container->setFixedHeight(containerHeight);
+
+                QVBoxLayout *blockLayout = new QVBoxLayout(container);
+                blockLayout->setSpacing(0);
+                blockLayout->setContentsMargins(2, 0, 2, 0);
+
+                QLabel *memberLabel = new QLabel(shortRole);
+                memberLabel->setAlignment(Qt::AlignCenter);
+                memberLabel->setStyleSheet(QString("font-size: 7pt; color: %1;").arg(m_labelColor));
+
+                QLabel *wordLabel = new QLabel(wordText);
+                wordLabel->setAlignment(Qt::AlignCenter | Qt::AlignLeft);
+                wordLabel->setStyleSheet(QString("font-size: 11pt; color: %1;").arg(m_wordColor));
+                wordLabel->setToolTip(fullRole);
+
+                blockLayout->addWidget(memberLabel);
+                blockLayout->addWidget(wordLabel);
+
+                m_flowLayout->addWidget(container);
+
+
+
+                // Переходим к следующей сущности в списке
+                ++entityIt;
+            }
+            else {
+                // --- ВЫВОД ЗНАКА ПРЕПИНАНИЯ ---
+                 QWidget *container = new QWidget();
+                 //int punctWidth = wordFm.horizontalAdvance(ch);
+
+                 container->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
+                 container->setFixedHeight(containerHeight);
+                 //container->setFixedWidth(punctWidth);
+
+                 QVBoxLayout *blockLayout = new QVBoxLayout(container);
+                 blockLayout->setSpacing(0);
+                 blockLayout->setContentsMargins(0, 0, 2, 0);
+
+                 QLabel *memberLabel = new QLabel("");
+
+                 QLabel *wordLabel = new QLabel(ch);
+                 wordLabel->setAlignment(Qt::AlignCenter | Qt::AlignLeft);
+                 wordLabel->setStyleSheet(QString("font-size: 11pt; color: %1;").arg(m_wordColor));
+
+                 blockLayout->addWidget(memberLabel);
+                 blockLayout->addWidget(wordLabel);
+
+                 m_flowLayout->addWidget(container);
+
+                 textPos++;
+            }
+        }
+    }
+
+    update();
+    m_scrollArea->widget()->update();
 }
 
 // Реализация сеттера
@@ -246,51 +238,42 @@ void TextMarkupWidget::updateHighlighting() {
     return;
   }
 
-  // Проходим по всем виджетам внутри m_flowLayout
-  for (int i = 0; i < m_flowLayout->count(); ++i) {
-    QWidget *container = m_flowLayout->itemAt(i)->widget();
-    if (!container)
-      continue;
+  // Проходим по всем контейнерам в layout'е
+      for (int i = 0; i < m_flowLayout->count(); ++i) {
+          QWidget *container = m_flowLayout->itemAt(i)->widget();
+          if (!container) continue;
 
-    // Ищем лейбл с ролью (он должен быть первым в layout контейнера)
-    QVBoxLayout *vLayout = qobject_cast<QVBoxLayout *>(container->layout());
-    if (!vLayout)
-      continue;
+          // Получаем вертикальный макет контейнера (QVBoxLayout)
+          QVBoxLayout *vLayout = qobject_cast<QVBoxLayout*>(container->layout());
+          if (!vLayout || vLayout->count() < 2) continue; // Проверяем, что макет корректен
 
-    QLabel *memberLabel = qobject_cast<QLabel *>(vLayout->itemAt(0)->widget());
-    if (!memberLabel)
-      continue;
+          // 1. Находим QLabel с ролью (подпись сверху)
+          QLabel *memberLabel = qobject_cast<QLabel*>(vLayout->itemAt(0)->widget());
+          if (!memberLabel) continue;
 
-    // Ищем лейбл со словом (он должен быть в layout, который идет вторым)
-    QHBoxLayout *hLayout =
-        qobject_cast<QHBoxLayout *>(vLayout->itemAt(1)->layout());
-    if (!hLayout)
-      continue;
+          // 2. Находим QLabel со словом (текст снизу)
+          // Теперь это просто второй элемент в QVBoxLayout, а не вложенный поиск.
+          QLabel *wordLabel = qobject_cast<QLabel*>(vLayout->itemAt(1)->widget());
+          if (!wordLabel) continue;
 
-    QLabel *wordLabel = nullptr;
-    for (int j = 0; j < hLayout->count(); ++j) {
-      wordLabel = qobject_cast<QLabel *>(hLayout->itemAt(j)->widget());
-      if (wordLabel)
-        break; // Нашли первый QLabel (это слово)
-    }
+          if (memberLabel->text().isEmpty()) {
+                      continue; // Переходим к следующему виджету
+                  }
 
-    if (!wordLabel)
-      continue;
-
-    // Проверяем, совпадает ли роль с той, которую нужно выделить
-    if (memberLabel->text() == m_highlightedRole) {
-      // Применяем выделение
-      wordLabel->setStyleSheet(
-          QString("font-size: 11pt; color: %1; font-weight: normal; "
-                  "background-color: %2; padding: 1px; border-radius: 2px;")
-              .arg(m_wordColor)
-              .arg(m_wordBackgroundColor));
-    } else {
-      // Убираем выделение (делаем фон прозрачным)
-      wordLabel->setStyleSheet(
-          QString("font-size: 11pt; color: %1; font-weight: normal; "
-                  "background-color: transparent;")
-              .arg(m_wordColor));
-    }
+          // Проверяем, совпадает ли роль с той, которую нужно выделить
+          if (memberLabel->text() == m_highlightedRole) {
+              // Применяем выделение к слову
+              wordLabel->setStyleSheet(
+                  QString("font-size: 11pt; color: %1; font-weight: normal; "
+                          "background-color: %2; padding: 1px; border-radius: 2px;")
+                      .arg(m_wordColor)
+                      .arg(m_wordBackgroundColor));
+          } else {
+              // Убираем выделение (сбрасываем стиль на базовый)
+              wordLabel->setStyleSheet(
+                  QString("font-size: 11pt; color: %1; font-weight: normal; "
+                          "background-color: transparent;")
+                      .arg(m_wordColor));
+          }
   }
 }

@@ -1,4 +1,5 @@
 #include "statistics.hpp"
+#include "bert_onnx_inference.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -192,7 +193,7 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
       }
 
       // operator[] создаёт SearchItem при первом появлении ключа.
-      auto &item = itemsByKey[{categoryRu, word}];
+      SearchItem &item = itemsByKey[{categoryRu, word}];
       item.text = word;
       item.type = categoryRu;
       item.amount += 1;

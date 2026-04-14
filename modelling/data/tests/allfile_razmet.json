@@ -434,7 +434,7 @@
     },
     {
         "tokens": [ "Я", "наклонясь", "поднял", "карандаш", "с", "пола" ],
-        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION" ]
+        "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
     },
     {
         "tokens": [ "Над", "рекой", "наклонясь", "что-то", "шепчет", "камыш" ],
@@ -446,7 +446,7 @@
     },
     {
         "tokens": [ "Спускаясь", "по", "тропинке", "Димка", "вдруг", "остановился" ],
-        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADVERBIAL" ]
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE" ]
     },
     {
         "tokens": [ "Он", "пополз", "спотыкаясь", "о", "разбросанные", "остатки", "кирпичей" ],
@@ -458,7 +458,7 @@
     },
     {
         "tokens": [ "Вьется", "речка", "небольшая", "средь", "полей", "и", "рощ", "петляя" ],
-        "tags": [ "B-PREDICATE", "B-SUBJECT", "B-DEFINITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+        "tags": [ "B-PREDICATE", "B-SUBJECT", "B-DEFINITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
     },
     {
         "tokens": [ "Под", "голубыми", "небесами", "великолепными", "коврами", "блестя", "на", "солнце", "снег", "лежит" ],
@@ -502,7 +502,7 @@
     },
     {
         "tokens": [ "Наклонившись", "над", "столом", "директор", "что", "то", "писал" ],
-        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADDITION", "B-PREDICATE" ]
+        "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADDITION", "I-ADDITION", "B-PREDICATE" ]
     },
     {
         "tokens": [ "Клюшка", "вырвавшаяся", "из", "рук", "игрока", "покатилась", "по", "льду" ],

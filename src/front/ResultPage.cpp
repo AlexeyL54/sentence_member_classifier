@@ -63,7 +63,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Правая часть: чекбоксы и лейблы с количеством
   rightWidget = new QWidget(centralWidget);
   rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  rightWidget->setFixedWidth(400);
+  rightWidget->setFixedWidth(410);
 
   QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
   rightLayout->setContentsMargins(15, 15, 15, 15);
@@ -73,8 +73,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
-  QStringList roles = {"подлежащее",  "сказуемое",      "дополнение",
-                       "определение", "обстоятельство", "другое"};
+  QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
 
   for (int i = 0; i < partNames.size(); ++i) {
     QWidget *rowWidget = new QWidget(rightWidget);
@@ -84,7 +83,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
     QCheckBox *cb = new QCheckBox(partNames[i], rowWidget);
     cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    cb->setFixedWidth(180);
+    cb->setFixedWidth(150);
 
     QString role = roles.at(i);
     // connect(cb, &QCheckBox::stateChanged, this,
@@ -107,7 +106,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
     bars[i] = new QProgressBar(rowWidget);
     bars[i]->setTextVisible(false);
     bars[i]->setRange(0, 1);
-    bars[i]->setFixedWidth(120);
+    bars[i]->setFixedWidth(150);
     bars[i]->setFixedHeight(20);
 
     hLayout->addWidget(cb);
@@ -130,7 +129,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   statsTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
   statsLayout->addWidget(statsTitle);
 
-  // Создаем лейблы и сохраняем их в поля класса для будущего доступа
+  // --- ОБЩАЯ СТАТИСТИКА ---
   labelSentences = new QLabel("Предложений: 0", statsWidget);
   labelWords = new QLabel("Слов: 0", statsWidget);
   labelMembers = new QLabel("Членов предложения: 0", statsWidget);
@@ -139,13 +138,8 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   labelDefinitions = new QLabel("Определений: 0", statsWidget);
   labelAdditions = new QLabel("Дополнений: 0", statsWidget);
   labelAdverbials = new QLabel("Обстоятельств: 0", statsWidget);
-  top_subject = new QLabel("самое популярное подлежащее: ", statsWidget);
-  top_predicate = new QLabel("самое популярное сказуемое: ", statsWidget);
-  top_definition = new QLabel("самое популярное определение: ", statsWidget);
-  top_addition = new QLabel("самое популярное дополнение: ", statsWidget);
-  top_adverbial = new QLabel("самое популярное обстоятельство: ", statsWidget);
 
-  // Добавляем лейблы в layout виджета
+  // Добавляем общую статистику в layout
   statsLayout->addWidget(labelSentences);
   statsLayout->addWidget(labelWords);
   statsLayout->addWidget(labelMembers);
@@ -154,11 +148,34 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   statsLayout->addWidget(labelDefinitions);
   statsLayout->addWidget(labelAdditions);
   statsLayout->addWidget(labelAdverbials);
-  statsLayout->addWidget(top_subject);
-  statsLayout->addWidget(top_predicate);
-  statsLayout->addWidget(top_definition);
-  statsLayout->addWidget(top_addition);
-  statsLayout->addWidget(top_adverbial);
+
+  // Самые популярные члены предложения
+  // Создаем контейнер для этого блока
+  QWidget *popularWidget = new QWidget(statsWidget);
+  QVBoxLayout *popularLayout = new QVBoxLayout(popularWidget);
+  popularLayout->setContentsMargins(0, 10, 0, 0); // Отступ сверху для отделения от общей статистики
+  popularLayout->setSpacing(6);
+
+  // Заголовок блока
+  QLabel *popularTitle = new QLabel("Самые популярные члены предложения", popularWidget);
+  popularTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
+  popularLayout->addWidget(popularTitle);
+
+  // Лейблы для названий и слов (теперь они дочерние для popularWidget)
+  top_subject = new QLabel("Подлежащее:", popularWidget);
+  top_predicate = new QLabel("Сказуемое:", popularWidget);
+  top_definition = new QLabel("Определение:", popularWidget);
+  top_addition = new QLabel("Дополнение:", popularWidget);
+  top_adverbial = new QLabel("Обстоятельство:", popularWidget);
+
+  // Добавляем элементы в layout контейнера столбиком
+  popularLayout->addWidget(top_subject);
+  popularLayout->addWidget(top_predicate);
+  popularLayout->addWidget(top_definition);
+  popularLayout->addWidget(top_addition);
+  popularLayout->addWidget(top_adverbial);
+  // Добавляем готовый контейнер в основной layout статистики
+  statsLayout->addWidget(popularWidget);
 
   // Добавляем растяжку, чтобы статистика была вверху
   statsLayout->addStretch();
@@ -255,7 +272,7 @@ void ResultPage::refreshDisplay() {
   updateCounts();
   updateChart();
   if (widgetText) {
-    widgetText->setMarkupText(fullText, members);
+    widgetText->setMarkupText(fullText, m_results);
   }
 }
 
@@ -410,7 +427,12 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
   }
 
   // 3. Строим карту разметки для виджета (берем только первое предложение)
-  buildWordRoleMap();
+ // buildWordRoleMap();
+
+  if (widgetText) {
+    // Передаём заполненный вектор в виджет для разметки
+      widgetText->setMarkupText(fullText, m_results);
+  }
 }
 
 void ResultPage::buildWordRoleMap() {
@@ -418,7 +440,7 @@ void ResultPage::buildWordRoleMap() {
 
   if (m_results.empty() || fullText.isEmpty()) {
     if (widgetText) {
-      widgetText->setMarkupText(fullText, members);
+     // widgetText->setMarkupText(fullText, members);
     }
     return;
   }
@@ -443,7 +465,7 @@ void ResultPage::buildWordRoleMap() {
   }
 
   if (widgetText) {
-    widgetText->setMarkupText(fullText, members);
+    widgetText->setMarkupText(fullText, m_results);
   }
 }
 
@@ -481,18 +503,18 @@ void ResultPage::updateStatsDisplay() {
   // Используем QString::fromStdString для перевода std::string -> QString
 
   top_subject->setText(
-      QString("самое популярное подлежащее: %1")
+      QString("Подлежащее: %1")
           .arg(QString::fromStdString(stats.top_subject.first)));
   top_predicate->setText(
-      QString("самое популярное сказуемое: %1")
+      QString("Сказуемое: %1")
           .arg(QString::fromStdString(stats.top_predicate.first)));
   top_definition->setText(
-      QString("самое популярное определение: %1")
+      QString("Определение: %1")
           .arg(QString::fromStdString(stats.top_definition.first)));
   top_addition->setText(
-      QString("самое популярное дополнение: %1")
+      QString("Дополнение: %1")
           .arg(QString::fromStdString(stats.top_addition.first)));
   top_adverbial->setText(
-      QString("самое популярное обстоятельство: %1")
+      QString("Обстоятельство: %1")
           .arg(QString::fromStdString(stats.top_adverbial.first)));
 }
