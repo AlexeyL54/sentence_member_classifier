@@ -43,14 +43,37 @@ Unistring &Unistring::operator=(const char *right) {
   return *this;
 }
 
-Unistring &Unistring::operator+(const Unistring &right) {
+Unistring Unistring::operator+(const Unistring &right) {
+  Unistring result(*this);
+  result.value += right.value;
+  result.offsets_dirty = true;
+  result.update_offsets();
+  return result;
+}
+
+Unistring Unistring::operator+(const string &right) {
+  Unistring uniright(right);
+  return (*this) + uniright;
+}
+
+/**
+ * @brief Оператор сложения Unistring с Unistring.
+ * @param right Правый операнд.
+ * @return Ссылка на текущий объект.
+ */
+Unistring &Unistring::operator+=(const Unistring &right) {
   value += right.value;
   char_offsets.insert(char_offsets.end(), right.char_offsets.begin(),
                       right.char_offsets.end());
   return *this;
 }
 
-Unistring &Unistring::operator+(const string &right) {
+/**
+ * @brief Оператор сложения Unistring со string.
+ * @param right Правый операнд.
+ * @return Ссылка на текущий объект.
+ */
+Unistring &Unistring::operator+=(const string &right) {
   Unistring uniright(right);
   value += uniright.value;
   char_offsets.insert(char_offsets.end(), uniright.char_offsets.begin(),
@@ -229,20 +252,14 @@ size_t Unistring::find(const Unistring &substr, size_t start_index) {
     return SIZE_MAX;
   }
 
-  // Если начальный индекс выходит за пределы строки
-  if (start_index >= n) {
-    return SIZE_MAX;
-  }
-
-  // Подстрока длиннее оставшейся части строки
-  if (n - start_index < m) {
+  if (start_index >= n or n - start_index < m) {
     return SIZE_MAX;
   }
 
   vector<size_t> pi = substr.compute_prefix_function();
-  size_t q = 0; // Количество совпавших символов в подстроке
+  // Количество совпавших символов в подстроке
+  size_t q = 0;
 
-  // Начинаем поиск с start_index
   for (size_t i = start_index; i < n; ++i) {
     while (q > 0 && substr[q] != (*this)[i]) {
       q = pi[q - 1];
@@ -314,6 +331,33 @@ Unistring Unistring::to_lower() {
 }
 
 vector<size_t> Unistring::get_char_offsets() { return char_offsets; }
+
+Unistring Unistring::substr(size_t start, size_t end) {
+  size_t len = this->length();
+
+  if (start >= len || start > end) {
+    return Unistring("");
+  }
+  if (end >= len) {
+    end = len - 1;
+  }
+  if (this->offsets_dirty)
+    update_offsets();
+
+  // Получаем байтовое начало первого символа подстроки
+  size_t byte_start = char_offsets[start];
+
+  // байтовое начало символа, следующего за последним символом
+  size_t byte_end;
+  if (end + 1 < char_offsets.size()) {
+    byte_end = char_offsets[end + 1];
+  } else {
+    byte_end = value.size();
+  }
+
+  std::string sub_value = value.substr(byte_start, byte_end - byte_start);
+  return Unistring(sub_value);
+}
 
 bool utf8::operator==(const Unistring &s1, const Unistring &s2) {
   return s1.to_string() == s2.to_string();

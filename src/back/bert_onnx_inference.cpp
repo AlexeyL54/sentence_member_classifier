@@ -2,6 +2,7 @@
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
 #include "simple_tokenizer.hpp"
+#include "unistring.hpp"
 #include <algorithm>
 #include <iostream>
 #include <ostream>
@@ -230,12 +231,13 @@ std::vector<WordInfo> group_tokens_into_words(
 // Группировка слов в фразы (аналог _group_into_phrases в Python)
 std::vector<Entity> group_words_into_phrases(
     const std::vector<WordInfo> &words,
-    const std::map<int, std::pair<std::string, std::string>> &labels_map) {
+    const std::map<int, std::pair<std::string, std::string>> &labels_map,
+    const std::string &original_text) {
 
   std::vector<Entity> entities;
   Entity *current_entity = nullptr;
 
-  for (const auto &word : words) {
+  for (const WordInfo &word : words) {
     // Пропускаем знаки препинания
     if (is_punctuation(word.text)) {
       continue;
@@ -247,11 +249,39 @@ std::vector<Entity> group_words_into_phrases(
     bool is_i_prefix =
         (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "I-");
 
+    // Извлекаем оригинальный текст из исходного предложения по смещениям
+    utf8::Unistring unitext = original_text;
+    // std::string original_word_text =
+    // original_text.substr(word.start, word.end - word.start);
+    std::string original_word_text =
+        unitext.substr(word.start, word.end).to_string();
+
     if (current_entity == nullptr) {
-      // Нет текущей сущности - начинаем новую если метка не O
-      if (base_label != "O") {
+      // Нет текущей сущности - начинаем новую для любой метки (включая O)
+      entities.emplace_back();
+      entities.back().text = original_word_text;
+      entities.back().start = word.start;
+      entities.back().end = word.end;
+
+      for (const auto &lbl_pair : labels_map) {
+        if (lbl_pair.second.first == word.main_label) {
+          entities.back().type = lbl_pair.second.first;
+          entities.back().type_ru = lbl_pair.second.second;
+          break;
+        }
+      }
+
+      current_entity = &entities.back();
+    } else {
+      // Есть текущая сущность
+      std::string current_base = get_base_label(current_entity->type);
+
+      if (base_label == "O") {
+        // Слово с меткой O - завершаем текущую сущность и начинаем новую
+        current_entity = nullptr;
+
         entities.emplace_back();
-        entities.back().text = word.text;
+        entities.back().text = original_word_text;
         entities.back().start = word.start;
         entities.back().end = word.end;
 
@@ -264,38 +294,12 @@ std::vector<Entity> group_words_into_phrases(
         }
 
         current_entity = &entities.back();
-      }
-    } else {
-      // Есть текущая сущность
-      std::string current_base = get_base_label(current_entity->type);
-
-      if (base_label == "O") {
-        // Слово не относится к сущности - завершаем текущую
-        current_entity = nullptr;
-
-        // Пробуем начать новую сущность с текущего слова
-        if (base_label != "O") {
-          entities.emplace_back();
-          entities.back().text = word.text;
-          entities.back().start = word.start;
-          entities.back().end = word.end;
-
-          for (const auto &lbl_pair : labels_map) {
-            if (lbl_pair.second.first == word.main_label) {
-              entities.back().type = lbl_pair.second.first;
-              entities.back().type_ru = lbl_pair.second.second;
-              break;
-            }
-          }
-
-          current_entity = &entities.back();
-        }
       } else if (is_b_prefix) {
         // B-префикс - начинаем новую сущность
         current_entity = nullptr;
 
         entities.emplace_back();
-        entities.back().text = word.text;
+        entities.back().text = original_word_text;
         entities.back().start = word.start;
         entities.back().end = word.end;
 
@@ -317,14 +321,14 @@ std::vector<Entity> group_words_into_phrases(
         // <= 2
         if (current_base == word_base && distance <= 2) {
           // Продолжаем текущую сущность
-          current_entity->text += " " + word.text;
+          current_entity->text += " " + original_word_text;
           current_entity->end = word.end;
         } else {
           // Не можем продолжить - завершаем текущую и начинаем новую
           current_entity = nullptr;
 
           entities.emplace_back();
-          entities.back().text = word.text;
+          entities.back().text = original_word_text;
           entities.back().start = word.start;
           entities.back().end = word.end;
 
@@ -339,25 +343,23 @@ std::vector<Entity> group_words_into_phrases(
           current_entity = &entities.back();
         }
       } else {
-        // Другие случаи - завершаем текущую сущность
+        // Другие случаи - завершаем текущую сущность и начинаем новую
         current_entity = nullptr;
 
-        if (base_label != "O") {
-          entities.emplace_back();
-          entities.back().text = word.text;
-          entities.back().start = word.start;
-          entities.back().end = word.end;
+        entities.emplace_back();
+        entities.back().text = original_word_text;
+        entities.back().start = word.start;
+        entities.back().end = word.end;
 
-          for (const auto &lbl_pair : labels_map) {
-            if (lbl_pair.second.first == word.main_label) {
-              entities.back().type = lbl_pair.second.first;
-              entities.back().type_ru = lbl_pair.second.second;
-              break;
-            }
+        for (const auto &lbl_pair : labels_map) {
+          if (lbl_pair.second.first == word.main_label) {
+            entities.back().type = lbl_pair.second.first;
+            entities.back().type_ru = lbl_pair.second.second;
+            break;
           }
-
-          current_entity = &entities.back();
         }
+
+        current_entity = &entities.back();
       }
     }
   }
@@ -376,7 +378,7 @@ std::vector<Entity> BertOnnxInference::merge_subwords(
       group_tokens_into_words(tokens, token_labels, offsets, labels_);
 
   // Шаг 2: Группировка слов в фразы
-  return group_words_into_phrases(words, labels_);
+  return group_words_into_phrases(words, labels_, original_text);
 }
 
 // Загрузка меток из config.json
