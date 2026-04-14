@@ -4,8 +4,7 @@
 #include <QMessageBox>
 #include <fstream>
 
-InputPage::InputPage(QWidget *parent) : QWidget(parent)
-{
+InputPage::InputPage(QWidget *parent) : QWidget(parent) {
   setWindowTitle("Анализатор текста");
   resize(900, 550);
 
@@ -31,10 +30,8 @@ InputPage::InputPage(QWidget *parent) : QWidget(parent)
  * Проверяет, что поле ввода не пустое, и только после этого
  * отправляет сигнал перехода к анализу.
  */
-void InputPage::onAnalyzeFromKeyboard()
-{
-  if (textInput->toPlainText().trimmed().isEmpty())
-  {
+void InputPage::onAnalyzeFromKeyboard() {
+  if (textInput->toPlainText().trimmed().isEmpty()) {
     QMessageBox::warning(this, "Пустой текст",
                          "Введите текст перед запуском анализа.");
     return;
@@ -50,19 +47,16 @@ void InputPage::onAnalyzeFromKeyboard()
  * Проверяет, что файл выбран и доступен для чтения, затем
  * отправляет сигнал перехода к анализу.
  */
-void InputPage::onAnalyzeFromFile()
-{
+void InputPage::onAnalyzeFromFile() {
   const QString path = filePathEdit->text();
-  if (path.isEmpty())
-  {
+  if (path.isEmpty()) {
     QMessageBox::warning(this, "Файл не выбран",
                          "Укажите текстовый файл кнопкой «Выбрать файл».");
     return;
   }
 
   std::ifstream in(path.toStdString(), std::ios::binary);
-  if (!in)
-  {
+  if (!in) {
     QMessageBox::warning(this, "Ошибка чтения",
                          "Не удалось открыть или прочитать файл.");
     return;
@@ -79,8 +73,7 @@ void InputPage::onAnalyzeFromFile()
  * Layout привязывается к самому виджету InputPage и задаёт
  * общую вертикальную структуру содержимого окна.
  */
-void InputPage::setupMainLayout()
-{
+void InputPage::setupMainLayout() {
   mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(0, 0, 0, 0);
   mainLayout->setSpacing(0);
@@ -92,8 +85,7 @@ void InputPage::setupMainLayout()
  * В эту строку затем добавляются колонки, в том числе
  * колонка с формой ввода текста.
  */
-void InputPage::setupContentRow()
-{
+void InputPage::setupContentRow() {
   contentRow = new QHBoxLayout();
   contentRow->setSpacing(0);
 }
@@ -104,8 +96,7 @@ void InputPage::setupContentRow()
  * Внутрь этой колонки добавляются поясняющий текст, переключатель
  * способа ввода и стек страниц (клавиатура / файл).
  */
-void InputPage::setupContentColumn()
-{
+void InputPage::setupContentColumn() {
   contentColumn = new QWidget(this);
   contentLayout = new QVBoxLayout(contentColumn);
   contentLayout->setContentsMargins(24, 24, 24, 24);
@@ -117,14 +108,10 @@ void InputPage::setupContentColumn()
  *
  * Текст описывает назначение программы и возможные способы ввода.
  */
-void InputPage::setupIntroText()
-{
-  introText = new QLabel(
-      "Эта программа предназначена для анализа русского текста: поиск членов "
-      "предложения и слов, не являющихся членами предложения, с последующей "
-      "обработкой результатов.\n\nВы можете ввести текст с клавиатуры или "
-      "выбрать текстовый файл с диска.",
-      contentColumn);
+void InputPage::setupIntroText() {
+  introText = new QLabel("\n\nВы можете ввести текст с клавиатуры или "
+                         "выбрать текстовый файл с диска.",
+                         contentColumn);
   introText->setWordWrap(true);
   contentLayout->addWidget(introText);
 }
@@ -132,14 +119,13 @@ void InputPage::setupIntroText()
 /**
  * @brief Создаёт переключатель способа ввода и стек страниц.
  *
- * Добавляет радиокнопки «С клавиатуры» / «С файла» и инициализирует
+ * Добавляет радиокнопки «С клавиатуры» / «ИЗ файла» и инициализирует
  * QStackedWidget, в котором будут располагаться соответствующие страницы.
  */
-void InputPage::setupInputChoice()
-{
+void InputPage::setupInputChoice() {
   inputChoiceGroup = new QButtonGroup(contentColumn);
   radioKeyboard = new QRadioButton("С клавиатуры", contentColumn);
-  radioFile = new QRadioButton("С файла", contentColumn);
+  radioFile = new QRadioButton("Из файла", contentColumn);
   inputChoiceGroup->addButton(radioKeyboard);
   inputChoiceGroup->addButton(radioFile);
 
@@ -158,12 +144,12 @@ void InputPage::setupInputChoice()
  * Страница содержит многострочное поле ввода текста и кнопку
  * «Анализировать» для запуска обработки введённого текста.
  */
-void InputPage::setupKeyboardPage()
-{
+void InputPage::setupKeyboardPage() {
   pageKeyboard = new QWidget(contentColumn);
   QVBoxLayout *layoutKeyboard = new QVBoxLayout(pageKeyboard);
 
-  // Рамка: слева поле на всю высоту, справа узкая колонка с «Очистить» — без наложения
+  // Рамка: слева поле на всю высоту, справа узкая колонка с «Очистить» — без
+  // наложения
   QFrame *textFrame = new QFrame(pageKeyboard);
   textFrame->setFrameShape(QFrame::StyledPanel);
   textFrame->setLineWidth(1);
@@ -190,8 +176,8 @@ void InputPage::setupKeyboardPage()
   btnClearKeyboard->setToolButtonStyle(Qt::ToolButtonTextOnly);
   btnClearKeyboard->setAutoRaise(true);
   btnClearKeyboard->setCursor(Qt::PointingHandCursor);
-  btnClearKeyboard->setToolTip(QStringLiteral(
-      "Очистить текст и сбросить путь к выбранному файлу"));
+  btnClearKeyboard->setToolTip(
+      QStringLiteral("Очистить текст и сбросить путь к выбранному файлу"));
   inputRow->addWidget(btnClearKeyboard, 0, Qt::AlignTop);
 
   frameLay->addLayout(inputRow, 1);
@@ -199,7 +185,8 @@ void InputPage::setupKeyboardPage()
   layoutKeyboard->addWidget(textFrame, 1);
 
   // Кнопка запуска анализа при вводе с клавиатуры
-  btnAnalyzeKeyboard = new QPushButton(QStringLiteral("Анализировать"), pageKeyboard);
+  btnAnalyzeKeyboard =
+      new QPushButton(QStringLiteral("Анализировать"), pageKeyboard);
   btnAnalyzeKeyboard->setCursor(Qt::PointingHandCursor);
   layoutKeyboard->addWidget(btnAnalyzeKeyboard);
 
@@ -212,8 +199,7 @@ void InputPage::setupKeyboardPage()
  * Страница содержит поле для отображения пути к файлу и две кнопки:
  * «Выбрать файл» и «Анализировать» выбранный файл.
  */
-void InputPage::setupFilePage()
-{
+void InputPage::setupFilePage() {
   pageFile = new QWidget(contentColumn);
   QVBoxLayout *layoutFile = new QVBoxLayout(pageFile);
 
@@ -230,8 +216,8 @@ void InputPage::setupFilePage()
   btnClearFile->setToolButtonStyle(Qt::ToolButtonTextOnly);
   btnClearFile->setAutoRaise(true);
   btnClearFile->setCursor(Qt::PointingHandCursor);
-  btnClearFile->setToolTip(QStringLiteral(
-      "Очистить путь к файлу и введённый текст"));
+  btnClearFile->setToolTip(
+      QStringLiteral("Очистить путь к файлу и введённый текст"));
   btnClearFile->setFixedWidth(28);
   pathRow->addWidget(btnClearFile, 0, Qt::AlignVCenter);
   layoutFile->addLayout(pathRow);
@@ -255,26 +241,25 @@ void InputPage::setupFilePage()
  * Подключает обработчик выбора файла и переключения страниц стека
  * при изменении состояния радиокнопок, а также задаёт начальное состояние.
  */
-void InputPage::setupConnections()
-{
+void InputPage::setupConnections() {
   // По нажатию «Выбрать файл» — диалог выбора, путь пишем в filePathEdit
-  connect(btnSelectFile, &QPushButton::clicked, this, [this]()
-          {
+  connect(btnSelectFile, &QPushButton::clicked, this, [this]() {
     QString path = QFileDialog::getOpenFileName(
         this, "Выберите файл", QDir::homePath(),
         "Текстовые файлы (*.txt);;Все файлы (*.*)");
     if (!path.isEmpty())
-      filePathEdit->setText(path); });
+      filePathEdit->setText(path);
+  });
 
   // Переключение страницы стека при выборе радиокнопки
-  connect(radioKeyboard, &QRadioButton::toggled, this, [this](bool checked)
-          {
+  connect(radioKeyboard, &QRadioButton::toggled, this, [this](bool checked) {
     if (checked)
-      stack->setCurrentIndex(0); });
-  connect(radioFile, &QRadioButton::toggled, this, [this](bool checked)
-          {
+      stack->setCurrentIndex(0);
+  });
+  connect(radioFile, &QRadioButton::toggled, this, [this](bool checked) {
     if (checked)
-      stack->setCurrentIndex(1); });
+      stack->setCurrentIndex(1);
+  });
 
   // Начальное состояние: «С клавиатуры», первая страница стека
   radioKeyboard->setChecked(true);
@@ -285,8 +270,7 @@ void InputPage::setupConnections()
   connect(btnAnalyzeFile, &QPushButton::clicked, this,
           &InputPage::onAnalyzeFromFile);
 
-  auto clearAll = [this]()
-  {
+  auto clearAll = [this]() {
     if (textInput)
       textInput->clear();
     if (filePathEdit)

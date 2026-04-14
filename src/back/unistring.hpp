@@ -113,14 +113,29 @@ public:
    * @param right Правый операнд.
    * @return Ссылка на текущий объект.
    */
-  Unistring &operator+(const Unistring &right);
+  Unistring operator+(const Unistring &right);
 
   /**
    * @brief Оператор сложения Unistring со string.
    * @param right Правый операнд.
    * @return Ссылка на текущий объект.
    */
-  Unistring &operator+(const string &right);
+  Unistring operator+(const string &right);
+
+  /**
+   * @brief Оператор сложения Unistring с Unistring.
+   * @param right Правый операнд.
+   * @return Ссылка на текущий объект.
+   */
+  Unistring &operator+=(const Unistring &right);
+
+  /**
+   * @brief Оператор сложения Unistring со string.
+   * @param right Правый операнд.
+   * @return Ссылка на текущий объект.
+   */
+  Unistring &operator+=(const string &right);
+
   /**
    * @brief Оператор доступа к символу по индексу (size_t).
    *
@@ -144,6 +159,8 @@ public:
   Unistring operator[](int index) const;
 
   vector<size_t> get_char_offsets();
+
+  Unistring substr(size_t start, size_t end);
 
 private:
   string value; // Внутреннее представление строки в виде байтовой
