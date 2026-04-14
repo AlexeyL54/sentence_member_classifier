@@ -163,13 +163,43 @@ void InputPage::setupKeyboardPage()
   pageKeyboard = new QWidget(contentColumn);
   QVBoxLayout *layoutKeyboard = new QVBoxLayout(pageKeyboard);
 
-  textInput = new QPlainTextEdit(contentColumn);
-  textInput->setPlaceholderText("Введите текст для анализа...");
+  // Рамка: слева поле на всю высоту, справа узкая колонка с «Очистить» — без наложения
+  QFrame *textFrame = new QFrame(pageKeyboard);
+  textFrame->setFrameShape(QFrame::StyledPanel);
+  textFrame->setLineWidth(1);
+  QVBoxLayout *frameLay = new QVBoxLayout(textFrame);
+  frameLay->setContentsMargins(6, 6, 6, 6);
+  frameLay->setSpacing(0);
+
+  QHBoxLayout *inputRow = new QHBoxLayout();
+  inputRow->setSpacing(8);
+
+  textInput = new QPlainTextEdit(textFrame);
+  textInput->setPlaceholderText(QStringLiteral("Введите текст для анализа..."));
   textInput->setMinimumHeight(120);
-  layoutKeyboard->addWidget(textInput);
+  // Одна видимая граница — у внешнего QFrame; у самого поля рамку не рисуем
+  textInput->setFrameShape(QFrame::NoFrame);
+  textInput->setLineWidth(0);
+  textInput->setStyleSheet(QStringLiteral(
+      "QPlainTextEdit { border: none; padding: 2px; background: transparent; }"
+      "QPlainTextEdit:focus { border: none; outline: none; }"));
+  inputRow->addWidget(textInput, 1);
+
+  btnClearKeyboard = new QToolButton(textFrame);
+  btnClearKeyboard->setText(QStringLiteral("Очистить"));
+  btnClearKeyboard->setToolButtonStyle(Qt::ToolButtonTextOnly);
+  btnClearKeyboard->setAutoRaise(true);
+  btnClearKeyboard->setCursor(Qt::PointingHandCursor);
+  btnClearKeyboard->setToolTip(QStringLiteral(
+      "Очистить текст и сбросить путь к выбранному файлу"));
+  inputRow->addWidget(btnClearKeyboard, 0, Qt::AlignTop);
+
+  frameLay->addLayout(inputRow, 1);
+
+  layoutKeyboard->addWidget(textFrame, 1);
 
   // Кнопка запуска анализа при вводе с клавиатуры
-  btnAnalyzeKeyboard = new QPushButton("Анализировать", contentColumn);
+  btnAnalyzeKeyboard = new QPushButton(QStringLiteral("Анализировать"), pageKeyboard);
   btnAnalyzeKeyboard->setCursor(Qt::PointingHandCursor);
   layoutKeyboard->addWidget(btnAnalyzeKeyboard);
 
@@ -187,16 +217,30 @@ void InputPage::setupFilePage()
   pageFile = new QWidget(contentColumn);
   QVBoxLayout *layoutFile = new QVBoxLayout(pageFile);
 
-  filePathEdit = new QLineEdit(contentColumn);
+  // Путь и очистка в одной строке — кнопка визуально «в поле»
+  QHBoxLayout *pathRow = new QHBoxLayout();
+  pathRow->setSpacing(6);
+  filePathEdit = new QLineEdit(pageFile);
   filePathEdit->setReadOnly(true);
-  filePathEdit->setPlaceholderText("Файл не выбран");
-  layoutFile->addWidget(filePathEdit);
+  filePathEdit->setPlaceholderText(QStringLiteral("Файл не выбран"));
+  pathRow->addWidget(filePathEdit, 1);
+
+  btnClearFile = new QToolButton(pageFile);
+  btnClearFile->setText(QStringLiteral("×"));
+  btnClearFile->setToolButtonStyle(Qt::ToolButtonTextOnly);
+  btnClearFile->setAutoRaise(true);
+  btnClearFile->setCursor(Qt::PointingHandCursor);
+  btnClearFile->setToolTip(QStringLiteral(
+      "Очистить путь к файлу и введённый текст"));
+  btnClearFile->setFixedWidth(28);
+  pathRow->addWidget(btnClearFile, 0, Qt::AlignVCenter);
+  layoutFile->addLayout(pathRow);
 
   // Кнопки выбора файла и анализа
   QHBoxLayout *fileButtonsRow = new QHBoxLayout();
-  btnSelectFile = new QPushButton("Выбрать файл", contentColumn);
+  btnSelectFile = new QPushButton(QStringLiteral("Выбрать файл"), pageFile);
   btnSelectFile->setCursor(Qt::PointingHandCursor);
-  btnAnalyzeFile = new QPushButton("Анализировать", contentColumn);
+  btnAnalyzeFile = new QPushButton(QStringLiteral("Анализировать"), pageFile);
   btnAnalyzeFile->setCursor(Qt::PointingHandCursor);
   fileButtonsRow->addWidget(btnSelectFile);
   fileButtonsRow->addWidget(btnAnalyzeFile);
@@ -240,4 +284,14 @@ void InputPage::setupConnections()
           &InputPage::onAnalyzeFromKeyboard);
   connect(btnAnalyzeFile, &QPushButton::clicked, this,
           &InputPage::onAnalyzeFromFile);
+
+  auto clearAll = [this]()
+  {
+    if (textInput)
+      textInput->clear();
+    if (filePathEdit)
+      filePathEdit->clear();
+  };
+  connect(btnClearKeyboard, &QToolButton::clicked, this, clearAll);
+  connect(btnClearFile, &QToolButton::clicked, this, clearAll);
 }
