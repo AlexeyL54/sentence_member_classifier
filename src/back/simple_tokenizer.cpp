@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -200,58 +201,103 @@ vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
  * @return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
  * токена.
  */
+// В файле simple_tokenizer.cpp
+
+/**
+@brief Находит позицию токена в исходном тексте, начиная с заданной байтовой
+позиции. Корректно работает с многобайтовыми символами благодаря Unistring.
+@param text Исходный текст.
+@param token Токен для поиска (возможно с префиксом ##).
+@param start_pos Начальная позиция поиска в байтах.
+@return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
+токена. Если токен не найден, возвращает {start_pos, start_pos} (пустой
+диапазон), чтобы не ломать поток.
+*/
 pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
                                                          const string &token,
                                                          size_t start_pos) {
   if (token.empty())
     return {start_pos, start_pos};
 
-  // Убираем префикс ## для поиска в исходном тексте
+  // Убираем префикс ## для поиска в исходном тексте, так как в исходнике его
+  // нет
   string search_token = token;
-  if (token.substr(0, 2) == "##") {
+  if (token.size() >= 2 && token.substr(0, 2) == "##") {
     search_token = token.substr(2);
   }
 
+  // Создаем обертки Unistring
+  // Важно: мы ищем в ИСХОДНОМ тексте, но токен может быть нормализован (нижний
+  // регистр). Однако, смещения должны указывать на ИСХОДНЫЙ текст. Поэтому мы
+  // не можем просто привести весь текст к lower case и искать там, потому что
+  // смещения совпадут только если длина символов не меняется (для кириллицы в
+  // UTF-8 длина байт одинакова для верхнего/нижнего регистра, так что это
+  // безопасно).
+
   utf8::Unistring uni_text(text);
-  uni_text = uni_text.to_lower();
-  utf8::Unistring uni_token(search_token);
+  utf8::Unistring uni_search(search_token);
 
-  start_pos = uni_text.find(uni_token, start_pos);
+  // Приводим оба к нижнему регистру для нечувствительного к регистру поиска
+  utf8::Unistring uni_text_lower = uni_text.to_lower();
+  utf8::Unistring uni_search_lower = uni_search.to_lower();
 
-  // Конвертируем байтовую позицию start_pos в индекс символа
-  /*size_t start_char_idx = 0;
+  // Нам нужно найти символьный индекс, соответствующий байтовому start_pos
+  size_t start_char_idx = 0;
   size_t current_byte_pos = 0;
-  while (start_char_idx < uni_text.length() && current_byte_pos < start_pos) {
-    current_byte_pos += uni_text[start_char_idx].to_string().length();
-    start_char_idx++;
+  vector<size_t> offsets =
+      uni_text.get_char_offsets(); // Получаем карту байт -> символ
+
+  // Находим первый символ, чье байтовое смещение >= start_pos
+  for (size_t i = 0; i < offsets.size(); ++i) {
+    if (offsets[i] >= start_pos) {
+      start_char_idx = i;
+      break;
+    }
+    // Если мы прошли все смещения, значит start_pos в конце строки
+    if (i == offsets.size() - 1) {
+      start_char_idx = offsets.size();
+    }
   }
 
-  size_t token_len = uni_token.length();
-  size_t text_len = uni_text.length();
+  // Ищем подстроку начиная с этого символьного индекса
+  size_t found_char_idx = uni_text_lower.find(uni_search_lower, start_char_idx);
 
-  // Линейный поиск подстроки начиная с start_char_idx
-  for (size_t i = start_char_idx; i + token_len <= text_len; ++i) {
-    bool match = true;
-    for (size_t j = 0; j < token_len; ++j) {
-      if (uni_text[i + j] != uni_token[j]) {
-        match = false;
-        break;
-      }
-    }
+  if (found_char_idx == SIZE_MAX) {
+    // Токен не найден.
+    // Это может случиться, если токенизатор создал токен, которого нет в тексте
+    // (например, из-за ошибок нормализации или специальных символов).
+    // Возвращаем текущую позицию, чтобы процессинг продолжился, но с нулевой
+    // длиной
+    cerr << "Warning: Token '" << token
+         << "' not found in text starting at byte " << start_pos << endl;
+    return {start_pos, start_pos};
+  }
 
-    if (match) {
-      // Вычисляем байтовые смещения для найденного совпадения
-      size_t start_byte = 0;
-      for (size_t k = 0; k < i; ++k) {
-        start_byte += uni_text[k].to_string().length();
-      }
-      size_t end_byte = start_byte + uni_token.to_string().length();
-      return {start_byte, end_byte};
-    }
-  }*/
+  // Конвертируем найденный символьный индекс обратно в байтовый
+  size_t found_byte_start = offsets[found_char_idx];
 
-  // Если не нашли — возвращаем текущую позицию (защита от зацикливания)
-  return {start_pos, start_pos + uni_token.length()};
+  // Вычисляем конечный байтовый индекс
+  // Длина найденной подстроки в байтах
+  size_t match_len_bytes =
+      uni_search.to_string()
+          .length(); // Длина исходного поискового токена в байтах
+
+  // ВАЖНО: Длина в байтах искомого слова (search_token) может отличаться от
+  // длины в байтах найденного фрагмента, если есть различия в символах (хотя
+  // для case-insensitive кириллицы/латиницы в UTF-8 длина байт обычно
+  // совпадает). Для надежности лучше взять длину из найденного фрагмента в
+  // исходном тексте.
+
+  size_t found_char_end = found_char_idx + uni_search_lower.length();
+  size_t found_byte_end;
+
+  if (found_char_end >= offsets.size()) {
+    found_byte_end = text.length();
+  } else {
+    found_byte_end = offsets[found_char_end];
+  }
+
+  return {found_byte_start, found_byte_end};
 }
 
 /**
