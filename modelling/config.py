@@ -37,11 +37,11 @@ class Config:
     """
 
     # Модель
-    MODEL_NAME = "ai-forever/rubert-base"
+    MODEL_NAME = "ai-forever/ruBert-base"
     NUM_LABELS = 11
     MAX_LEN = 128
     BATCH_SIZE = 8
-    LEARNING_RATE = 2e-5
+    LEARNING_RATE = 2e-4
     EPOCHS = 10
     DROPOUT = 0.1
 
@@ -141,9 +141,9 @@ class Config:
 
         print(f"Metadata saved to {metadata_path}")
 
-    @classmethod
+
+"""    @classmethod
     def load_train_config(cls):
-        """
         Загружает конфигурацию обучения из JSON файла.
 
         Читает файл train_config.json и обновляет параметры обучения:
@@ -164,7 +164,6 @@ class Config:
                 "max_len": 128,
                 "model_name": "ai-forever/rubert-base"
             }
-        """
         if os.path.exists(cls.TRAIN_CONFIG_PATH):
             with open(cls.TRAIN_CONFIG_PATH, "r", encoding="utf-8") as f:
                 print(f"Opening {cls.TRAIN_CONFIG_PATH}")
@@ -179,4 +178,4 @@ class Config:
 
             print(f"Loaded train config from {cls.TRAIN_CONFIG_PATH}")
         else:
-            print("Train config not found, using defaults")
+            print("Train config not found, using defaults") """

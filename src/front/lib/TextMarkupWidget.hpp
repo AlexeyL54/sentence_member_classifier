@@ -1,6 +1,7 @@
 #ifndef TEXTMARKUPWIDGET_H
 #define TEXTMARKUPWIDGET_H
 
+#include "../../back/bert_onnx_inference.hpp"
 #include <QLabel>
 #include <QLayout>
 #include <QMap>
@@ -32,8 +33,9 @@ public:
    * @param text Текст для отображения.
    * @param members Карта соответствия: слово -> роль в предложении.
    */
-  void setMarkupText(const QString &text,
-                     const QMap<QString, QString> &members);
+  // void setMarkupText(const QString &text,
+  //                  const QMap<QString, QString> &members);
+  void setMarkupText(const QString &text, std::vector<SentenceResult> &results);
 
   /**
    * @brief Устанавливает цвет текста слов.
@@ -59,14 +61,23 @@ public:
    */
   QString labelColor() const;
 
-  /*
-   *
+  /**
+   * @brief Возвращает текущий цвет подсветки.
+   * @return Цвет подсветки в формате CSS.
    */
-  //void setWordBackgroundColor(const QString &color);
   QString wordBackgroundColor() const;
 
+  /**
+   * @brief Устанавливает член предложения для подсветки.
+   * @param role - название члена предложения.
+   */
   void setHighlightedRole(const QString &role);
-     QString highlightedRole() const;
+
+  /**
+   * @brief Возвращает текущий член предложения для подсветки.
+   * @return Название члена предложения.
+   */
+  QString highlightedRole() const;
 
 private:
   /**
@@ -77,6 +88,9 @@ private:
    */
   void rebuild();
 
+  /**
+   * @brief Подсвечивает выбранные члены предложения.
+   */
   void updateHighlighting();
 
   QString m_wordColor;              // Цвет текста слов.
@@ -89,8 +103,10 @@ private:
   FlowLayout *m_flowLayout;  // Компоновка в виде потока.
 
   QString m_wordBackgroundColor; // Цвет фона слов
-  QString m_highlightedRole; // Роль, которую нужно выделять (например, "подлежащее")
+  QString m_highlightedRole;     // Роль, которую нужно выделять (например,
+                                 // "подлежащее")
 
+  std::vector<SentenceResult> m_results; // вектор с результатами
 };
 
 #endif // TEXTMARKUPWIDGET_H

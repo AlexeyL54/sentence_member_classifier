@@ -12,6 +12,7 @@ find_package(GTest REQUIRED)
 add_executable(test
   back/test_tokenizer.cpp
   ../src/back/simple_tokenizer.cpp
+  ../src/back/unistring.cpp
 )
 
 # Линкуем с Google Test

@@ -1,9 +1,66 @@
 // src/back/bert_onnx_inference.cpp
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
+#include "simple_tokenizer.hpp"
+#include "unistring.hpp"
+#include <algorithm>
 #include <iostream>
 #include <ostream>
+#include <set>
 #include <vector>
+
+namespace {
+
+// Проверка на знак препинания (как в Python _is_punctuation)
+bool is_punctuation(const std::string &text) {
+  static const std::set<std::string> punctuations = {
+      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—"};
+  return punctuations.count(text) > 0;
+}
+
+// Получение базовой метки без BIO-префикса (как в Python _get_base_label)
+std::string get_base_label(const std::string &label) {
+  if (label.size() >= 2 &&
+      (label.substr(0, 2) == "B-" || label.substr(0, 2) == "I-")) {
+    return label.substr(2);
+  }
+  return label;
+}
+
+// Определение основной метки для слова (B- имеет приоритет над I-)
+std::string determine_main_label(const std::vector<std::string> &labels) {
+  if (labels.empty()) {
+    return "O";
+  }
+
+  // Сначала ищем B-* метки
+  for (const auto &lbl : labels) {
+    if (lbl.substr(0, 2) == "B-") {
+      return lbl;
+    }
+  }
+
+  // Затем I-* метки
+  for (const auto &lbl : labels) {
+    if (lbl.substr(0, 2) == "I-") {
+      return lbl;
+    }
+  }
+
+  return labels[0];
+}
+
+// Структура для хранения информации о слове (аналог WordInfo в Python)
+struct WordInfo {
+  std::string text;
+  size_t start;
+  size_t end;
+  std::vector<std::string> labels;
+  std::string main_label;
+  bool has_b_prefix;
+};
+
+} // namespace
 
 BertOnnxInference::BertOnnxInference(
     std::unique_ptr<onnx_infer::BertNerModel> model,
@@ -68,7 +125,8 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   result.text = sentence;
 
   // Токенизация
-  auto encoding = tokenizer_->encode(sentence, max_len_);
+  SimpleTokenizer::EncodingResult encoding =
+      tokenizer_->encode(sentence, max_len_);
 
   if (encoding.input_ids.empty()) {
     std::cout << "input_ids пуст" << std::endl;
@@ -90,98 +148,237 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   return result;
 }
 
+// Группировка токенов в слова (аналог _group_into_words в Python)
+std::vector<WordInfo> group_tokens_into_words(
+    const std::vector<std::string> &tokens,
+    const std::vector<int> &token_labels,
+    const std::vector<std::pair<size_t, size_t>> &offsets,
+    const std::map<int, std::pair<std::string, std::string>> &labels_map) {
+
+  std::vector<WordInfo> words;
+
+  std::string current_word;
+  size_t current_start = 0;
+  size_t current_end = 0;
+  std::vector<std::string> current_labels;
+  bool in_word = false;
+
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    const std::string &token = tokens[i];
+
+    // Пропускаем специальные токены
+    if (token == "[CLS]" || token == "[SEP]" || token == "[PAD]") {
+      continue;
+    }
+
+    // Проверяем, существует ли метка
+    auto label_it = labels_map.find(token_labels[i]);
+    if (label_it == labels_map.end()) {
+      continue;
+    }
+
+    std::string label = label_it->second.first;
+    bool is_subword = (token.substr(0, 2) == "##");
+    std::string clean_token = is_subword ? token.substr(2) : token;
+    size_t start = offsets[i].first;
+    size_t end = offsets[i].second;
+
+    // Пропускаем токены с нулевыми смещениями
+    if (start == 0 && end == 0) {
+      continue;
+    }
+
+    if (is_subword && in_word) {
+      // Продолжаем текущее слово (субтокен присоединяется без пробела)
+      current_word += clean_token;
+      current_end = end;
+      current_labels.push_back(label);
+    } else {
+      // Завершаем предыдущее слово
+      if (in_word && !current_word.empty()) {
+        std::string main_label = determine_main_label(current_labels);
+        bool has_b = std::any_of(
+            current_labels.begin(), current_labels.end(),
+            [](const std::string &lbl) { return lbl.substr(0, 2) == "B-"; });
+
+        words.push_back({current_word, current_start, current_end,
+                         current_labels, main_label, has_b});
+      }
+
+      // Начинаем новое слово
+      current_word = clean_token;
+      current_start = start;
+      current_end = end;
+      current_labels = {label};
+      in_word = true;
+    }
+  }
+
+  // Добавляем последнее слово
+  if (in_word && !current_word.empty()) {
+    std::string main_label = determine_main_label(current_labels);
+    bool has_b = std::any_of(
+        current_labels.begin(), current_labels.end(),
+        [](const std::string &lbl) { return lbl.substr(0, 2) == "B-"; });
+
+    words.push_back({current_word, current_start, current_end, current_labels,
+                     main_label, has_b});
+  }
+
+  return words;
+}
+
+// Группировка слов в фразы (аналог _group_into_phrases в Python)
+std::vector<Entity> group_words_into_phrases(
+    const std::vector<WordInfo> &words,
+    const std::map<int, std::pair<std::string, std::string>> &labels_map,
+    const std::string &original_text) {
+
+  std::vector<Entity> entities;
+  Entity *current_entity = nullptr;
+
+  for (const WordInfo &word : words) {
+    // Пропускаем знаки препинания
+    if (is_punctuation(word.text)) {
+      continue;
+    }
+
+    std::string base_label = get_base_label(word.main_label);
+    bool is_b_prefix =
+        (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "B-");
+    bool is_i_prefix =
+        (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "I-");
+
+    // Извлекаем оригинальный текст из исходного предложения по смещениям
+    utf8::Unistring unitext = original_text;
+    // std::string original_word_text =
+    // original_text.substr(word.start, word.end - word.start);
+    std::string original_word_text =
+        unitext.substr(word.start, word.end).to_string();
+
+    if (current_entity == nullptr) {
+      // Нет текущей сущности - начинаем новую для любой метки (включая O)
+      entities.emplace_back();
+      entities.back().text = original_word_text;
+      entities.back().start = word.start;
+      entities.back().end = word.end;
+
+      for (const auto &lbl_pair : labels_map) {
+        if (lbl_pair.second.first == word.main_label) {
+          entities.back().type = lbl_pair.second.first;
+          entities.back().type_ru = lbl_pair.second.second;
+          break;
+        }
+      }
+
+      current_entity = &entities.back();
+    } else {
+      // Есть текущая сущность
+      std::string current_base = get_base_label(current_entity->type);
+
+      if (base_label == "O") {
+        // Слово с меткой O - завершаем текущую сущность и начинаем новую
+        current_entity = nullptr;
+
+        entities.emplace_back();
+        entities.back().text = original_word_text;
+        entities.back().start = word.start;
+        entities.back().end = word.end;
+
+        for (const auto &lbl_pair : labels_map) {
+          if (lbl_pair.second.first == word.main_label) {
+            entities.back().type = lbl_pair.second.first;
+            entities.back().type_ru = lbl_pair.second.second;
+            break;
+          }
+        }
+
+        current_entity = &entities.back();
+      } else if (is_b_prefix) {
+        // B-префикс - начинаем новую сущность
+        current_entity = nullptr;
+
+        entities.emplace_back();
+        entities.back().text = original_word_text;
+        entities.back().start = word.start;
+        entities.back().end = word.end;
+
+        for (const auto &lbl_pair : labels_map) {
+          if (lbl_pair.second.first == word.main_label) {
+            entities.back().type = lbl_pair.second.first;
+            entities.back().type_ru = lbl_pair.second.second;
+            break;
+          }
+        }
+
+        current_entity = &entities.back();
+      } else if (is_i_prefix) {
+        // I-префикс - проверяем возможность продолжения
+        std::string word_base = get_base_label(word.main_label);
+        size_t distance = word.start - current_entity->end;
+
+        // Условия объединения: I-префикс, одинаковая базовая метка, расстояние
+        // <= 2
+        if (current_base == word_base && distance <= 2) {
+          // Продолжаем текущую сущность
+          current_entity->text += " " + original_word_text;
+          current_entity->end = word.end;
+        } else {
+          // Не можем продолжить - завершаем текущую и начинаем новую
+          current_entity = nullptr;
+
+          entities.emplace_back();
+          entities.back().text = original_word_text;
+          entities.back().start = word.start;
+          entities.back().end = word.end;
+
+          for (const auto &lbl_pair : labels_map) {
+            if (lbl_pair.second.first == word.main_label) {
+              entities.back().type = lbl_pair.second.first;
+              entities.back().type_ru = lbl_pair.second.second;
+              break;
+            }
+          }
+
+          current_entity = &entities.back();
+        }
+      } else {
+        // Другие случаи - завершаем текущую сущность и начинаем новую
+        current_entity = nullptr;
+
+        entities.emplace_back();
+        entities.back().text = original_word_text;
+        entities.back().start = word.start;
+        entities.back().end = word.end;
+
+        for (const auto &lbl_pair : labels_map) {
+          if (lbl_pair.second.first == word.main_label) {
+            entities.back().type = lbl_pair.second.first;
+            entities.back().type_ru = lbl_pair.second.second;
+            break;
+          }
+        }
+
+        current_entity = &entities.back();
+      }
+    }
+  }
+
+  return entities;
+}
+
 std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
     const std::vector<std::pair<size_t, size_t>> &offsets,
     const std::string &original_text) {
 
-  std::vector<Entity> entities;
+  // Шаг 1: Группировка токенов в слова
+  std::vector<WordInfo> words =
+      group_tokens_into_words(tokens, token_labels, offsets, labels_);
 
-  size_t i = 0;
-  while (i < tokens.size()) {
-    // Пропускаем специальные токены
-    if (tokens[i] == "[CLS]" || tokens[i] == "[SEP]" || tokens[i] == "[PAD]") {
-      i++;
-      continue;
-    }
-
-    int current_label = token_labels[i];
-
-    // Пропускаем O (не сущность)
-    if (current_label == 0) { // O
-      i++;
-      continue;
-    }
-
-    // Проверяем, что метка существует в словаре
-    auto label_it = labels_.find(current_label);
-    if (label_it == labels_.end()) {
-      i++;
-      continue;
-    }
-
-    // Начинаем новую сущность
-    Entity entity;
-    entity.type = label_it->second.first;
-    entity.type_ru = label_it->second.second;
-    entity.start = offsets[i].first;
-
-    // Собираем все части сущности
-    std::string entity_text;
-    size_t j = i;
-
-    while (j < tokens.size()) {
-      // Проверяем, является ли токен частью той же сущности
-      int label = token_labels[j];
-
-      // Для специальных токенов прерываем
-      if (tokens[j] == "[CLS]" || tokens[j] == "[SEP]" ||
-          tokens[j] == "[PAD]") {
-        break;
-      }
-
-      // Проверяем метку
-      auto current_label_it = labels_.find(label);
-      if (current_label_it == labels_.end()) {
-        j++;
-        continue;
-      }
-
-      std::string token_type = current_label_it->second.first;
-
-      // Для B-* начинаем новую сущность, для I-* продолжаем текущую
-      if (j > i && (token_type.rfind("B-", 0) == 0)) {
-        break;
-      }
-
-      // Добавляем текст
-      std::string token = tokens[j];
-      if (token.substr(0, 2) == "##") {
-        entity_text += token.substr(2);
-      } else {
-        if (!entity_text.empty() && entity_text.back() != ' ') {
-          entity_text += " ";
-        }
-        entity_text += token;
-      }
-
-      j++;
-    }
-
-    if (j > i) {
-      entity.end = offsets[j - 1].second;
-      entity.text = entity_text;
-
-      // Упрощенная уверенность (можно улучшить)
-      // entity.confidence = 0.95f;
-
-      entities.push_back(entity);
-    }
-    i = j;
-  }
-
-  return entities;
+  // Шаг 2: Группировка слов в фразы
+  return group_words_into_phrases(words, labels_, original_text);
 }
 
 // Загрузка меток из config.json

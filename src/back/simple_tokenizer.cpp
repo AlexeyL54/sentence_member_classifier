@@ -1,11 +1,13 @@
 // src/back/simple_tokenizer.cpp
 #include "simple_tokenizer.hpp"
+#include "unistring.hpp"
+
 #include <algorithm>
 #include <cctype>
-#include <cstddef>
-#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
+#include <vector>
 
 using namespace std;
 
@@ -17,8 +19,8 @@ SimpleTokenizer::SimpleTokenizer(const string &vocab_path) {
 
   string token;
   int64_t index = 0;
-
   while (getline(vocab_file, token)) {
+    // Удаляем символы возврата каретки и перевода строки
     token.erase(remove(token.begin(), token.end(), '\r'), token.end());
     token.erase(remove(token.begin(), token.end(), '\n'), token.end());
 
@@ -29,461 +31,470 @@ SimpleTokenizer::SimpleTokenizer(const string &vocab_path) {
       index++;
     }
   }
-
-  cout << "Tokenizer loaded. Vocabulary size: " << vocabulary_.size() << endl;
 }
 
-bool is_utf8_cyrillic_start(unsigned char c) {
-  return (c >= 0xD0 && c <= 0xD1);
-}
+// --- Вспомогательные функции для разбиения текста ---
 
-bool is_cyrillic_char(const string &c) {
-  if (c.length() == 2) {
-    unsigned char c1 = static_cast<unsigned char>(c[0]);
-    unsigned char c2 = static_cast<unsigned char>(c[1]);
-
-    if (c1 == 0xD0) {
-      return (c2 >= 0x90 && c2 <= 0xBF) || c2 == 0x81;
-    } else if (c1 == 0xD1) {
-      return (c2 >= 0x80 && c2 <= 0x8F) || c2 == 0x91;
-    }
+/**
+ * @brief Проверяет, является ли символ (в виде Unistring) разделителем.
+ * Разделителем считается: пробельный символ ASCII или любой знак,
+ * не являющийся буквой или цифрой.
+ * @param uni_char Символ в виде Unistring.
+ * @return true, если символ является разделителем.
+ */
+static bool is_separator_char(const utf8::Unistring &uni_char) {
+  string s = uni_char.to_string();
+  if (s.empty())
+    return true;
+  // Пробельные символы ASCII
+  if (s.size() == 1 && std::isspace(static_cast<unsigned char>(s[0]))) {
+    return true;
   }
+  // Знаки препинания (не буквы и не цифры)
+  if (s.size() == 1) {
+    return !std::isalnum(static_cast<unsigned char>(s[0]));
+  }
+  // Многобайтовые символы (кириллица и др.) считаем частью слова
   return false;
 }
 
-string to_lower_cyrillic(const string &c) {
-  if (c.length() != 2)
-    return c;
-
-  unsigned char c1 = static_cast<unsigned char>(c[0]);
-  unsigned char c2 = static_cast<unsigned char>(c[1]);
-
-  string result;
-  result.resize(2);
-
-  if (c1 == 0xD0) {
-    if (c2 >= 0x90 && c2 <= 0x9F) {
-      result[0] = 0xD0;
-      result[1] = c2 + 0x20;
-      return result;
-    } else if (c2 >= 0xA0 && c2 <= 0xAF) {
-      result[0] = 0xD1;
-      result[1] = c2 - 0x20;
-      return result;
-    } else if (c2 == 0x81) {
-      result[0] = 0xD1;
-      result[1] = 0x91;
-      return result;
-    }
-  }
-
-  return c;
-}
-
-bool is_whitespace_utf8(const string &s) {
-  if (s.length() == 1) {
-    char c = s[0];
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' ||
-           c == '\v';
-  }
-  return false;
-}
-
-bool is_punctuation_utf8(const string &s) {
-  if (s.length() == 1) {
-    char c = s[0];
-    return ispunct(static_cast<unsigned char>(c));
-  } else if (s.length() == 2) {
-    unsigned char c1 = static_cast<unsigned char>(s[0]);
-    unsigned char c2 = static_cast<unsigned char>(s[1]);
-
-    if (c1 == 0xE2 && c2 == 0x80) {
-      return true;
-    }
-
-    return !is_cyrillic_char(s) && !is_whitespace_utf8(s);
-  }
-  return true;
-}
-
-vector<string> utf8_split(const string &s) {
-  vector<string> chars;
-  for (size_t i = 0; i < s.length();) {
-    unsigned char c = static_cast<unsigned char>(s[i]);
-    size_t len = 1;
-
-    if (c >= 0xF0)
-      len = 4;
-    else if (c >= 0xE0)
-      len = 3;
-    else if (c >= 0xC0)
-      len = 2;
-
-    if (i + len <= s.length()) {
-      chars.push_back(s.substr(i, len));
-    } else {
-      chars.push_back(s.substr(i, 1));
-    }
-    i += len;
-  }
-  return chars;
-}
-
-vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
-  vector<string> tokens;
-  vector<string> words;
+/**
+ * @brief Разбивает текст на список слов и отдельных знаков препинания.
+ * @param text Входной текст.
+ * @return vector<string> Вектор слов и знаков препинания.
+ */
+vector<string> SimpleTokenizer::extract_words_and_punct(const string &text) {
+  vector<string> result;
+  utf8::Unistring uni_text(text);
   string current_word;
 
-  vector<string> chars = utf8_split(text);
+  for (size_t i = 0; i < uni_text.length(); ++i) {
+    utf8::Unistring uni_char = uni_text[i];
 
-  for (size_t i = 0; i < chars.size(); i++) {
-    const string &c = chars[i];
-
-    if (is_whitespace_utf8(c)) {
+    if (is_separator_char(uni_char)) {
       if (!current_word.empty()) {
-        words.push_back(current_word);
+        result.push_back(current_word);
         current_word.clear();
       }
-      continue;
-    }
-
-    if (is_punctuation_utf8(c)) {
-      if (!current_word.empty()) {
-        words.push_back(current_word);
-        current_word.clear();
+      // Если это не пробел, а знак препинания — добавляем как отдельный токен
+      string s = uni_char.to_string();
+      if (!(s.size() == 1 && std::isspace(static_cast<unsigned char>(s[0])))) {
+        result.push_back(s);
       }
-      continue;
+    } else {
+      current_word += uni_char.to_string();
     }
-
-    current_word += c;
   }
 
   if (!current_word.empty()) {
-    words.push_back(current_word);
+    result.push_back(current_word);
   }
 
-  for (size_t i = 0; i < words.size(); i++) {
-    string &word = words[i];
-    string lower_word;
+  return result;
+}
 
-    vector<string> word_chars = utf8_split(word);
-    for (const string &c : word_chars) {
-      if (is_cyrillic_char(c)) {
-        lower_word += to_lower_cyrillic(c);
-      } else {
-        for (char ch : c) {
-          lower_word += tolower(static_cast<unsigned char>(ch));
-        }
-      }
-    }
+/**
+ * @brief Приводит слово к нижнему регистру с использованием Unistring.
+ * @param word Входное слово.
+ * @return string Слово в нижнем регистре.
+ */
+string SimpleTokenizer::normalize_word(const string &word) {
+  if (word.empty())
+    return word;
+  return utf8::Unistring(word).to_lower().to_string();
+}
 
-    if (!lower_word.empty()) {
-      word = lower_word;
-    }
+/**
+ * @brief Применяет алгоритм WordPiece к одному слову.
+ * @param word Входное слово.
+ * @return vector<string> Вектор подслов (субтокенов).
+ */
+vector<string> SimpleTokenizer::wordpiece_split(const string &word) {
+  vector<string> tokens;
+
+  // Обработка одиночного знака препинания
+  if (word.length() == 1 &&
+      !std::isalnum(static_cast<unsigned char>(word[0]))) {
+    auto it = vocab_map_.find(word);
+    tokens.push_back(it != vocab_map_.end() ? word : get_unk_token());
+    return tokens;
   }
 
-  for (const string &word : words) {
-    if (word.length() == 1 && ispunct(static_cast<unsigned char>(word[0]))) {
-      auto it = vocab_map_.find(word);
-      if (it != vocab_map_.end()) {
-        tokens.push_back(word);
-      } else {
-        tokens.push_back(get_unk_token());
-      }
-      continue;
-    }
+  // Слишком длинные слова заменяем на [UNK]
+  if (word.length() > 100) {
+    tokens.push_back(get_unk_token());
+    return tokens;
+  }
 
-    if (word.length() > 100) {
-      tokens.push_back(get_unk_token());
-      continue;
-    }
+  int start = 0;
+  bool is_bad = false;
 
-    vector<string> wordpieces;
-    int start = 0;
-    bool is_bad = false;
+  while (start < static_cast<int>(word.length())) {
+    int end = word.length();
+    string cur_substr;
+    bool found = false;
 
-    while (start < word.length()) {
-      int end = word.length();
-      string cur_substr;
-      bool found = false;
-
-      while (end > start) {
-        string substr = word.substr(start, end - start);
-
-        if (start > 0) {
-          substr = "##" + substr;
-        }
-
-        auto it = vocab_map_.find(substr);
-        if (it != vocab_map_.end()) {
-          cur_substr = substr;
-          found = true;
-          break;
-        }
-        end--;
+    while (end > start) {
+      string substr = word.substr(start, end - start);
+      if (start > 0) {
+        substr = "##" + substr;
       }
 
-      if (!found) {
-        is_bad = true;
+      if (vocab_map_.count(substr)) {
+        cur_substr = substr;
+        found = true;
         break;
       }
-
-      wordpieces.push_back(cur_substr);
-      start = end;
+      end--;
     }
 
-    if (is_bad) {
-      tokens.push_back(get_unk_token());
-    } else {
-      tokens.insert(tokens.end(), wordpieces.begin(), wordpieces.end());
+    if (!found) {
+      is_bad = true;
+      break;
     }
+
+    tokens.push_back(cur_substr);
+    start = end;
+  }
+
+  if (is_bad) {
+    return {get_unk_token()};
   }
 
   return tokens;
 }
 
+/**
+ * @brief Основной метод разбиения текста на токены.
+ * Объединяет извлечение слов/знаков, нормализацию и WordPiece-разбиение.
+ * @param text Входной текст.
+ * @return vector<string> Вектор финальных токенов.
+ */
+vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
+  vector<string> final_tokens;
+  vector<string> raw_units = extract_words_and_punct(text);
+
+  for (const string &unit : raw_units) {
+    // Эвристика: определяем, является ли юнит словом (а не знаком препинания)
+    bool is_word = (unit.length() > 1); // Многобайтовые символы считаем буквами
+    if (!is_word && unit.length() == 1) {
+      is_word = std::isalnum(static_cast<unsigned char>(unit[0]));
+    }
+
+    // Нормализуем только слова (знаки препинания не меняем)
+    string processed_unit = is_word ? normalize_word(unit) : unit;
+    vector<string> subtokens = wordpiece_split(processed_unit);
+    final_tokens.insert(final_tokens.end(), subtokens.begin(), subtokens.end());
+  }
+
+  return final_tokens;
+}
+
+// --- Методы поиска ---
+
+/**
+ * @brief Находит позицию токена в исходном тексте, начиная с заданной байтовой
+ * позиции. Корректно работает с многобайтовыми символами благодаря Unistring.
+ * @param text Исходный текст.
+ * @param token Токен для поиска (возможно с префиксом ##).
+ * @param start_pos Начальная позиция поиска в байтах.
+ * @return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
+ * токена.
+ */
+// В файле simple_tokenizer.cpp
+
+/**
+@brief Находит позицию токена в исходном тексте, начиная с заданной байтовой
+позиции. Корректно работает с многобайтовыми символами благодаря Unistring.
+@param text Исходный текст.
+@param token Токен для поиска (возможно с префиксом ##).
+@param start_pos Начальная позиция поиска в байтах.
+@return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
+токена. Если токен не найден, возвращает {start_pos, start_pos} (пустой
+диапазон), чтобы не ломать поток.
+*/
 pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
                                                          const string &token,
                                                          size_t start_pos) {
-  if (token.empty() || start_pos >= text.size()) {
+  if (token.empty())
     return {start_pos, start_pos};
-  }
 
+  // Убираем префикс ## для поиска в исходном тексте, так как в исходнике его
+  // нет
   string search_token = token;
-  if (token.substr(0, 2) == "##") {
+  if (token.size() >= 2 && token.substr(0, 2) == "##") {
     search_token = token.substr(2);
   }
 
-  auto text_chars = utf8_split(text);
-  auto token_chars = utf8_split(search_token);
+  // Создаем обертки Unistring
+  // Важно: мы ищем в ИСХОДНОМ тексте, но токен может быть нормализован (нижний
+  // регистр). Однако, смещения должны указывать на ИСХОДНЫЙ текст. Поэтому мы
+  // не можем просто привести весь текст к lower case и искать там, потому что
+  // смещения совпадут только если длина символов не меняется (для кириллицы в
+  // UTF-8 длина байт одинакова для верхнего/нижнего регистра, так что это
+  // безопасно).
 
-  size_t char_index = 0;
-  size_t byte_pos = 0;
-  while (byte_pos < start_pos && char_index < text_chars.size()) {
-    byte_pos += text_chars[char_index].length();
-    char_index++;
-  }
+  utf8::Unistring uni_text(text);
+  utf8::Unistring uni_search(search_token);
 
-  for (size_t i = char_index; i + token_chars.size() <= text_chars.size();
-       i++) {
-    bool match = true;
-    for (size_t j = 0; j < token_chars.size(); j++) {
-      if (text_chars[i + j] != token_chars[j]) {
-        match = false;
-        break;
-      }
+  // Приводим оба к нижнему регистру для нечувствительного к регистру поиска
+  utf8::Unistring uni_text_lower = uni_text.to_lower();
+  utf8::Unistring uni_search_lower = uni_search.to_lower();
+
+  // Нам нужно найти символьный индекс, соответствующий байтовому start_pos
+  size_t start_char_idx = 0;
+  size_t current_byte_pos = 0;
+  vector<size_t> offsets =
+      uni_text.get_char_offsets(); // Получаем карту байт -> символ
+
+  // Находим первый символ, чье байтовое смещение >= start_pos
+  for (size_t i = 0; i < offsets.size(); ++i) {
+    if (offsets[i] >= start_pos) {
+      start_char_idx = i;
+      break;
     }
-
-    if (match) {
-      size_t start_byte = 0;
-      for (size_t k = 0; k < i; k++) {
-        start_byte += text_chars[k].length();
-      }
-
-      size_t end_byte = start_byte;
-      for (size_t k = 0; k < token_chars.size(); k++) {
-        end_byte += token_chars[k].length();
-      }
-
-      return {start_byte, end_byte};
+    // Если мы прошли все смещения, значит start_pos в конце строки
+    if (i == offsets.size() - 1) {
+      start_char_idx = offsets.size();
     }
   }
 
-  return {start_pos, start_pos + search_token.length()};
+  // Ищем подстроку начиная с этого символьного индекса
+  size_t found_char_idx = uni_text_lower.find(uni_search_lower, start_char_idx);
+
+  if (found_char_idx == SIZE_MAX) {
+    // Токен не найден.
+    // Это может случиться, если токенизатор создал токен, которого нет в тексте
+    // (например, из-за ошибок нормализации или специальных символов).
+    // Возвращаем текущую позицию, чтобы процессинг продолжился, но с нулевой
+    // длиной
+    cerr << "Warning: Token '" << token
+         << "' not found in text starting at byte " << start_pos << endl;
+    return {start_pos, start_pos};
+  }
+
+  // Конвертируем найденный символьный индекс обратно в байтовый
+  size_t found_byte_start = offsets[found_char_idx];
+
+  // Вычисляем конечный байтовый индекс
+  // Длина найденной подстроки в байтах
+  size_t match_len_bytes =
+      uni_search.to_string()
+          .length(); // Длина исходного поискового токена в байтах
+
+  // ВАЖНО: Длина в байтах искомого слова (search_token) может отличаться от
+  // длины в байтах найденного фрагмента, если есть различия в символах (хотя
+  // для case-insensitive кириллицы/латиницы в UTF-8 длина байт обычно
+  // совпадает). Для надежности лучше взять длину из найденного фрагмента в
+  // исходном тексте.
+
+  size_t found_char_end = found_char_idx + uni_search_lower.length();
+  size_t found_byte_end;
+
+  if (found_char_end >= offsets.size()) {
+    found_byte_end = text.length();
+  } else {
+    found_byte_end = offsets[found_char_end];
+  }
+
+  return {found_byte_start, found_byte_end};
 }
 
+/**
+ * @brief Находит ID токена в словаре с учётом регистра.
+ * @param token Строковое представление токена.
+ * @return int64_t ID токена или ID [UNK], если не найден.
+ */
 int64_t SimpleTokenizer::find_token_in_vocab(const string &token) {
+  // Прямой поиск
   auto it = vocab_map_.find(token);
-  if (it != vocab_map_.end()) {
+  if (it != vocab_map_.end())
     return it->second;
-  }
 
-  string lower_token = token;
-  transform(lower_token.begin(), lower_token.end(), lower_token.begin(),
-            [](unsigned char c) { return tolower(c); });
-
-  it = vocab_map_.find(lower_token);
-  if (it != vocab_map_.end()) {
+  // Поиск в нижнем регистре (с учётом кириллицы через Unistring)
+  string lower = utf8::Unistring(token).to_lower().to_string();
+  it = vocab_map_.find(lower);
+  if (it != vocab_map_.end())
     return it->second;
-  }
-
-  for (size_t len = token.size(); len > 0; len--) {
-    string prefix = token.substr(0, len);
-    it = vocab_map_.find(prefix);
-    if (it != vocab_map_.end()) {
-      return it->second;
-    }
-  }
 
   return get_unk_token_id();
 }
 
-SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
-                                                        size_t max_len) {
-  EncodingResult result;
+// --- Основная логика кодирования ---
 
-  auto raw_tokens = split_text_into_tokens(text);
+/**
+ * @brief Выполняет основную фазу кодирования: токенизация, поиск смещений,
+ * word_ids. Не включает паддинг и special-токены — это делает pad_encoding.
+ * @param text Исходный текст.
+ * @param raw_tokens Вектор токенов после предварительной разбивки.
+ * @param max_len Максимальная длина последовательности.
+ * @return CoreEncoding Промежуточный результат.
+ */
+SimpleTokenizer::CoreEncoding
+SimpleTokenizer::build_encoding_core(const std::string &text,
+                                     const std::vector<std::string> &raw_tokens,
+                                     size_t max_len) {
+  CoreEncoding core;
+  // Добавляем токен [CLS] в начало
+  core.input_ids.push_back(get_cls_token_id());
+  core.tokens.push_back(get_cls_token());
+  core.offsets.push_back({0, 0});
+  core.word_ids.push_back(-1);
 
-  result.input_ids.push_back(get_cls_token_id());
-  result.tokens.push_back(get_cls_token());
-  result.offsets.push_back({0, 0});
-  result.word_ids.push_back(-1);
+  size_t current_pos = 0; // Текущая позиция в исходном тексте (в байтах)
+  int word_id = 0;        // Счётчик слов для word_ids
 
-  size_t current_pos = 0;
-  int word_id = 0;
-  int current_word_start_idx = -1;
-
-  for (size_t token_idx = 0; token_idx < raw_tokens.size(); token_idx++) {
-    const auto &raw_token = raw_tokens[token_idx];
-
-    if (result.input_ids.size() >= max_len - 1)
+  for (const std::string &raw_token : raw_tokens) {
+    // Проверка на переполнение (оставляем место для [SEP])
+    if (core.input_ids.size() >= max_len - 1)
       break;
 
+    // Находим ID токена в словаре
     int64_t token_id = find_token_in_vocab(raw_token);
-    string actual_token;
+    string actual_token =
+        id_to_token_.count(token_id) ? id_to_token_[token_id] : get_unk_token();
 
-    auto it = id_to_token_.find(token_id);
-    if (it != id_to_token_.end()) {
-      actual_token = it->second;
-    } else {
-      actual_token = get_unk_token();
-    }
-
+    // Находим смещения токена в исходном тексте
     auto [start, end] = find_token_in_text(text, raw_token, current_pos);
 
-    result.input_ids.push_back(token_id);
-    result.tokens.push_back(actual_token);
-    result.offsets.push_back({start, end});
+    // Добавляем токен в результат
+    core.input_ids.push_back(token_id);
+    core.tokens.push_back(actual_token);
+    core.offsets.push_back({start, end});
 
-    // ВАЖНО: Для субтокенов (начинающихся с ##) используем тот же word_id
+    // Логика word_ids: субтокены (##) получают тот же ID, что и первое слово
     if (raw_token.substr(0, 2) == "##") {
-      // Это субтокен - используем предыдущий word_id
-      if (current_word_start_idx >= 0) {
-        result.word_ids.push_back(word_id - 1);
+      // Субтокен — принадлежит предыдущему слову
+      if (!core.word_ids.empty()) {
+        core.word_ids.push_back(core.word_ids.back());
       } else {
-        result.word_ids.push_back(-1);
+        core.word_ids.push_back(-1);
       }
     } else {
-      // Новое слово
-      result.word_ids.push_back(word_id);
-      current_word_start_idx = token_idx;
-      word_id++;
+      // Новое слово — увеличиваем счётчик
+      core.word_ids.push_back(word_id++);
     }
 
+    // Обновляем позицию для следующего поиска
     current_pos = end;
-
-    while (current_pos < text.size() && isspace(text[current_pos])) {
+    // Пропускаем пробелы в исходном тексте
+    while (current_pos < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[current_pos]))) {
       current_pos++;
     }
   }
 
-  if (result.input_ids.size() < max_len) {
-    result.input_ids.push_back(get_sep_token_id());
-    result.tokens.push_back(get_sep_token());
-    result.offsets.push_back({current_pos, current_pos});
-    result.word_ids.push_back(-1);
+  core.last_byte_pos = current_pos;
+  return core;
+}
+
+/**
+ * @brief Добавляет специальные токены и паддинг к промежуточному результату.
+ * @param core Ссылка на CoreEncoding (изменяется на месте).
+ * @param max_len Максимальная длина выходной последовательности.
+ */
+void SimpleTokenizer::pad_encoding(CoreEncoding &core, size_t max_len) {
+  // Добавляем токен [SEP] в конец
+  if (core.input_ids.size() < max_len) {
+    core.input_ids.push_back(get_sep_token_id());
+    core.tokens.push_back(get_sep_token());
+    core.offsets.push_back({core.last_byte_pos, core.last_byte_pos});
+    core.word_ids.push_back(-1);
   }
 
-  while (result.input_ids.size() < max_len) {
-    result.input_ids.push_back(get_pad_token_id());
-    result.tokens.push_back(get_pad_token());
-    result.offsets.push_back({0, 0});
-    result.word_ids.push_back(-1);
+  // Добавляем паддинг до max_len
+  while (core.input_ids.size() < max_len) {
+    core.input_ids.push_back(get_pad_token_id());
+    core.tokens.push_back(get_pad_token());
+    core.offsets.push_back({0, 0});
+    core.word_ids.push_back(-1);
   }
+}
 
-  for (size_t i = 0; i < max_len; i++) {
-    result.attention_mask.push_back(
-        result.input_ids[i] != get_pad_token_id() ? 1 : 0);
+/**
+ * @brief Публичный метод encode: объединяет все этапы кодирования.
+ * @param text Исходный текст.
+ * @param max_len Максимальная длина выходной последовательности.
+ * @return EncodingResult Полный результат кодирования.
+ */
+SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
+                                                        size_t max_len) {
+  // 1. Токенизация
+  std::vector<std::string> raw_tokens = split_text_into_tokens(text);
+
+  // 2. Основная фаза: ID, токены, смещения, word_ids
+  SimpleTokenizer::CoreEncoding core =
+      build_encoding_core(text, raw_tokens, max_len);
+
+  // 3. Паддинг и special-токены
+  pad_encoding(core, max_len);
+
+  // 4. Формируем финальный результат с маской внимания
+  EncodingResult result;
+  result.input_ids = std::move(core.input_ids);
+  result.tokens = std::move(core.tokens);
+  result.offsets = std::move(core.offsets);
+  result.word_ids = std::move(core.word_ids);
+
+  // Маска внимания: 1 для реальных токенов, 0 для [PAD]
+  result.attention_mask.resize(max_len);
+  for (size_t i = 0; i < max_len; ++i) {
+    result.attention_mask[i] =
+        (result.input_ids[i] != get_pad_token_id()) ? 1 : 0;
   }
 
   return result;
 }
 
+/**
+ * @brief Декодирует последовательность ID токенов обратно в текст.
+ * @param ids Вектор ID токенов.
+ * @return string Восстановленный текст.
+ */
 string SimpleTokenizer::decode(const vector<int64_t> &ids) {
   string text;
-
-  for (size_t i = 0; i < ids.size(); i++) {
-    int64_t id = ids[i];
-
+  for (int64_t id : ids) {
+    // Пропускаем специальные токены
     if (id == get_cls_token_id() || id == get_sep_token_id() ||
-        id == get_pad_token_id()) {
+        id == get_pad_token_id())
       continue;
-    }
 
-    auto it = id_to_token_.find(id);
-    if (it != id_to_token_.end()) {
-      string token = it->second;
+    string token = id_to_token_.count(id) ? id_to_token_[id] : "[UNK]";
 
-      if (token.substr(0, 2) == "##") {
-        text += token.substr(2);
-      } else {
-        if (!text.empty() && text.back() != ' ') {
-          text += " ";
-        }
-        text += token;
-      }
-    } else if (id == get_unk_token_id()) {
-      if (!text.empty() && text.back() != ' ') {
+    if (token == "[UNK]") {
+      if (!text.empty() && text.back() != ' ')
         text += " ";
-      }
       text += "[UNK]";
+    } else if (token.substr(0, 2) == "##") {
+      // Субтокен — приклеиваем без пробела
+      text += token.substr(2);
+    } else {
+      // Новое слово — добавляем пробел, если нужно
+      if (!text.empty() && text.back() != ' ')
+        text += " ";
+      text += token;
     }
   }
-
   return text;
 }
 
+/**
+ * @brief Токенизирует текст с возвратом смещений (для ONNX).
+ * @param text Входной текст.
+ * @param max_len Максимальная длина последовательности.
+ * @return TokenizationResult Результат токенизации.
+ */
 SimpleTokenizer::TokenizationResult
 SimpleTokenizer::tokenize_with_offsets(const string &text, size_t max_len) {
-  TokenizationResult result;
-  auto encoding = encode(text, max_len);
-
-  result.input_ids = encoding.input_ids;
-  result.attention_mask = encoding.attention_mask;
-  result.tokens = encoding.tokens;
-  result.offsets = encoding.offsets;
-
-  return result;
+  SimpleTokenizer::EncodingResult enc = encode(text, max_len);
+  return {enc.input_ids, enc.attention_mask, enc.tokens, enc.offsets};
 }
 
+/**
+ * @brief Токенизирует текст без дополнительной информации.
+ * @param text Входной текст.
+ * @return vector<string> Вектор токенов.
+ */
 vector<string> SimpleTokenizer::tokenize_text(const string &text) {
-  auto encoding = encode(text, 512);
-  return encoding.tokens;
-}
-
-void SimpleTokenizer::print_vocab_info() const {
-  cout << "Vocabulary Info:" << endl;
-  cout << "  Size: " << vocabulary_.size() << " tokens" << endl;
-
-  auto check_token = [this](const string &name, const string &token,
-                            int64_t expected_id) {
-    auto it = vocab_map_.find(token);
-    if (it != vocab_map_.end()) {
-      cout << "  " << name << ": " << token << " (ID: " << it->second
-           << ", expected: " << expected_id << ")"
-           << (it->second == expected_id ? " ✓" : " ✗") << endl;
-    } else {
-      cout << "  " << name << ": NOT FOUND (expected ID: " << expected_id << ")"
-           << endl;
-    }
-  };
-
-  check_token("[CLS]", get_cls_token(), get_cls_token_id());
-  check_token("[SEP]", get_sep_token(), get_sep_token_id());
-  check_token("[PAD]", get_pad_token(), get_pad_token_id());
-  check_token("[UNK]", get_unk_token(), get_unk_token_id());
-
-  vector<string> test_words = {"Вчера",   "я",     "ходил", "в",
-                               "кино",    "Он",    "очень", "осторожно",
-                               "перешел", "дорогу"};
-
-  cout << "\nChecking Russian words in vocabulary:" << endl;
-  for (const auto &word : test_words) {
-    auto it = vocab_map_.find(word);
-    if (it != vocab_map_.end()) {
-      cout << "  " << word << ": FOUND (ID: " << it->second << ")" << endl;
-    } else {
-      cout << "  " << word << ": NOT FOUND" << endl;
-    }
-  }
+  return encode(text, 512).tokens;
 }
