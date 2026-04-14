@@ -1,31 +1,10 @@
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
-#include <cstddef>
+#include "bert_onnx_inference.hpp"
 #include <string>
 #include <utility>
 #include <vector>
-
-/**
- * @brief Сущность (член предложения), найденная в тексте
- */
-struct Entity {
-  std::string text;
-  std::string type;
-  std::string type_ru;
-  size_t start = 0;
-  size_t end = 0;
-};
-
-/**
- * @brief Результат обработки одного предложения
- */
-struct SentenceResult {
-  std::string text;
-  std::vector<Entity> entities;
-  std::vector<std::string> tokens;
-  std::vector<int> token_labels;
-};
 
 /**
  * @brief Элемент агрегированного списка членов предложения для страницы поиска.

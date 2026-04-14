@@ -163,7 +163,7 @@ void saveHTMLWithAdvancedSearch(const std::string filename,
     htmlFile << "<div>Появлений: " << item.amount << "</div>\n";
     htmlFile << "</div>\n";
     for (const auto &sentence : item.sentences) {
-      htmlFile << "<div class=sentence>" << sentence << "</div>\n";
+      htmlFile << "<div class=sentence>" << sentence.second << "</div>\n";
     }
     htmlFile << "</div>\n";
   }
