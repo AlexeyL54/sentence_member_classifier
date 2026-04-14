@@ -37,11 +37,11 @@ class Config:
     """
 
     # Модель
-    MODEL_NAME = "ai-forever/rubert-base"
+    MODEL_NAME = "ai-forever/ruBert-base"
     NUM_LABELS = 11
     MAX_LEN = 128
     BATCH_SIZE = 8
-    LEARNING_RATE = 2e-5
+    LEARNING_RATE = 2e-4
     EPOCHS = 10
     DROPOUT = 0.1
 

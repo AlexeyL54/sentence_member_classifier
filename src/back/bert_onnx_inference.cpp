@@ -13,8 +13,8 @@ namespace {
 
 // Проверка на знак препинания (как в Python _is_punctuation)
 bool is_punctuation(const std::string &text) {
-  static const std::set<std::string> punctuations = {",", ".", "!", "?", ";",
-                                                     ":", "-", "(", ")"};
+  static const std::set<std::string> punctuations = {
+      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—"};
   return punctuations.count(text) > 0;
 }
 
