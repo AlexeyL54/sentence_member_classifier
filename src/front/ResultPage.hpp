@@ -105,15 +105,20 @@ private slots:
   void onAnalyzeClicked();
 
   /**
-   * @brief Слот, обрабатывающий выбор чекбокса
-   * @param state
-   */
+     * @brief Слот, обрабатывающий выбор чекбокса
+     * @param state - признак установки/снятия чекбокса
+     * @param role - название члена предложения
+     */
   void onCheckboxStateChanged(int state, const QString &role);
 
 public:
   void setData(const std::vector<SentenceResult> &results);
   void setSearchItems(const std::vector<SearchItem> &items);
   std::vector<SentenceResult> makeData();
+
+  /**
+   * @brief Обновляет данные в разделе статистики
+   */
   void updateStatsDisplay();
   void setGloabalStats(const GlobalStats stats);
 
