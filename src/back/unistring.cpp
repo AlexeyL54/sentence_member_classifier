@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <strings.h>
 
 using std::string;
 
