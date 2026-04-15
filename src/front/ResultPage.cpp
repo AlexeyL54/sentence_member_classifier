@@ -202,14 +202,57 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if (!path.isEmpty()) {
+      // Проверка на наличие кириллицы в пути
+      QRegularExpression cyrillicPattern("[\u0400-\u04FF]");
+      if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
+        QMessageBox::warning(
+            this, "Предупреждение",
+            "Путь к директории содержит кириллические символы:\n" + path +
+                "\n\nЭто может вызвать проблемы с сохранением файлов.");
+
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Подтверждение");
+        msgBox.setText("Вы действительно хотите продолжить сохранение?");
+        msgBox.setIcon(QMessageBox::Question);
+        QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+        QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+        msgBox.exec();
+
+        if (msgBox.clickedButton() != yesButton) {
+          return;
+        }
+      }
+
       std::string stdPath = path.toStdString();
+
+      const std::string SEARCH_FILE = "list.html";
+      const std::string REVIEW_FILE = "statistics.html";
+
+      QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
+      QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
 
       // Используем уже готовые m_searchItems
       saveAnalysis(stdPath, search_items, stats);
 
-      QMessageBox::information(this, "Сохранение",
-                               "Результаты успешно сохранены в:\n" + path);
-      isSaved = true;
+      // Проверка, что файлы действительно сохранились
+      bool searchFileExists = QFile::exists(searchFilePath);
+      bool reviewFileExists = QFile::exists(reviewFilePath);
+
+      if (searchFileExists && reviewFileExists) {
+        QMessageBox::information(this, "Сохранение",
+                                 "Результаты успешно сохранены в:\n" + path);
+        isSaved = true;
+      } else {
+        QString errorMsg = "Ошибка сохранения!\n";
+        if (!searchFileExists) {
+          errorMsg += "Не удалось сохранить файл: " + SEARCH_FILE + "\n";
+        }
+        if (!reviewFileExists) {
+          errorMsg += "Не удалось сохранить файл: " + REVIEW_FILE + "\n";
+        }
+        QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
+        isSaved = false;
+      }
     }
   });
 

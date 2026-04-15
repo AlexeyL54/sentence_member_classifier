@@ -1,4 +1,5 @@
 #include "LoadingPage.hpp"
+#include "qnamespace.h"
 
 LoadingPage::LoadingPage(QWidget *parent) : QWidget(parent) { setupUI(); }
 
@@ -6,6 +7,7 @@ void LoadingPage::setupUI() {
   mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(40, 40, 40, 40);
   mainLayout->setSpacing(20);
+  // mainLayout->addStretch(1);
 
   // Заголовок
   titleLabel = new QLabel("Обработка текста", this);
@@ -30,7 +32,8 @@ void LoadingPage::setupUI() {
   mainLayout->addWidget(progressBar);
 
   // Добавляем растягиватели для центрирования контента
-  mainLayout->addStretch(1);
+  mainLayout->setAlignment(Qt::AlignCenter);
+  // mainLayout->addStretch(1);
 }
 
 void LoadingPage::setTotal(int total) {
@@ -46,10 +49,10 @@ void LoadingPage::setProgress(int current) {
 
   if (progressBar->maximum() > 0) {
     int percent = (current * 100) / progressBar->maximum();
-    statusLabel->setText(QString("Обработано предложений: %1 из %2 (%3%)")
+    statusLabel->setText(QString("Обработано предложений: %1 из %2")
                              .arg(current)
-                             .arg(progressBar->maximum())
-                             .arg(percent));
+                             .arg(progressBar->maximum()));
+    // .arg(percent));
   } else {
     statusLabel->setText(QString("Обработано предложений: %1").arg(current));
   }
