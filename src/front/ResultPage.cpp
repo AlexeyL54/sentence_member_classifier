@@ -289,16 +289,15 @@ void ResultPage::onAnalyzeClicked() {
   }
 
   QMessageBox msgBox(this);
-  msgBox.setWindowTitle("Анализ");
+  msgBox.setWindowTitle("Подтверждение");
   msgBox.setText(str);
-  msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-  //  msgBox.setDefaultButton(QMessageBox::Yes);
+  msgBox.setIcon(QMessageBox::Question);
+  QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+  QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
 
-  int ret = msgBox.exec();
+  msgBox.exec();
 
-  if (ret == QMessageBox::Yes) {
-    // Пользователь выбрал "Да" — здесь можно вызвать логику анализа
-    // QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+  if (msgBox.clickedButton() == yesButton) {
     m_results.clear();
     fullText.clear();
     members.clear();

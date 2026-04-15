@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "InputPage.hpp"
+#include "LoadingPage.hpp"
 #include "ResultPage.hpp"
 #include "SearchPage.hpp"
 
@@ -43,6 +44,7 @@ private:
   InputPage *inputPage = nullptr;
   ResultPage *resultPage = nullptr;
   SearchPage *searchPage = nullptr;
+  LoadingPage *loadingPage = nullptr;
 
   // Данные, передаваемые между страницами
   QVector<SearchItem> searchItems_;

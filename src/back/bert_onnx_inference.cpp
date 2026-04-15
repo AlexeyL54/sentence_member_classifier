@@ -15,7 +15,7 @@ namespace {
 // Проверка на знак препинания (как в Python _is_punctuation)
 bool is_punctuation(const std::string &text) {
   static const std::set<std::string> punctuations = {
-      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—"};
+      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—", "..."};
   return punctuations.count(text) > 0;
 }
 
@@ -238,8 +238,6 @@ std::vector<WordInfo> group_tokens_into_words(
   return words;
 }
 
-// Группировка слов в фразы (аналог _group_into_phrases в Python)
-// Группировка слов в фразы (аналог _group_into_phrases в Python)
 std::vector<Entity> group_words_into_phrases(
     const std::vector<WordInfo> &words,
     const std::map<int, std::pair<std::string, std::string>> &labels_map,
@@ -261,8 +259,15 @@ std::vector<Entity> group_words_into_phrases(
 
     // Извлекаем оригинальный текст из исходного предложения по смещениям
     // ИСПРАВЛЕНО: используем substr с двумя параметрами (start, length)
-    std::string original_word_text =
-        original_text.substr(word.start, word.end - word.start);
+    std::string original_word_text;
+    if (word.start < original_text.length() &&
+        word.end <= original_text.length()) {
+      original_word_text =
+          original_text.substr(word.start, word.end - word.start);
+    } else {
+      // Если смещения выходят за границы, берем текст из word.text
+      original_word_text = word.text;
+    }
 
     if (current_entity == nullptr) {
       // Нет текущей сущности - начинаем новую для любой метки (включая O)
