@@ -28,6 +28,7 @@ set(SOURCES
     src/front/InputPage.cpp
     src/front/ResultPage.cpp
     src/front/SearchPage.cpp
+    src/front/LoadingPage.cpp
     src/front/MainWindow.cpp
     src/front/lib/FlowLayout.cpp
     src/front/lib/TextMarkupWidget.cpp
@@ -44,6 +45,7 @@ set(HEADERS
     src/front/InputPage.hpp
     src/front/ResultPage.hpp
     src/front/SearchPage.hpp
+    src/front/LoadingPage.hpp
     src/front/MainWindow.hpp
     src/front/lib/FlowLayout.hpp
     src/front/lib/TextMarkupWidget.hpp

@@ -71,12 +71,6 @@ public:
    */
   SentenceResult process_sentence(const std::string &sentence);
 
-private:
-  std::unique_ptr<onnx_infer::BertNerModel> model_;
-  std::shared_ptr<SimpleTokenizer> tokenizer_;
-  std::map<int, std::pair<std::string, std::string>> labels_;
-  size_t max_len_;
-
   /**
    * @brief Разбивает текст на предложения (простая реализация)
    *
@@ -84,6 +78,12 @@ private:
    * @return std::vector<std::string> Предложения
    */
   std::vector<std::string> split_into_sentences(const std::string &text);
+
+private:
+  std::unique_ptr<onnx_infer::BertNerModel> model_;
+  std::shared_ptr<SimpleTokenizer> tokenizer_;
+  std::map<int, std::pair<std::string, std::string>> labels_;
+  size_t max_len_;
 
   /**
    * @brief Объединяет подслова в полные слова с метками
