@@ -456,8 +456,8 @@ BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<std::string> sentences = split_into_sentences(text);
 
   for (const std::string &sentence : sentences) {
-    if (sentence.length() < 3)
-      continue; // Пропускаем слишком короткие
+    // if (sentence.length() < 3)
+    // continue; // Пропускаем слишком короткие
 
     SentenceResult result = process_sentence(sentence);
     results.push_back(result);

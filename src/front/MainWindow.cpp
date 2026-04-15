@@ -125,8 +125,8 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
   int processedCount = 0;
 
   for (const std::string &sentence : sentences) {
-    if (sentence.length() < 3)
-      continue; // Пропускаем слишком короткие
+    // if (sentence.length() < 3)
+    // continue; // Пропускаем слишком короткие
 
     SentenceResult result = inferer->process_sentence(sentence);
     results.push_back(result);
