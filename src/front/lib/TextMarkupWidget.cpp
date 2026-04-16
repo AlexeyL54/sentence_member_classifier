@@ -251,9 +251,16 @@ void TextMarkupWidget::rebuild() {
         std::string charStr = uniTail[k].to_string();
         QChar qch = QString::fromUtf8(charStr.c_str()).at(0);
 
+        // Пропускаем пробелы
         if (qch.isSpace())
           continue;
 
+        // Пропускаем буквы и цифры - они уже должны быть обработаны как
+        // сущности
+        if (qch.isLetterOrNumber())
+          continue;
+
+        // Обрабатываем только знаки препинания
         QWidget *punctContainer = new QWidget();
         punctContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
         punctContainer->setFixedHeight(containerHeight);
