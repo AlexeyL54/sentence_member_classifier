@@ -1,5 +1,6 @@
 #include "statistics.hpp"
 #include "bert_onnx_inference.hpp"
+#include "unistring.hpp"
 
 #include <cctype>
 #include <map>
@@ -139,8 +140,8 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
 
   stats.sentences_total = static_cast<int>(analysis_results.size());
 
-  // По одному частотному словарю на категорию: текст фрагмента -> сколько раз
-  // встретился.
+  // По одному частотному словарю на категорию: текст фрагмента в нижнем
+  // регистре -> сколько раз встретился.
   std::unordered_map<std::string, int> subjectFreq;
   std::unordered_map<std::string, int> predicateFreq;
   std::unordered_map<std::string, int> definitionFreq;
@@ -152,28 +153,35 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
     stats.words_total += countWordsInText(sentenceResult.text);
 
     for (const auto &entity : sentenceResult.entities) {
-      const std::string word = entity.text;
+      std::string word = entity.text;
       const std::string categoryRu = entity.type_ru;
       if (word.empty() || categoryRu.empty()) {
         continue;
       }
 
+      // Приводим к нижнему регистру для группировки
+      utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
+      std::string wordKey = wordLower.to_string();
+
       // Одна сущность = один член предложения в общей статистике.
       stats.members_total += 1;
       incrementCategoryTotal(stats, categoryRu);
-      incrementTopCounter(categoryRu, word, subjectFreq, predicateFreq,
-                          definitionFreq, additionFreq, adverbialFreq, otherFreq);
+      incrementTopCounter(categoryRu, wordKey, subjectFreq, predicateFreq,
+                          definitionFreq, additionFreq, adverbialFreq,
+                          otherFreq);
     }
   }
 
   // Для каждой категории — самый частый фрагмент; если все по разу (max==1) —
   // «нет».
   stats.top_subject = pickTopWordOrNone(subjectFreq);
+  //
   stats.top_predicate = pickTopWordOrNone(predicateFreq);
   stats.top_definition = pickTopWordOrNone(definitionFreq);
   stats.top_addition = pickTopWordOrNone(additionFreq);
   stats.top_adverbial = pickTopWordOrNone(adverbialFreq);
-  // top_other не используется в текущей реализации, но можно добавить при необходимости
+  // top_other не используется в текущей реализации, но можно добавить при
+  // необходимости
 
   return stats;
 }
@@ -185,8 +193,8 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
  */
 std::vector<SearchItem>
 build_search_items(const std::vector<SentenceResult> &analysis_results) {
-  // Ключ: (type_ru, текст фрагмента) — одна запись на уникальную пару по всему
-  // тексту.
+  // Ключ: (type_ru, текст фрагмента в нижнем регистре) — одна запись на
+  // уникальную пару по всему тексту.
   std::map<std::pair<std::string, std::string>, SearchItem> itemsByKey;
 
   for (size_t si = 0; si < analysis_results.size(); ++si) {
@@ -194,16 +202,25 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
     const int sentence_number = static_cast<int>(si) + 1;
 
     for (const auto &entity : sentenceResult.entities) {
-      const std::string word = entity.text;
+      std::string word = entity.text;
       const std::string categoryRu = entity.type_ru;
       if (word.empty() || categoryRu.empty()) {
         continue;
       }
 
+      // Приводим к нижнему регистру для группировки
+      utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
+      std::string wordKey = wordLower.to_string();
+
       // operator[] создаёт SearchItem при первом появлении ключа.
-      SearchItem &item = itemsByKey[{categoryRu, word}];
-      item.text = word;
-      item.type = categoryRu;
+      SearchItem &item = itemsByKey[{categoryRu, wordKey}];
+
+      // Сохраняем оригинальный текст при первом вхождении
+      if (item.amount == 0) {
+        item.text = word;
+        item.type = categoryRu;
+      }
+
       item.amount += 1;
       // Одно предложение на номер: без дубликатов при нескольких сущностях
       // в одном предложении.

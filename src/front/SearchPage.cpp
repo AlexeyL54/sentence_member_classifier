@@ -208,11 +208,13 @@ SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
   // Сортировка в обе стороны для каждой категории
   sortCombo_->addItem(QStringLiteral("По алфавиту: А→Я"), 0);
   sortCombo_->addItem(QStringLiteral("По алфавиту: Я→А"), 1);
-  sortCombo_->addItem(QStringLiteral("По встречаемости: по убыванию"), 2);
-  sortCombo_->addItem(QStringLiteral("По встречаемости: по возрастанию"), 3);
-  sortCombo_->addItem(QStringLiteral("По номеру предложения: по возрастанию"),
-                      4);
-  sortCombo_->addItem(QStringLiteral("По номеру предложения: по убыванию"), 5);
+  sortCombo_->addItem(QStringLiteral("По числу появления: по убыванию"), 2);
+  sortCombo_->addItem(QStringLiteral("По числу появления: по возрастанию"), 3);
+  // sortCombo_->addItem(QStringLiteral("По номеру предложения: по
+  // возрастанию"),
+  //                  4);
+  // sortCombo_->addItem(QStringLiteral("По номеру предложения: по убыванию"),
+  // 5);
   connect(sortCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
           &SearchPage::onSortModeChanged);
 
@@ -494,7 +496,7 @@ void SearchPage::filterAndRender(const QString &text) {
                 return wordKey(a) < wordKey(b);
               });
     break;
-  case 4:
+  /*case 4:
     std::sort(filtered.begin(), filtered.end(),
               [&](const SearchItem &a, const SearchItem &b) {
                 if (minSentenceNumber(a) != minSentenceNumber(b))
@@ -509,7 +511,7 @@ void SearchPage::filterAndRender(const QString &text) {
                   return minSentenceNumber(a) > minSentenceNumber(b);
                 return wordKey(a) < wordKey(b);
               });
-    break;
+    break;*/
   default:
     // На случай некорректного индекса: алфавит по возрастанию.
     std::sort(filtered.begin(), filtered.end(),
