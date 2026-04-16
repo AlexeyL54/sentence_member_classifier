@@ -329,7 +329,7 @@ Unistring Unistring::to_lower() {
   return Unistring(lower_str);
 }
 
-vector<size_t> Unistring::get_char_offsets() { return char_offsets; }
+vector<size_t> Unistring::get_char_offsets() const { return char_offsets; }
 
 Unistring Unistring::substr(size_t start, size_t end) {
   size_t len = this->length();

@@ -158,7 +158,7 @@ public:
    */
   Unistring operator[](int index) const;
 
-  vector<size_t> get_char_offsets();
+  vector<size_t> get_char_offsets() const;
 
   Unistring substr(size_t start, size_t end);
 

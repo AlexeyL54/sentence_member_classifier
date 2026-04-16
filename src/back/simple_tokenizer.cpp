@@ -1,5 +1,6 @@
 // src/back/simple_tokenizer.cpp
 #include "simple_tokenizer.hpp"
+#include "text_splitter.hpp"
 #include "unistring.hpp"
 #include <algorithm>
 #include <fstream>
@@ -67,30 +68,16 @@ static bool is_separator_char(const utf8::Unistring &uni_char) {
 */
 vector<string> SimpleTokenizer::extract_words_and_punct(const string &text) {
   vector<string> result;
+
+  // Используем новый TextSplitter для корректной токенизации
   utf8::Unistring uni_text(text);
-  string current_word;
+  std::vector<utf8::TextToken> tokens = utf8::TextSplitter::tokenize(uni_text);
 
-  for (size_t i = 0; i < uni_text.length(); ++i) {
-    utf8::Unistring uni_char = uni_text[i];
-
-    if (is_separator_char(uni_char)) {
-      if (!current_word.empty()) {
-        result.push_back(current_word);
-        current_word.clear();
-      }
-
-      // Если это не пробел, а знак препинания — добавляем как отдельный токен
-      string s = uni_char.to_string();
-      if (!(s.size() == 1 && std::isspace(static_cast<unsigned char>(s[0])))) {
-        result.push_back(s);
-      }
-    } else {
-      current_word += uni_char.to_string();
+  for (const auto &token : tokens) {
+    // Пропускаем пробелы, но добавляем слова и пунктуацию
+    if (!token.is_space) {
+      result.push_back(token.text.to_string());
     }
-  }
-
-  if (!current_word.empty()) {
-    result.push_back(current_word);
   }
 
   return result;
