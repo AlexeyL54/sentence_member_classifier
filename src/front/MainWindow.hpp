@@ -18,6 +18,9 @@ public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+protected:
+  void closeEvent(QCloseEvent *event) override;
+
 private slots:
   // Слоты для навигации между страницами
   void onAnalyzeRequested(const std::string &text);
@@ -31,6 +34,7 @@ private:
   std::unique_ptr<onnx_infer::BertNerModel> model;
   std::unique_ptr<BertOnnxInference> inferer;
   std::vector<SentenceResult> results;
+  bool hasUnsavedResults = false;
 
   void setupUI();
   void setupConnections();

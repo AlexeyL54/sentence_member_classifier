@@ -1080,5 +1080,5 @@
   {
     "tokens": [ "Старуха", "некоторое", "время", "внимательно", "и", "сердито", "вглядывалась", "в", "меня", "сморщившись", "и", "заслоняя", "лицо", "ладонью", "от", "жара", "печки" ],
     "tags": [ "B-SUBJECT", "B-DEFINITION", "B-ADDITION", "B-ADVERBIAL", "O", "B-ADVERBIAL", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "O", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
-  },
+  }
 ]
