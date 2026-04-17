@@ -89,19 +89,12 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
     return tokens;
   }
 
-  // Получаем смещения байтов для корректного отслеживания позиций
-  std::vector<size_t> byte_offsets = text.get_char_offsets();
-  std::string text_str = text.to_string();
-
   Unistring current_word;
-  size_t word_start_byte = 0;
+  size_t word_start = 0;
   bool in_word = false;
 
   for (size_t i = 0; i < text.length(); ++i) {
     Unistring ch = text[i];
-    size_t ch_byte_start = byte_offsets[i];
-    size_t ch_byte_end = (i + 1 < byte_offsets.size()) ? byte_offsets[i + 1] - 1
-                                                       : text_str.length() - 1;
 
     bool is_space = isSpace(ch);
     bool is_punct = isPunctuation(ch);
@@ -112,8 +105,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       if (in_word) {
         TextToken token;
         token.text = current_word;
-        token.byte_start = word_start_byte;
-        token.byte_end = byte_offsets[i] - 1;
         token.is_word = true;
         token.is_space = false;
         tokens.push_back(token);
@@ -124,8 +115,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       // Добавляем пробел как отдельный токен
       TextToken space_token;
       space_token.text = ch;
-      space_token.byte_start = ch_byte_start;
-      space_token.byte_end = ch_byte_end;
       space_token.is_word = false;
       space_token.is_space = true;
       tokens.push_back(space_token);
@@ -135,8 +124,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       if (in_word) {
         TextToken token;
         token.text = current_word;
-        token.byte_start = word_start_byte;
-        token.byte_end = byte_offsets[i] - 1;
         token.is_word = true;
         token.is_space = false;
         tokens.push_back(token);
@@ -151,16 +138,9 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
             text[i + 2].to_string() == ".") {
           // Это начало многоточия
           Unistring ellipsis("...");
-          size_t ellipsis_start = ch_byte_start;
-          size_t ellipsis_end = byte_offsets[i + 2 + 1 > byte_offsets.size()
-                                                 ? byte_offsets.size() - 1
-                                                 : i + 3] -
-                                1;
 
           TextToken punct_token;
           punct_token.text = ellipsis;
-          punct_token.byte_start = ellipsis_start;
-          punct_token.byte_end = ellipsis_end;
           punct_token.is_word = false;
           punct_token.is_space = false;
           tokens.push_back(punct_token);
@@ -173,8 +153,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       // Добавляем знак препинания как отдельный токен
       TextToken punct_token;
       punct_token.text = ch;
-      punct_token.byte_start = ch_byte_start;
-      punct_token.byte_end = ch_byte_end;
       punct_token.is_word = false;
       punct_token.is_space = false;
       tokens.push_back(punct_token);
@@ -183,7 +161,7 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       // Начинаем или продолжаем слово
       if (!in_word) {
         in_word = true;
-        word_start_byte = ch_byte_start;
+        word_start = i;
         current_word = ch;
       } else {
         current_word += ch;
@@ -195,8 +173,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
   if (in_word) {
     TextToken token;
     token.text = current_word;
-    token.byte_start = word_start_byte;
-    token.byte_end = text_str.length() - 1;
     token.is_word = true;
     token.is_space = false;
     tokens.push_back(token);
@@ -212,59 +188,74 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
     return sentences;
   }
 
-  std::string text_str = text.to_string();
-  std::vector<size_t> byte_offsets = text.get_char_offsets();
   size_t char_count = text.length();
-
-  Unistring current_sentence;
-  size_t sentence_start_byte = 0;
+  size_t sentence_start = 0;
 
   for (size_t i = 0; i < char_count; ++i) {
-    // Получаем символ напрямую из строки через смещение
-    size_t byte_start = byte_offsets[i];
-    size_t byte_end =
-        (i + 1 < byte_offsets.size()) ? byte_offsets[i + 1] : text_str.length();
-    std::string ch_str = text_str.substr(byte_start, byte_end - byte_start);
+    Unistring ch = text[i];
+    std::string ch_str = ch.to_string();
 
     bool is_sentence_end =
         (ch_str == "." || ch_str == "!" || ch_str == "?" || ch_str == "\n");
 
     // Проверка на многоточие (...)
-    if (!is_sentence_end && ch_str == ".") {
+    bool is_ellipsis = false;
+    int ellipsis_skip = 0;
+    if (ch_str == ".") {
       if (i + 2 < char_count) {
-        size_t next1_start = byte_offsets[i + 1];
-        size_t next1_end = (i + 2 < byte_offsets.size()) ? byte_offsets[i + 2]
-                                                         : text_str.length();
-        size_t next2_start = byte_offsets[i + 2];
-        size_t next2_end = (i + 3 < byte_offsets.size()) ? byte_offsets[i + 3]
-                                                         : text_str.length();
+        Unistring next1 = text[i + 1];
+        Unistring next2 = text[i + 2];
 
-        std::string next1_str =
-            text_str.substr(next1_start, next1_end - next1_start);
-        std::string next2_str =
-            text_str.substr(next2_start, next2_end - next2_start);
-
-        if (next1_str == "." && next2_str == ".") {
+        if (next1.to_string() == "." && next2.to_string() == ".") {
+          is_ellipsis = true;
           is_sentence_end = true;
-          i += 2; // Пропускаем следующие две точки
+          ellipsis_skip = 2; // Пропустим следующие 2 точки
         }
       }
     }
 
     if (is_sentence_end) {
-      // Добавляем текущий символ и возможные дополнительные точки к предложению
-      current_sentence += ch_str;
-      if (ch_str == "." && i >= 2) {
-        // Проверяем, были ли добавлены точки в цикле выше
-        // На самом деле мы уже увеличили i, так что просто берем подстроку
+      // Если это многоточие, добавляем все три точки к предложению
+      if (is_ellipsis) {
+        // Получаем подстроку от начала предложения до конца третьей точки
+        size_t sentence_end = i + 3; // Включаем три точки
+        if (sentence_end > char_count) {
+          sentence_end = char_count;
+        }
+
+        Unistring sent = text.substr(sentence_start, sentence_end - 1);
+        std::string sent_str = sent.to_string();
+
+        // Обрезаем пробелы в конце предложения
+        while (!sent_str.empty() &&
+               std::isspace(static_cast<unsigned char>(sent_str.back()))) {
+          sent_str.pop_back();
+        }
+
+        if (!sent_str.empty()) {
+          sentences.push_back(Unistring(sent_str));
+        }
+
+        // Пропускаем пробелы после знака завершения
+        size_t j = i + 1 + ellipsis_skip;
+        while (j < char_count) {
+          Unistring j_ch = text[j];
+          std::string j_str = j_ch.to_string();
+          if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
+            break;
+          }
+          j++;
+        }
+
+        sentence_start = j;
+        i = j - 1;
+        continue;
       }
 
-      // Берем подстроку от начала предложения до текущего момента
-      size_t sentence_end_byte = (i + 1 < byte_offsets.size())
-                                     ? byte_offsets[i + 1]
-                                     : text_str.length();
-      std::string sent_str = text_str.substr(
-          sentence_start_byte, sentence_end_byte - sentence_start_byte);
+      // Обычный конец предложения (не многоточие)
+      // Получаем подстроку от начала предложения до текущего символа включительно
+      Unistring sent = text.substr(sentence_start, i);
+      std::string sent_str = sent.to_string();
 
       // Обрезаем пробелы в конце предложения
       while (!sent_str.empty() &&
@@ -276,32 +267,27 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
         sentences.push_back(Unistring(sent_str));
       }
 
-      current_sentence = Unistring();
-
       // Пропускаем пробелы после знака завершения
       size_t j = i + 1;
       while (j < char_count) {
-        size_t j_byte_start = byte_offsets[j];
-        size_t j_byte_end = (j + 1 < byte_offsets.size()) ? byte_offsets[j + 1]
-                                                          : text_str.length();
-        std::string j_str =
-            text_str.substr(j_byte_start, j_byte_end - j_byte_start);
-        if (!std::isspace(static_cast<unsigned char>(j_str[0]))) {
+        Unistring j_ch = text[j];
+        std::string j_str = j_ch.to_string();
+        if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
           break;
         }
         j++;
       }
 
-      sentence_start_byte =
-          (j < byte_offsets.size()) ? byte_offsets[j] : text_str.length();
+      sentence_start = j;
       i = j - 1;
     }
   }
 
   // Добавляем последнее предложение если оно не пустое
   // Это критично для случая, когда текст обрывается без точки
-  if (sentence_start_byte < text_str.length()) {
-    std::string sent_str = text_str.substr(sentence_start_byte);
+  if (sentence_start < char_count) {
+    Unistring sent = text.substr(sentence_start, char_count - 1);
+    std::string sent_str = sent.to_string();
 
     // Обрезаем пробелы в конце
     while (!sent_str.empty() &&

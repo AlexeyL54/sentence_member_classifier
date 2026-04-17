@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <limits>
-#include <string>
 
 #include <QAbstractItemView>
 #include <QDateTime>
@@ -496,22 +495,6 @@ void SearchPage::filterAndRender(const QString &text) {
                 return wordKey(a) < wordKey(b);
               });
     break;
-  /*case 4:
-    std::sort(filtered.begin(), filtered.end(),
-              [&](const SearchItem &a, const SearchItem &b) {
-                if (minSentenceNumber(a) != minSentenceNumber(b))
-                  return minSentenceNumber(a) < minSentenceNumber(b);
-                return wordKey(a) < wordKey(b);
-              });
-    break;
-  case 5:
-    std::sort(filtered.begin(), filtered.end(),
-              [&](const SearchItem &a, const SearchItem &b) {
-                if (minSentenceNumber(a) != minSentenceNumber(b))
-                  return minSentenceNumber(a) > minSentenceNumber(b);
-                return wordKey(a) < wordKey(b);
-              });
-    break;*/
   default:
     // На случай некорректного индекса: алфавит по возрастанию.
     std::sort(filtered.begin(), filtered.end(),
