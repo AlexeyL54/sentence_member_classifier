@@ -13,7 +13,7 @@ set(CMAKE_AUTOUIC ON)
 if(MSVC)
     # Для MSVC добавляем флаги для консольного/оконного приложения
     add_compile_options(/W3 /MP)
-    
+
     # Устанавливаем уровень предупреждений
     if(CMAKE_BUILD_TYPE MATCHES "Release")
         add_compile_options(/O2 /MT)
@@ -21,6 +21,9 @@ if(MSVC)
         add_compile_options(/Od /MTd)
     endif()
 endif()
+
+# Поиск ICU (International Components for Unicode)
+find_package(ICU REQUIRED COMPONENTS uc i18n)
 
 # Исходные файлы
 set(SOURCES
@@ -73,11 +76,16 @@ add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
 # WIN32 означает, что это GUI-приложение (не консольное)
 
 # Подключение Qt библиотек
-target_link_libraries(TextAnalyzer 
-    Qt6::Core 
+target_link_libraries(TextAnalyzer
+    Qt6::Core
     Qt6::Widgets
     onnxruntime
+    ICU::uc
+    ICU::i18n
 )
+
+# Подключение заголовочных файлов ICU
+target_include_directories(TextAnalyzer PRIVATE ${ICU_INCLUDE_DIRS})
 
 # if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
 #     set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")

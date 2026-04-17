@@ -9,10 +9,19 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    # Установка ICU
+    - name: Install ICU
+      shell: pwsh
+      run: |
+        Write-Host "📦 Installing ICU via vcpkg..."
+        # Используем vcpkg для установки ICU
+        vcpkg install icu:x64-windows
+        echo "ICU_ROOT=${{ github.workspace }}/vcpkg/installed/x64-windows" >> $env:GITHUB_ENV
 
     # Установка Qt
     # ВАЖНО: Убрали параметры 'modules', так как они вызывают ошибку парсинга.
@@ -66,7 +75,8 @@ jobs:
           -G "Visual Studio 17 2022" `
           -A x64 `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/Qt/6.5.0/msvc2019_64" `
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/Qt/6.5.0/msvc2019_64;${{ github.workspace }}/vcpkg/installed/x64-windows" `
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
           -DCMAKE_INSTALL_PREFIX=install
 
     - name: Build
@@ -83,12 +93,12 @@ jobs:
         # 1. Находим windeployqt.exe
         # Action install-qt-action обычно добавляет Qt bin в PATH. Попробуем найти его там.
         $winDeployQt = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
-        
+
         if (-not $winDeployQt) {
             # Если не в PATH, пробуем стандартный путь установки действия
             $qtRoot = "C:\Qt\6.5.0\msvc2019_64"
             $winDeployQtPath = Join-Path $qtRoot "bin\windeployqt.exe"
-            
+
             if (Test-Path $winDeployQtPath) {
                 $winDeployQt = $winDeployQtPath
             } else {
@@ -108,7 +118,7 @@ jobs:
         Write-Host "🛠 Using windeployqt from: $winDeployQt"
 
         $appPath = "${{ github.workspace }}\install\bin\TextAnalyzer.exe"
-        
+
         if (-not (Test-Path $appPath)) {
             Write-Error "❌ Application executable not found at: $appPath"
             exit 1
@@ -117,7 +127,7 @@ jobs:
         Write-Host "🚀 Running windeployqt..."
         # ДОБАВЛЕН ФЛАГ --no-translations
         & $winDeployQt --release --no-compiler-runtime --no-opengl-sw --no-translations "$appPath"
-        
+
         if ($LASTEXITCODE -ne 0) {
             Write-Error "❌ windeployqt failed with exit code $LASTEXITCODE"
             exit 1
@@ -136,7 +146,7 @@ jobs:
         $onnxDllDest = "${{ github.workspace }}\install\bin\onnxruntime.dll"
 
         Write-Host "🔍 Looking for ONNX Runtime DLL at: $onnxDllSource"
-        
+
         if (Test-Path $onnxDllSource) {
             Copy-Item -Path $onnxDllSource -Destination $onnxDllDest -Force
             Write-Host "✅ ONNX Runtime DLL copied successfully."
@@ -150,7 +160,30 @@ jobs:
             }
             exit 1
         }
-        
+
+        # 3. Копирование ICU DLL файлов
+        $vcpkgRoot = "${{ github.workspace }}/vcpkg/installed/x64-windows"
+        $icuBinPath = Join-Path $vcpkgRoot "bin"
+        $installBinPath = "${{ github.workspace }}\install\bin"
+
+        Write-Host "🔍 Looking for ICU DLLs at: $icuBinPath"
+
+        if (Test-Path $icuBinPath) {
+            # Копируем все ICU DLL файлы
+            $icuDlls = Get-ChildItem -Path $icuBinPath -Filter "ic*.dll"
+            if ($icuDlls.Count -gt 0) {
+                foreach ($dll in $icuDlls) {
+                    Write-Host "📋 Copying $($dll.Name)..."
+                    Copy-Item -Path $dll.FullName -Destination $installBinPath -Force
+                }
+                Write-Host "✅ ICU DLLs copied successfully ($($icuDlls.Count) files)."
+            } else {
+                Write-Host "⚠️ No ICU DLL files found in $icuBinPath"
+            }
+        } else {
+            Write-Host "⚠️ ICU bin folder does not exist: $icuBinPath"
+        }
+
         Write-Host "✅ Deployment completed successfully!"
 
     - name: Upload Artifact
