@@ -2,20 +2,21 @@
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
 #include "simple_tokenizer.hpp"
+#include "text_splitter.hpp"
 #include "unistring.hpp"
 #include <algorithm>
 #include <iostream>
-#include <ostream>
-#include <set>
+#include <map>
+#include <string>
 #include <vector>
 
 namespace {
-
+// Проверка на знак препинания (как в Python _is_punctuation)
+// ИСПРАВЛЕНО: теперь корректно обрабатывает многобайтовые символы UTF-8
 // Проверка на знак препинания (как в Python _is_punctuation)
 bool is_punctuation(const std::string &text) {
-  static const std::set<std::string> punctuations = {
-      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—"};
-  return punctuations.count(text) > 0;
+  utf8::Unistring uni(text);
+  return utf8::TextSplitter::isPunctuation(uni);
 }
 
 // Получение базовой метки без BIO-префикса (как в Python _get_base_label)
@@ -32,21 +33,18 @@ std::string determine_main_label(const std::vector<std::string> &labels) {
   if (labels.empty()) {
     return "O";
   }
-
   // Сначала ищем B-* метки
   for (const auto &lbl : labels) {
     if (lbl.substr(0, 2) == "B-") {
       return lbl;
     }
   }
-
   // Затем I-* метки
   for (const auto &lbl : labels) {
     if (lbl.substr(0, 2) == "I-") {
       return lbl;
     }
   }
-
   return labels[0];
 }
 
@@ -73,47 +71,14 @@ BertOnnxInference::BertOnnxInference(
 std::vector<std::string>
 BertOnnxInference::split_into_sentences(const std::string &text) {
   std::vector<std::string> sentences;
-  std::string current_sentence;
 
-  for (size_t i = 0; i < text.length(); ++i) {
-    char c = text[i];
-    current_sentence += c;
+  // Используем новый TextSplitter для корректного разбиения на предложения
+  utf8::Unistring uni_text(text);
+  std::vector<utf8::Unistring> uni_sentences =
+      utf8::TextSplitter::splitIntoSentences(uni_text);
 
-    // Простое разбиение по знакам препинания
-    if (c == '.' || c == '!' || c == '?' || c == ';' || c == '\n') {
-      // Убираем лишние пробелы
-      while (!current_sentence.empty() && (current_sentence.back() == ' ' ||
-                                           current_sentence.back() == '\n' ||
-                                           current_sentence.back() == '\r' ||
-                                           current_sentence.back() == '\t')) {
-        current_sentence.pop_back();
-      }
-
-      if (!current_sentence.empty()) {
-        sentences.push_back(current_sentence);
-        current_sentence.clear();
-      }
-
-      // Пропускаем пробелы после знака препинания
-      while (i + 1 < text.length() &&
-             (text[i + 1] == ' ' || text[i + 1] == '\n' ||
-              text[i + 1] == '\r' || text[i + 1] == '\t')) {
-        i++;
-      }
-    }
-  }
-
-  // Добавляем последнее предложение, если оно не пустое
-  if (!current_sentence.empty()) {
-    while (!current_sentence.empty() &&
-           (current_sentence.back() == ' ' || current_sentence.back() == '\n' ||
-            current_sentence.back() == '\r' ||
-            current_sentence.back() == '\t')) {
-      current_sentence.pop_back();
-    }
-    if (!current_sentence.empty()) {
-      sentences.push_back(current_sentence);
-    }
+  for (const auto &uni_sent : uni_sentences) {
+    sentences.push_back(uni_sent.to_string());
   }
 
   return sentences;
@@ -149,14 +114,13 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
 }
 
 // Группировка токенов в слова (аналог _group_into_words в Python)
+// Группировка токенов в слова (аналог _group_into_words в Python)
 std::vector<WordInfo> group_tokens_into_words(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
     const std::vector<std::pair<size_t, size_t>> &offsets,
     const std::map<int, std::pair<std::string, std::string>> &labels_map) {
-
   std::vector<WordInfo> words;
-
   std::string current_word;
   size_t current_start = 0;
   size_t current_end = 0;
@@ -180,12 +144,25 @@ std::vector<WordInfo> group_tokens_into_words(
     std::string label = label_it->second.first;
     bool is_subword = (token.substr(0, 2) == "##");
     std::string clean_token = is_subword ? token.substr(2) : token;
+
     size_t start = offsets[i].first;
     size_t end = offsets[i].second;
 
-    // Пропускаем токены с нулевыми смещениями
+    // Проверка на корректность смещений
+    if (start > end) {
+      std::cerr << "Warning: Invalid offsets for token '" << token
+                << "': start=" << start << ", end=" << end << std::endl;
+      std::swap(start, end);
+    }
+
+    // Пропускаем токены с нулевыми смещениями (только если это не начало
+    // текста)
     if (start == 0 && end == 0) {
-      continue;
+      // Разрешаем токены в начале строки (i == 0 или предыдущий токен тоже имел
+      // 0,0)
+      if (i > 0 && offsets[i - 1].second != 0) {
+        continue;
+      }
     }
 
     if (is_subword && in_word) {
@@ -228,12 +205,10 @@ std::vector<WordInfo> group_tokens_into_words(
   return words;
 }
 
-// Группировка слов в фразы (аналог _group_into_phrases в Python)
 std::vector<Entity> group_words_into_phrases(
     const std::vector<WordInfo> &words,
     const std::map<int, std::pair<std::string, std::string>> &labels_map,
     const std::string &original_text) {
-
   std::vector<Entity> entities;
   Entity *current_entity = nullptr;
 
@@ -250,16 +225,32 @@ std::vector<Entity> group_words_into_phrases(
         (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "I-");
 
     // Извлекаем оригинальный текст из исходного предложения по смещениям
-    utf8::Unistring unitext = original_text;
-    // std::string original_word_text =
-    // original_text.substr(word.start, word.end - word.start);
-    std::string original_word_text =
-        unitext.substr(word.start, word.end).to_string();
+    // ИСПРАВЛЕНО: используем substr с двумя параметрами (start, length)
+    std::string original_word_text;
+    if (word.start < original_text.length() &&
+        word.end <= original_text.length()) {
+      original_word_text =
+          original_text.substr(word.start, word.end - word.start);
+    } else {
+      // Если смещения выходят за границы, берем текст из word.text
+      original_word_text = word.text;
+    }
+
+    // Очищаем текст от пунктуации для entity.text (но сохраняем для
+    // отображения)
+    utf8::Unistring uni_word(original_word_text);
+    utf8::Unistring cleaned_word = utf8::TextSplitter::cleanWord(uni_word);
+    std::string clean_text = cleaned_word.to_string();
+
+    // Если после очистки осталось пустым, используем word.text
+    if (clean_text.empty()) {
+      clean_text = word.text;
+    }
 
     if (current_entity == nullptr) {
       // Нет текущей сущности - начинаем новую для любой метки (включая O)
       entities.emplace_back();
-      entities.back().text = original_word_text;
+      entities.back().text = clean_text;
       entities.back().start = word.start;
       entities.back().end = word.end;
 
@@ -372,7 +363,6 @@ std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<int> &token_labels,
     const std::vector<std::pair<size_t, size_t>> &offsets,
     const std::string &original_text) {
-
   // Шаг 1: Группировка токенов в слова
   std::vector<WordInfo> words =
       group_tokens_into_words(tokens, token_labels, offsets, labels_);
@@ -392,14 +382,12 @@ load_labels(const std::string &path) {
 #else
   FILE *file = fopen(path.c_str(), "rb");
 #endif
-
   if (!file)
     return labels;
 
   fseek(file, 0, SEEK_END);
   long size = ftell(file);
   fseek(file, 0, SEEK_SET);
-
   std::vector<char> buffer(size + 1);
   fread(buffer.data(), 1, size, file);
   fclose(file);
@@ -446,8 +434,8 @@ BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<std::string> sentences = split_into_sentences(text);
 
   for (const std::string &sentence : sentences) {
-    if (sentence.length() < 3)
-      continue; // Пропускаем слишком короткие
+    // if (sentence.length() < 3)
+    // continue; // Пропускаем слишком короткие
 
     SentenceResult result = process_sentence(sentence);
     results.push_back(result);

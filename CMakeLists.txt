@@ -28,6 +28,7 @@ set(SOURCES
     src/front/InputPage.cpp
     src/front/ResultPage.cpp
     src/front/SearchPage.cpp
+    src/front/LoadingPage.cpp
     src/front/MainWindow.cpp
     src/front/lib/FlowLayout.cpp
     src/front/lib/TextMarkupWidget.cpp
@@ -38,12 +39,14 @@ set(SOURCES
     src/back/simple_tokenizer.cpp
     src/back/save_result.cpp
     src/back/unistring.cpp
+    src/back/text_splitter.cpp
 )
 
 set(HEADERS
     src/front/InputPage.hpp
     src/front/ResultPage.hpp
     src/front/SearchPage.hpp
+    src/front/LoadingPage.hpp
     src/front/MainWindow.hpp
     src/front/lib/FlowLayout.hpp
     src/front/lib/TextMarkupWidget.hpp
@@ -54,6 +57,7 @@ set(HEADERS
     src/back/simple_tokenizer.hpp
     src/back/save_result.hpp
     src/back/unistring.hpp
+    src/back/text_splitter.hpp
 )
 
 # Поиск Qt

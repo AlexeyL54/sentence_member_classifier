@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "InputPage.hpp"
+#include "LoadingPage.hpp"
 #include "ResultPage.hpp"
 #include "SearchPage.hpp"
 
@@ -16,6 +17,9 @@ class MainWindow : public QWidget {
 public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
+
+protected:
+  void closeEvent(QCloseEvent *event) override;
 
 private slots:
   // Слоты для навигации между страницами
@@ -30,6 +34,7 @@ private:
   std::unique_ptr<onnx_infer::BertNerModel> model;
   std::unique_ptr<BertOnnxInference> inferer;
   std::vector<SentenceResult> results;
+  bool hasUnsavedResults = false;
 
   void setupUI();
   void setupConnections();
@@ -43,6 +48,7 @@ private:
   InputPage *inputPage = nullptr;
   ResultPage *resultPage = nullptr;
   SearchPage *searchPage = nullptr;
+  LoadingPage *loadingPage = nullptr;
 
   // Данные, передаваемые между страницами
   QVector<SearchItem> searchItems_;

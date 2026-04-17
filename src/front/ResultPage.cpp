@@ -202,14 +202,85 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if (!path.isEmpty()) {
+      // Проверка на наличие кириллицы в пути
+      QRegularExpression cyrillicPattern("[\u0400-\u04FF]");
+      if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
+        QMessageBox::warning(
+            this, "Предупреждение",
+            "Путь к директории содержит кириллические символы:\n" + path +
+                "\n\nЭто может вызвать проблемы с сохранением файлов.");
+
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Подтверждение");
+        msgBox.setText("Вы действительно хотите продолжить сохранение?");
+        msgBox.setIcon(QMessageBox::Question);
+        QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+        QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+        msgBox.exec();
+
+        if (msgBox.clickedButton() != yesButton) {
+          return;
+        }
+      }
+
       std::string stdPath = path.toStdString();
+
+      const std::string SEARCH_FILE = "list.html";
+      const std::string REVIEW_FILE = "statistics.html";
+
+      QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
+      QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
+
+      // Проверяем, существуют ли уже файлы с таким именем
+      bool searchFileExists = QFile::exists(searchFilePath);
+      bool reviewFileExists = QFile::exists(reviewFilePath);
+
+      if (searchFileExists || reviewFileExists) {
+        QMessageBox warningMsgBox(this);
+        warningMsgBox.setWindowTitle("Предупреждение");
+        QString warningText = "В выбранной директории уже существуют файлы:\n";
+        if (searchFileExists) {
+          warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
+        }
+        if (reviewFileExists) {
+          warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
+        }
+        warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
+        warningMsgBox.setText(warningText);
+        warningMsgBox.setIcon(QMessageBox::Warning);
+        QPushButton *overwriteButton =
+            warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
+        QPushButton *cancelButton =
+            warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
+        warningMsgBox.exec();
+
+        if (warningMsgBox.clickedButton() != overwriteButton) {
+          return; // Пользователь отменил сохранение
+        }
+      }
 
       // Используем уже готовые m_searchItems
       saveAnalysis(stdPath, search_items, stats);
 
-      QMessageBox::information(this, "Сохранение",
-                               "Результаты успешно сохранены в:\n" + path);
-      isSaved = true;
+      // Проверка, что файлы действительно сохранились
+      bool searchFileExistsAfter = QFile::exists(searchFilePath);
+      bool reviewFileExistsAfter = QFile::exists(reviewFilePath);
+
+      if (searchFileExistsAfter && reviewFileExistsAfter) {
+        QMessageBox::information(this, "Сохранение",
+                                 "Результаты успешно сохранены в:\n" + path);
+        isSaved = true;
+      } else {
+        QString errorMsg = "Ошибка сохранения!\n";
+        if (!searchFileExistsAfter) {
+          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(SEARCH_FILE) + "\n";
+        }
+        if (!reviewFileExistsAfter) {
+          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(REVIEW_FILE) + "\n";
+        }
+        QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
+        isSaved = false;
+      }
     }
   });
 
@@ -289,16 +360,15 @@ void ResultPage::onAnalyzeClicked() {
   }
 
   QMessageBox msgBox(this);
-  msgBox.setWindowTitle("Анализ");
+  msgBox.setWindowTitle("Подтверждение");
   msgBox.setText(str);
-  msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-  //  msgBox.setDefaultButton(QMessageBox::Yes);
+  msgBox.setIcon(QMessageBox::Question);
+  QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+  QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
 
-  int ret = msgBox.exec();
+  msgBox.exec();
 
-  if (ret == QMessageBox::Yes) {
-    // Пользователь выбрал "Да" — здесь можно вызвать логику анализа
-    // QMessageBox::information(this, "Анализ", "Анализ выполнен!");
+  if (msgBox.clickedButton() == yesButton) {
     m_results.clear();
     fullText.clear();
     members.clear();
