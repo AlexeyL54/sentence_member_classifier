@@ -154,49 +154,19 @@ SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
   searchEdit_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
   searchEdit_->setMinimumHeight(controlHeight);
 
-  // Члены предложения: выпадающий список с чекбоксами
+  // Члены предложения: обычный выпадающий список
   memberFilterCombo_ = new QComboBox(this);
-  memberFilterCombo_->setEditable(true);
-  memberFilterCombo_->lineEdit()->setReadOnly(true);
-  memberFilterCombo_->setInsertPolicy(QComboBox::NoInsert);
   memberFilterCombo_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
   memberFilterCombo_->setMinimumHeight(controlHeight);
   memberFilterCombo_->setFixedWidth((searchWidth - 12) / 2);
-
-  // Список вариантов
-  const QVector<QString> memberOptions = {
-      QStringLiteral("подлежащее"),     QStringLiteral("сказуемое"),
-      QStringLiteral("дополнение"),     QStringLiteral("определение"),
-      QStringLiteral("обстоятельство"),
-  };
-
-  memberModel_ = new QStandardItemModel(memberFilterCombo_);
-
-  // Служебный пункт: быстро отметить/снять все категории.
-  QStandardItem *selectAllItem =
-      new QStandardItem(QStringLiteral("Выбрать всё"));
-  selectAllItem->setFlags(selectAllItem->flags() | Qt::ItemIsUserCheckable);
-  selectAllItem->setData(Qt::Checked, Qt::CheckStateRole);
-  memberModel_->appendRow(selectAllItem);
-
-  for (const auto &m : memberOptions) {
-    QStandardItem *item = new QStandardItem(m);
-    item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-    item->setData(Qt::Checked, Qt::CheckStateRole);
-    memberModel_->appendRow(item);
-  }
-  memberFilterCombo_->setModel(memberModel_);
-
-  if (auto *view = qobject_cast<QListView *>(memberFilterCombo_->view())) {
-    view->setSelectionMode(QAbstractItemView::NoSelection);
-    // Перехватываем клики по popup, чтобы галочки ставились без закрытия
-    // списка.
-    view->viewport()->installEventFilter(this);
-    view->installEventFilter(this);
-  }
-  // Открытие/закрытие — только с lineEdit (не вешать фильтр на весь QComboBox:
-  // иначе двойная обработка и popup не открывается стабильно).
-  memberFilterCombo_->lineEdit()->installEventFilter(this);
+  memberFilterCombo_->addItem(QStringLiteral("Все члены предложения"));
+  memberFilterCombo_->addItem(QStringLiteral("подлежащее"));
+  memberFilterCombo_->addItem(QStringLiteral("сказуемое"));
+  memberFilterCombo_->addItem(QStringLiteral("дополнение"));
+  memberFilterCombo_->addItem(QStringLiteral("определение"));
+  memberFilterCombo_->addItem(QStringLiteral("обстоятельство"));
+  connect(memberFilterCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &SearchPage::onMemberFilterChanged);
 
   // Сортировка: выпадающий список (1 вариант)
   sortCombo_ = new QComboBox(this);
@@ -269,103 +239,6 @@ void SearchPage::setSearchItems(std::vector<SearchItem> &items) {
  * иначе false.
  */
 bool SearchPage::eventFilter(QObject *watched, QEvent *event) {
-  if (!memberFilterCombo_ || !memberModel_)
-    return QWidget::eventFilter(watched, event);
-
-  // Пока открыт popup фильтра — не перерисовывать тяжёлый список карточек под
-  // ним (иначе главный поток занят и выпадашка «рвётся»).
-  if (memberFilterCombo_->view() && watched == memberFilterCombo_->view()) {
-    if (event->type() == QEvent::Show) {
-      if (resultsList_)
-        resultsList_->setUpdatesEnabled(false);
-      return false;
-    }
-    if (event->type() == QEvent::Hide) {
-      if (resultsList_)
-        resultsList_->setUpdatesEnabled(true);
-      if (pendingMemberFilterApply_) {
-        pendingMemberFilterApply_ = false;
-        applyCurrentFilters();
-      }
-      if (memberSkipBlockOnNextHide_) {
-        memberSkipBlockOnNextHide_ = false;
-      } else {
-        memberBlockShowPopupUntilMs_ =
-            QDateTime::currentMSecsSinceEpoch() + kMemberPopupBlockMs;
-      }
-      return false;
-    }
-  }
-
-  // Клик по строке с текстом: открыть/закрыть список (только lineEdit).
-  if (watched == memberFilterCombo_->lineEdit() &&
-      event->type() == QEvent::MouseButtonPress) {
-    auto *me = static_cast<QMouseEvent *>(event);
-    if (me->button() != Qt::LeftButton)
-      return QWidget::eventFilter(watched, event);
-    if (QAbstractItemView *v = memberFilterCombo_->view()) {
-      if (v->isVisible()) {
-        memberSkipBlockOnNextHide_ = true;
-        memberFilterCombo_->hidePopup();
-        return true;
-      }
-      if (QDateTime::currentMSecsSinceEpoch() < memberBlockShowPopupUntilMs_)
-        return true;
-      memberFilterCombo_->showPopup();
-      return true;
-    }
-  }
-
-  // Клик по элементам popup: переключаем галку и не закрываем список.
-  if (memberFilterCombo_->view() &&
-      watched == memberFilterCombo_->view()->viewport() &&
-      event->type() == QEvent::MouseButtonRelease) {
-    auto *me = static_cast<QMouseEvent *>(event);
-    QModelIndex idx = memberFilterCombo_->view()->indexAt(me->pos());
-    if (!idx.isValid())
-      return true;
-
-    QStandardItem *item = memberModel_->itemFromIndex(idx);
-    if (!item)
-      return true;
-
-    const int row = idx.row();
-    QStandardItem *selectAll = memberModel_->item(0);
-
-    if (row == 0) {
-      // Клик по «Выбрать всё» переключает все чекбоксы сразу.
-      const Qt::CheckState targetState =
-          (item->checkState() == Qt::Checked ? Qt::Unchecked : Qt::Checked);
-      for (int i = 0; i < memberModel_->rowCount(); ++i) {
-        if (QStandardItem *each = memberModel_->item(i))
-          each->setCheckState(targetState);
-      }
-    } else {
-      item->setCheckState(item->checkState() == Qt::Checked ? Qt::Unchecked
-                                                            : Qt::Checked);
-
-      // Автосинхронизация «Выбрать всё» с фактическим состоянием остальных
-      // пунктов.
-      bool allChecked = true;
-      for (int i = 1; i < memberModel_->rowCount(); ++i) {
-        QStandardItem *each = memberModel_->item(i);
-        if (!each || each->checkState() != Qt::Checked) {
-          allChecked = false;
-          break;
-        }
-      }
-      if (selectAll)
-        selectAll->setCheckState(allChecked ? Qt::Checked : Qt::Unchecked);
-    }
-
-    updateSelectedMembers();
-    updateMemberComboSummary();
-    // Не вызываем applyCurrentFilters здесь: setItems пересоздаёт виджеты и
-    // мешает плавности popup. Пересборка — в QEvent::Hide у view (см. выше).
-    pendingMemberFilterApply_ = true;
-    return true;
-  }
-
   return QWidget::eventFilter(watched, event);
 }
 
@@ -374,16 +247,18 @@ bool SearchPage::eventFilter(QObject *watched, QEvent *event) {
  */
 void SearchPage::updateSelectedMembers() {
   selectedMembers_.clear();
-  if (!memberModel_)
+  if (!memberFilterCombo_)
     return;
-
-  for (int row = 1; row < memberModel_->rowCount(); ++row) {
-    QStandardItem *item = memberModel_->item(row);
-    if (!item)
-      continue;
-    if (item->checkState() == Qt::Checked)
-      selectedMembers_.push_back(item->text());
+  const int idx = memberFilterCombo_->currentIndex();
+  if (idx <= 0) {
+    selectedMembers_.push_back(QStringLiteral("подлежащее"));
+    selectedMembers_.push_back(QStringLiteral("сказуемое"));
+    selectedMembers_.push_back(QStringLiteral("дополнение"));
+    selectedMembers_.push_back(QStringLiteral("определение"));
+    selectedMembers_.push_back(QStringLiteral("обстоятельство"));
+    return;
   }
+  selectedMembers_.push_back(memberFilterCombo_->currentText());
 }
 
 /**
@@ -391,27 +266,7 @@ void SearchPage::updateSelectedMembers() {
  * чеков.
  */
 void SearchPage::updateMemberComboSummary() {
-  if (!memberModel_ || !memberFilterCombo_)
-    return;
-
-  const int total = std::max(0, memberModel_->rowCount() - 1);
-  if (selectedMembers_.size() == static_cast<size_t>(total) && total > 0) {
-    memberFilterCombo_->lineEdit()->setText(
-        QStringLiteral("Все члены предложения"));
-    return;
-  }
-
-  if (selectedMembers_.empty()) {
-    memberFilterCombo_->lineEdit()->setText(
-        QStringLiteral("Нет выбранных членов"));
-    return;
-  }
-
-  QStringList parts;
-  parts.reserve(selectedMembers_.size());
-  for (const auto &m : selectedMembers_)
-    parts.push_back(m);
-  memberFilterCombo_->lineEdit()->setText(parts.join(QStringLiteral(", ")));
+  // Для обычного QComboBox отдельная сводка не нужна.
 }
 
 /**
