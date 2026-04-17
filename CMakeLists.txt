@@ -39,6 +39,7 @@ set(SOURCES
     src/back/simple_tokenizer.cpp
     src/back/save_result.cpp
     src/back/unistring.cpp
+    src/back/text_splitter.cpp
 )
 
 set(HEADERS
@@ -56,6 +57,7 @@ set(HEADERS
     src/back/simple_tokenizer.hpp
     src/back/save_result.hpp
     src/back/unistring.hpp
+    src/back/text_splitter.hpp
 )
 
 # Поиск Qt

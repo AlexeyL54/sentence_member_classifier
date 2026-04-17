@@ -205,8 +205,10 @@ void TextMarkupWidget::rebuild() {
 
       // Вариант А: Использовать std::string substr, если уверены, что текст
       // валидный UTF-8, и затем сконвертировать в QString. Это проще и быстрее.
+      // entity.end - это эксклюзивная граница (первый байт следующего символа),
+      // поэтому используем (entity.end - entity.start) без +1
       std::string entityUtf8 =
-          stdText.substr(entity.start, entity.end - entity.start + 1);
+          stdText.substr(entity.start, entity.end - entity.start);
       QString entityText = QString::fromUtf8(entityUtf8.c_str());
 
       QString fullRole = QString::fromStdString(entity.type_ru);
@@ -235,8 +237,9 @@ void TextMarkupWidget::rebuild() {
       blockLayout->addWidget(wordLabel);
       m_flowLayout->addWidget(wordContainer);
 
-      // Обновляем текущую позицию на конец этой сущности + 1 байт
-      currentBytePos = entity.end + 1;
+      // Обновляем текущую позицию на конец этой сущности
+      // entity.end - это эксклюзивная граница, поэтому не нужно +1
+      currentBytePos = entity.end;
     }
 
     // 3. Обработка хвоста строки после последней сущности
@@ -248,9 +251,16 @@ void TextMarkupWidget::rebuild() {
         std::string charStr = uniTail[k].to_string();
         QChar qch = QString::fromUtf8(charStr.c_str()).at(0);
 
+        // Пропускаем пробелы
         if (qch.isSpace())
           continue;
 
+        // Пропускаем буквы и цифры - они уже должны быть обработаны как
+        // сущности
+        if (qch.isLetterOrNumber())
+          continue;
+
+        // Обрабатываем только знаки препинания
         QWidget *punctContainer = new QWidget();
         punctContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
         punctContainer->setFixedHeight(containerHeight);

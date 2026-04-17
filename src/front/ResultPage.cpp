@@ -231,24 +231,52 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
       QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
       QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
 
+      // Проверяем, существуют ли уже файлы с таким именем
+      bool searchFileExists = QFile::exists(searchFilePath);
+      bool reviewFileExists = QFile::exists(reviewFilePath);
+
+      if (searchFileExists || reviewFileExists) {
+        QMessageBox warningMsgBox(this);
+        warningMsgBox.setWindowTitle("Предупреждение");
+        QString warningText = "В выбранной директории уже существуют файлы:\n";
+        if (searchFileExists) {
+          warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
+        }
+        if (reviewFileExists) {
+          warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
+        }
+        warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
+        warningMsgBox.setText(warningText);
+        warningMsgBox.setIcon(QMessageBox::Warning);
+        QPushButton *overwriteButton =
+            warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
+        QPushButton *cancelButton =
+            warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
+        warningMsgBox.exec();
+
+        if (warningMsgBox.clickedButton() != overwriteButton) {
+          return; // Пользователь отменил сохранение
+        }
+      }
+
       // Используем уже готовые m_searchItems
       saveAnalysis(stdPath, search_items, stats);
 
       // Проверка, что файлы действительно сохранились
-      bool searchFileExists = QFile::exists(searchFilePath);
-      bool reviewFileExists = QFile::exists(reviewFilePath);
+      bool searchFileExistsAfter = QFile::exists(searchFilePath);
+      bool reviewFileExistsAfter = QFile::exists(reviewFilePath);
 
-      if (searchFileExists && reviewFileExists) {
+      if (searchFileExistsAfter && reviewFileExistsAfter) {
         QMessageBox::information(this, "Сохранение",
                                  "Результаты успешно сохранены в:\n" + path);
         isSaved = true;
       } else {
         QString errorMsg = "Ошибка сохранения!\n";
-        if (!searchFileExists) {
-          errorMsg += "Не удалось сохранить файл: " + SEARCH_FILE + "\n";
+        if (!searchFileExistsAfter) {
+          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(SEARCH_FILE) + "\n";
         }
-        if (!reviewFileExists) {
-          errorMsg += "Не удалось сохранить файл: " + REVIEW_FILE + "\n";
+        if (!reviewFileExistsAfter) {
+          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(REVIEW_FILE) + "\n";
         }
         QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
         isSaved = false;

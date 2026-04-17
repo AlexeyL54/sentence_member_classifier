@@ -41,9 +41,9 @@ class Config:
     NUM_LABELS = 11
     MAX_LEN = 128
     BATCH_SIZE = 8
-    LEARNING_RATE = 2e-4
+    LEARNING_RATE = 3e-5
     EPOCHS = 10
-    DROPOUT = 0.1
+    DROPOUT = 0.2
 
     # CRF (опционально)
     USE_CRF = True

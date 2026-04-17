@@ -2,10 +2,11 @@
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
 #include "simple_tokenizer.hpp"
+#include "text_splitter.hpp"
+#include "unistring.hpp"
 #include <algorithm>
 #include <iostream>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -14,9 +15,8 @@ namespace {
 // ИСПРАВЛЕНО: теперь корректно обрабатывает многобайтовые символы UTF-8
 // Проверка на знак препинания (как в Python _is_punctuation)
 bool is_punctuation(const std::string &text) {
-  static const std::set<std::string> punctuations = {
-      ",", ".", "!", "?", ";", ":", "-", "(", ")", "«", "»", "—", "..."};
-  return punctuations.count(text) > 0;
+  utf8::Unistring uni(text);
+  return utf8::TextSplitter::isPunctuation(uni);
 }
 
 // Получение базовой метки без BIO-префикса (как в Python _get_base_label)
@@ -71,47 +71,14 @@ BertOnnxInference::BertOnnxInference(
 std::vector<std::string>
 BertOnnxInference::split_into_sentences(const std::string &text) {
   std::vector<std::string> sentences;
-  std::string current_sentence;
 
-  for (size_t i = 0; i < text.length(); ++i) {
-    char c = text[i];
-    current_sentence += c;
+  // Используем новый TextSplitter для корректного разбиения на предложения
+  utf8::Unistring uni_text(text);
+  std::vector<utf8::Unistring> uni_sentences =
+      utf8::TextSplitter::splitIntoSentences(uni_text);
 
-    // Простое разбиение по знакам препинания
-    if (c == '.' || c == '!' || c == '?' || c == ';' || c == '\n') {
-      // Убираем лишние пробелы
-      while (!current_sentence.empty() && (current_sentence.back() == ' ' ||
-                                           current_sentence.back() == '\n' ||
-                                           current_sentence.back() == '\r' ||
-                                           current_sentence.back() == '\t')) {
-        current_sentence.pop_back();
-      }
-
-      if (!current_sentence.empty()) {
-        sentences.push_back(current_sentence);
-        current_sentence.clear();
-      }
-
-      // Пропускаем пробелы после знака препинания
-      while (i + 1 < text.length() &&
-             (text[i + 1] == ' ' || text[i + 1] == '\n' ||
-              text[i + 1] == '\r' || text[i + 1] == '\t')) {
-        i++;
-      }
-    }
-  }
-
-  // Добавляем последнее предложение, если оно не пустое
-  if (!current_sentence.empty()) {
-    while (!current_sentence.empty() &&
-           (current_sentence.back() == ' ' || current_sentence.back() == '\n' ||
-            current_sentence.back() == '\r' ||
-            current_sentence.back() == '\t')) {
-      current_sentence.pop_back();
-    }
-    if (!current_sentence.empty()) {
-      sentences.push_back(current_sentence);
-    }
+  for (const auto &uni_sent : uni_sentences) {
+    sentences.push_back(uni_sent.to_string());
   }
 
   return sentences;
@@ -269,10 +236,21 @@ std::vector<Entity> group_words_into_phrases(
       original_word_text = word.text;
     }
 
+    // Очищаем текст от пунктуации для entity.text (но сохраняем для
+    // отображения)
+    utf8::Unistring uni_word(original_word_text);
+    utf8::Unistring cleaned_word = utf8::TextSplitter::cleanWord(uni_word);
+    std::string clean_text = cleaned_word.to_string();
+
+    // Если после очистки осталось пустым, используем word.text
+    if (clean_text.empty()) {
+      clean_text = word.text;
+    }
+
     if (current_entity == nullptr) {
       // Нет текущей сущности - начинаем новую для любой метки (включая O)
       entities.emplace_back();
-      entities.back().text = original_word_text;
+      entities.back().text = clean_text;
       entities.back().start = word.start;
       entities.back().end = word.end;
 
