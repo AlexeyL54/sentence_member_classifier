@@ -55,7 +55,7 @@ static std::pair<std::string, int>
 pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
   const std::pair<std::string, int> best = pickTopWord(freq);
   if (freq.empty() || best.second <= 1)
-    return {"нет", 0};
+    return {"-", 0};
   return best;
 }
 

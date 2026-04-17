@@ -13,10 +13,6 @@ bool TextSplitter::isSpace(const Unistring &ch) {
     return true;
   }
 
-  // Проверка на многоточие (три точки)
-  if (s == "...")
-    return true;
-
   return false;
 }
 
@@ -41,6 +37,10 @@ bool TextSplitter::isPunctuation(const Unistring &ch) {
 
   // Многоточие как единый символ (если встречается)
   if (s == "…")
+    return true;
+
+  // Многоточие из трех точек
+  if (s == "...")
     return true;
 
   return false;
@@ -284,7 +284,7 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
       // Обычный конец предложения (не многоточие)
       // Получаем подстроку от начала предложения до текущего символа
       // включительно
-      Unistring sent = text.substr(sentence_start, i);
+      Unistring sent = text.substr(sentence_start, i + 1);
       std::string sent_str = sent.to_string();
 
       // Обрезаем пробелы в конце предложения
@@ -317,7 +317,7 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
   // Добавляем последнее предложение если оно не пустое
   // Это критично для случая, когда текст обрывается без точки
   if (sentence_start < char_count) {
-    Unistring sent = text.substr(sentence_start, char_count - 1);
+    Unistring sent = text.substr(sentence_start, char_count);
     std::string sent_str = sent.to_string();
 
     // Обрезаем пробелы в конце

@@ -135,37 +135,42 @@ void TextMarkupWidget::rebuild() {
 
     // Обертка Unistring для корректной работы с многобайтовыми символами
     utf8::Unistring uniText(stdText);
+    size_t textLenChars = uniText.length();
 
-    // Сортируем сущности по начальной позиции (на всякий случай, хотя они
-    // должны быть отсортированы) Но лучше просто использовать их порядок, если
-    // он гарантирован. Здесь предполагаем, что sentence.entities уже
-    // отсортированы по start.
+    // Получаем смещения байтов для каждого символа
+    std::vector<size_t> byteOffsets = uniText.get_char_offsets();
 
-    size_t currentBytePos = 0; // Текущая позиция в байтах в stdText
-    size_t textLenBytes = stdText.length();
+    // Функция для перевода байтового смещения в символьный индекс
+    auto byteToCharIndex = [&](size_t bytePos) -> size_t {
+      if (bytePos == 0)
+        return 0;
+      for (size_t i = 0; i < byteOffsets.size(); ++i) {
+        if (byteOffsets[i] >= bytePos) {
+          return i;
+        }
+      }
+      return byteOffsets.size();
+    };
+
+    size_t currentCharPos = 0; // Текущая позиция в символах
 
     for (const auto &entity : sentence.entities) {
-      // 1. Обработка текста МЕЖДУ предыдущей сущностью и текущей (пробелы,
-      // пунктуация)
-      if (entity.start > currentBytePos) {
-        // Извлекаем промежуток
-        std::string gapStr =
-            stdText.substr(currentBytePos, entity.start - currentBytePos);
-        utf8::Unistring uniGap(gapStr);
+      // Переводим байтовые смещения в символьные индексы
+      size_t entityStartChar = byteToCharIndex(entity.start);
+      size_t entityEndChar = byteToCharIndex(entity.end);
 
-        // Выводим каждый символ пробела/пунктуации отдельно, как было в
-        // оригинале, но используя правильные символы из Unistring
+      // 1. Обработка текста МЕЖДУ предыдущей сущностью и текущей
+      if (entityStartChar > currentCharPos) {
+        // Извлекаем промежуток как подстроку Unistring
+        utf8::Unistring uniGap =
+            uniText.substr(currentCharPos, entityStartChar - 1);
+
+        // Выводим каждый символ отдельно
         for (size_t k = 0; k < uniGap.length(); ++k) {
           std::string charStr = uniGap[k].to_string();
           QChar qch = QString::fromUtf8(charStr.c_str()).at(0);
 
           if (qch.isSpace()) {
-            // Пробелы можно пропускать или добавлять как пустые блоки,
-            // если FlowLayout сам не добавляет отступы.
-            // Обычно в FlowLayout пробелы не нужны как виджеты, если есть
-            // spacing. Но если нужно сохранить точное форматирование, можно
-            // добавить пустой виджет фиксированной ширины. Пока пропускаем, так
-            // как FlowLayout обычно сам расставляет элементы.
             continue;
           }
 
@@ -191,25 +196,15 @@ void TextMarkupWidget::rebuild() {
       }
 
       // 2. Обработка самой СУЩНОСТИ
-      // Проверяем границы, чтобы не выйти за пределы строки
-      if (entity.end >= textLenBytes) {
+      if (entityEndChar <= currentCharPos || entityEndChar > textLenChars) {
         // Некорректная сущность, пропускаем
         continue;
       }
 
-      // Извлекаем текст сущности через Unistring, чтобы получить корректную
-      // подстроку entity.start и entity.end - это байтовые индексы.
-      // Unistring::substr принимает индексы СИМВОЛОВ, а не байтов!
-      // Поэтому нам нужно найти символьные индексы, соответствующие байтовым
-      // start/end.
-
-      // Вариант А: Использовать std::string substr, если уверены, что текст
-      // валидный UTF-8, и затем сконвертировать в QString. Это проще и быстрее.
-      // entity.end - это эксклюзивная граница (первый байт следующего символа),
-      // поэтому используем (entity.end - entity.start) без +1
-      std::string entityUtf8 =
-          stdText.substr(entity.start, entity.end - entity.start);
-      QString entityText = QString::fromUtf8(entityUtf8.c_str());
+      // Извлекаем текст сущности через Unistring::substr (символьные индексы!)
+      utf8::Unistring uniEntity =
+          uniText.substr(entityStartChar, entityEndChar - 1);
+      QString entityText = QString::fromUtf8(uniEntity.to_string().c_str());
 
       QString fullRole = QString::fromStdString(entity.type_ru);
       QString shortRole = roleMap.value(fullRole, fullRole);
@@ -238,14 +233,13 @@ void TextMarkupWidget::rebuild() {
       m_flowLayout->addWidget(wordContainer);
 
       // Обновляем текущую позицию на конец этой сущности
-      // entity.end - это эксклюзивная граница, поэтому не нужно +1
-      currentBytePos = entity.end;
+      currentCharPos = entityEndChar;
     }
 
     // 3. Обработка хвоста строки после последней сущности
-    if (currentBytePos < textLenBytes) {
-      std::string tailStr = stdText.substr(currentBytePos);
-      utf8::Unistring uniTail(tailStr);
+    if (currentCharPos < textLenChars) {
+      utf8::Unistring uniTail =
+          uniText.substr(currentCharPos, textLenChars - 1);
 
       for (size_t k = 0; k < uniTail.length(); ++k) {
         std::string charStr = uniTail[k].to_string();
@@ -255,12 +249,11 @@ void TextMarkupWidget::rebuild() {
         if (qch.isSpace())
           continue;
 
-        // Пропускаем буквы и цифры - они уже должны быть обработаны как
-        // сущности
-        if (qch.isLetterOrNumber())
-          continue;
+        // ВАЖНО: Не пропускаем буквы и цифры!
+        // Они могут остаться, если текст заканчивается без знака препинания
+        // или если сущность не покрыла весь текст
 
-        // Обрабатываем только знаки препинания
+        // Обрабатываем все непустые символы
         QWidget *punctContainer = new QWidget();
         punctContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
         punctContainer->setFixedHeight(containerHeight);

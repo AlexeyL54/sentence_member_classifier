@@ -357,7 +357,6 @@ std::vector<Entity> group_words_into_phrases(
 
   return entities;
 }
-
 std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
