@@ -31,8 +31,8 @@ bool TextSplitter::isPunctuation(const Unistring &ch) {
     return true;
   }
 
-  // Русская тире (U+2014)
-  if (s == "—")
+  // Русская тире (U+2014) и похожие символы
+  if (s == "—" || s == "–" || s == "-")
     return true;
 
   // Кавычки-елочки
@@ -120,6 +120,34 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
       tokens.push_back(space_token);
 
     } else if (is_punct) {
+      // Специальная обработка дефиса внутри слова (например, "что-то")
+      // Дефис считается частью слова, если он окружён буквами с обеих сторон
+      bool is_hyphen_in_word = false;
+      std::string ch_str = ch.to_string();
+      if (ch_str == "-" || ch_str == "–" || ch_str == "—") {
+        // Проверяем, есть ли буква перед текущей позицией (в текущем слове)
+        // и есть ли буква после текущей позиции
+        bool has_letter_before = in_word && current_word.length() > 0;
+        bool has_letter_after = false;
+        if (i + 1 < text.length()) {
+          Unistring next_ch = text[i + 1];
+          has_letter_after = isLetterOrDigit(next_ch);
+        }
+        is_hyphen_in_word = has_letter_before && has_letter_after;
+      }
+
+      if (is_hyphen_in_word) {
+        // Дефис внутри слова - добавляем его к текущему слову
+        if (!in_word) {
+          in_word = true;
+          word_start = i;
+          current_word = ch;
+        } else {
+          current_word += ch;
+        }
+        continue;
+      }
+
       // Завершаем текущее слово если оно есть
       if (in_word) {
         TextToken token;
@@ -241,7 +269,8 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
         while (j < char_count) {
           Unistring j_ch = text[j];
           std::string j_str = j_ch.to_string();
-          if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
+          if (!j_str.empty() &&
+              !std::isspace(static_cast<unsigned char>(j_str[0]))) {
             break;
           }
           j++;
@@ -253,7 +282,8 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
       }
 
       // Обычный конец предложения (не многоточие)
-      // Получаем подстроку от начала предложения до текущего символа включительно
+      // Получаем подстроку от начала предложения до текущего символа
+      // включительно
       Unistring sent = text.substr(sentence_start, i);
       std::string sent_str = sent.to_string();
 
@@ -272,7 +302,8 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
       while (j < char_count) {
         Unistring j_ch = text[j];
         std::string j_str = j_ch.to_string();
-        if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
+        if (!j_str.empty() &&
+            !std::isspace(static_cast<unsigned char>(j_str[0]))) {
           break;
         }
         j++;
