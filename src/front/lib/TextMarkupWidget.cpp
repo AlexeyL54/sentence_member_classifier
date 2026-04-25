@@ -31,9 +31,7 @@ TextMarkupWidget::TextMarkupWidget(QWidget *parent)
   mainLayout->addWidget(m_scrollArea);
 }
 
-void TextMarkupWidget::setMarkupText(const QString &text,
-                                     std::vector<SentenceResult> &results) {
-  m_text = text;
+void TextMarkupWidget::setMarkupText(std::vector<SentenceResult> &results) {
   m_results = results;
   rebuild();
 }

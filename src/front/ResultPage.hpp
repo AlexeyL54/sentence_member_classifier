@@ -22,15 +22,6 @@
 #include "../back/statistics.hpp"
 #include "lib/TextMarkupWidget.hpp"
 
-/*
-  изменить в main на это
-      std::vector<SentenceResult> data = w.makeData();
-      w.setData(data); // Передаем данные в виджет
-      w.buildWordRoleMap();
-      w.updateCounts();
-      w.updateChart();
- */
-
 /**
  * @brief Главное окно для отображения результатов анализа предложений.
  *
@@ -48,18 +39,6 @@ public:
   ResultPage(QWidget *parent = nullptr);
 
   /**
-   * @brief Загружает текст из файла для отображения.
-   * @param filename Путь к файлу с текстом.
-   */
-  // void loadTextFromFile(const QString &filename);
-
-  /**
-   * @brief Загружает разобранные данные из файла.
-   * @param filename Путь к файлу с данными разбора.
-   */
-  // void loadParsedData(const QString &filename);
-
-  /**
    * @brief Обновляет отображение количества элементов в каждой категории.
    */
   void updateCounts();
@@ -68,17 +47,6 @@ public:
    * @brief Обновляет графическое отображение (прогресс-бары) статистики.
    */
   void updateChart();
-
-  /**
-   * @brief Строит карту соответствия слов их ролям в предложении.
-   */
-  void buildWordRoleMap();
-
-  /**
-   * @brief Считывает текст из файла во внутреннюю переменную.
-   * @param filename Путь к файлу с текстом.
-   */
-  void readTextFromFile(const QString &filename);
 
   /**
    * @brief Обновляет все отображения на интерфейсе.
@@ -105,6 +73,11 @@ private slots:
   void onAnalyzeClicked();
 
   /**
+  * @brief Слот, обрабатывающий нажатие кнопки Сохранить.
+  */
+ void SaveClicked();
+
+  /**
    * @brief Слот, обрабатывающий выбор чекбокса
    * @param state - признак установки/снятия чекбокса
    * @param role - название члена предложения
@@ -112,14 +85,28 @@ private slots:
   void onCheckboxStateChanged(int state, const QString &role);
 
 public:
+  /**
+   * @brief Устанавливает значения для отображения.
+   * @param results Вектор данных для отображения.
+   */
   void setData(const std::vector<SentenceResult> &results);
+
+  /**
+   * @brief Устанавливает значения элепментов для сохраниния в файл.
+   * @param items Вектор элементов для сохранения в файл.
+   */
   void setSearchItems(const std::vector<SearchItem> &items);
-  std::vector<SentenceResult> makeData();
+  //std::vector<SentenceResult> makeData();
 
   /**
    * @brief Обновляет данные в разделе статистики
    */
   void updateStatsDisplay();
+
+  /**
+   * @brief Устанавливает данные статистики.
+   * @param statistics Структура с данными статистики.
+   */
   void setGloabalStats(const GlobalStats stats);
 
 private:
@@ -144,16 +131,13 @@ private:
    * @brief Структура для хранения частей предложения.
    */
   struct SentenceParts {
-    QVector<QString> subject;   // Подлежащие
-    QVector<QString> predicate; // Сказуемые
-    QVector<QString> object;    // Дополнения
-    QVector<QString> attribute; // Определения
-    QVector<QString> adverbial; // Обстоятельства
-    QVector<QString> other;     // Другие части
+      int subject = 0;   // Подлежащие
+      int predicate = 0; // Сказуемые
+      int object = 0;    // Дополнения
+      int attribute = 0; // Определения
+      int adverbial = 0; // Обстоятельства
+      int other = 0;     // Другие части
   } parts;
-
-  QMap<QString, QString> members; // Карта: слово -> его роль
-  QString fullText;               // Полный текст для анализа
 
   bool isSaved = false;
 
