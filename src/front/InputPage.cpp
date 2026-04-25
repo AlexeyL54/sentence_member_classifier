@@ -1,6 +1,7 @@
 #include "InputPage.hpp"
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <fstream>
 
@@ -244,11 +245,15 @@ void InputPage::setupFilePage() {
 void InputPage::setupConnections() {
   // По нажатию «Выбрать файл» — диалог выбора, путь пишем в filePathEdit
   connect(btnSelectFile, &QPushButton::clicked, this, [this]() {
+    const QString initialDir =
+        lastOpenedDir_.isEmpty() ? QDir::homePath() : lastOpenedDir_;
     QString path = QFileDialog::getOpenFileName(
-        this, "Выберите файл", QDir::homePath(),
+        this, "Выберите файл", initialDir,
         "Текстовые файлы (*.txt);;Все файлы (*.*)");
-    if (!path.isEmpty())
+    if (!path.isEmpty()) {
       filePathEdit->setText(path);
+      lastOpenedDir_ = QFileInfo(path).absolutePath();
+    }
   });
 
   // Переключение страницы стека при выборе радиокнопки

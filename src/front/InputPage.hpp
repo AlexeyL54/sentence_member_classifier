@@ -13,6 +13,7 @@
 #include <QRadioButton>
 #include <QToolButton>
 #include <QStackedWidget>
+#include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -69,6 +70,9 @@ private:
     QToolButton *btnClearFile = nullptr;
     QPushButton *btnSelectFile = nullptr;
     QPushButton *btnAnalyzeFile = nullptr;
+
+    // Последняя директория, откуда выбирался файл.
+    QString lastOpenedDir_;
 };
 
 #endif // INPUTPAGE_HPP
