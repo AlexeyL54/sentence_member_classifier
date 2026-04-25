@@ -270,12 +270,14 @@ void InputPage::setupConnections() {
   connect(btnAnalyzeFile, &QPushButton::clicked, this,
           &InputPage::onAnalyzeFromFile);
 
-  auto clearAll = [this]() {
+  auto clearKeyboardText = [this]() {
     if (textInput)
       textInput->clear();
+  };
+  auto clearSelectedFilePath = [this]() {
     if (filePathEdit)
       filePathEdit->clear();
   };
-  connect(btnClearKeyboard, &QToolButton::clicked, this, clearAll);
-  connect(btnClearFile, &QToolButton::clicked, this, clearAll);
+  connect(btnClearKeyboard, &QToolButton::clicked, this, clearKeyboardText);
+  connect(btnClearFile, &QToolButton::clicked, this, clearSelectedFilePath);
 }
