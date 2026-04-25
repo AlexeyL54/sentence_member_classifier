@@ -138,6 +138,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   labelDefinitions = new QLabel("Определений: 0", statsWidget);
   labelAdditions = new QLabel("Дополнений: 0", statsWidget);
   labelAdverbials = new QLabel("Обстоятельств: 0", statsWidget);
+  labelOthers = new QLabel("Других: 0", statsWidget);
 
   // Добавляем общую статистику в layout
   statsLayout->addWidget(labelSentences);
@@ -148,6 +149,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   statsLayout->addWidget(labelDefinitions);
   statsLayout->addWidget(labelAdditions);
   statsLayout->addWidget(labelAdverbials);
+  statsLayout->addWidget(labelOthers);
 
   // Самые популярные члены предложения
   // Создаем контейнер для этого блока
@@ -169,6 +171,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   top_definition = new QLabel("Определение:", popularWidget);
   top_addition = new QLabel("Дополнение:", popularWidget);
   top_adverbial = new QLabel("Обстоятельство:", popularWidget);
+  top_other = new QLabel("Другое:", popularWidget);
 
   // Добавляем элементы в layout контейнера столбиком
   popularLayout->addWidget(top_subject);
@@ -176,6 +179,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   popularLayout->addWidget(top_definition);
   popularLayout->addWidget(top_addition);
   popularLayout->addWidget(top_adverbial);
+  popularLayout->addWidget(top_other);
   // Добавляем готовый контейнер в основной layout статистики
   statsLayout->addWidget(popularWidget);
 
@@ -573,6 +577,7 @@ void ResultPage::updateStatsDisplay() {
   labelAdditions->setText(QString("Дополнений: %1").arg(stats.additions_total));
   labelAdverbials->setText(
       QString("Обстоятельств: %1").arg(stats.adverbials_total));
+  labelOthers->setText(QString("Других: %1").arg(stats.others_total));
 
   // Обновляем топ-слова (самые популярные)
   // Используем QString::fromStdString для перевода std::string -> QString
@@ -592,4 +597,6 @@ void ResultPage::updateStatsDisplay() {
   top_adverbial->setText(
       QString("Обстоятельство: %1")
           .arg(QString::fromStdString(stats.top_adverbial.first)));
+  top_other->setText(
+      QString("Другое: %1").arg(QString::fromStdString(stats.top_other.first)));
 }

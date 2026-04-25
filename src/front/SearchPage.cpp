@@ -165,6 +165,7 @@ SearchPage::SearchPage(QWidget *parent) : QWidget(parent) {
   memberFilterCombo_->addItem(QStringLiteral("дополнение"));
   memberFilterCombo_->addItem(QStringLiteral("определение"));
   memberFilterCombo_->addItem(QStringLiteral("обстоятельство"));
+  memberFilterCombo_->addItem(QStringLiteral("другое"));
   connect(memberFilterCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &SearchPage::onMemberFilterChanged);
 
@@ -256,6 +257,7 @@ void SearchPage::updateSelectedMembers() {
     selectedMembers_.push_back(QStringLiteral("дополнение"));
     selectedMembers_.push_back(QStringLiteral("определение"));
     selectedMembers_.push_back(QStringLiteral("обстоятельство"));
+    selectedMembers_.push_back(QStringLiteral("другое"));
     return;
   }
   selectedMembers_.push_back(memberFilterCombo_->currentText());

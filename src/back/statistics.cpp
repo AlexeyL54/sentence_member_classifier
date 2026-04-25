@@ -118,8 +118,7 @@ static void incrementCategoryTotal(GlobalStats &stats,
   } else if (categoryRu == "обстоятельство") {
     stats.adverbials_total += 1;
   } else if (categoryRu == "другое") {
-    // Слова, не являющиеся членами предложения, тоже считаем
-    stats.members_total += 0; // уже учтено выше
+    stats.others_total += 1;
   }
 }
 
@@ -132,8 +131,7 @@ static void fillTopStats(GlobalStats &stats, const CategoryWordFreqs &freqs) {
   stats.top_definition = pickTopWordOrNone(freqs.definition);
   stats.top_addition = pickTopWordOrNone(freqs.addition);
   stats.top_adverbial = pickTopWordOrNone(freqs.adverbial);
-  // top_other не используется в текущей реализации, но можно добавить при
-  // необходимости
+  stats.top_other = pickTopWordOrNone(freqs.other);
 }
 
 /**
