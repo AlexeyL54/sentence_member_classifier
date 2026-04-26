@@ -67,7 +67,7 @@ void InputPage::onAnalyzeFromFile() {
   const QFileInfo info(path);
   if (!info.exists() || !info.isFile()) {
     QMessageBox::warning(this, "Ошибка файла",
-                         "Выбранный путь не указывает на существующий файл.");
+                         "Выбранный путь указывает на некорректный файл.");
     return;
   }
   if (!isTxtFilePath(path)) {
