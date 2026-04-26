@@ -251,6 +251,17 @@ void InputPage::setupConnections() {
         this, "Выберите файл", initialDir,
         "Текстовые файлы (*.txt);;Все файлы (*.*)");
     if (!path.isEmpty()) {
+      // Сразу проверяем, что файл реально доступен для чтения до нажатия
+      // «Анализировать».
+      std::ifstream in(path.toStdString(), std::ios::binary);
+      if (!in) {
+        QMessageBox::warning(this, "Ошибка чтения",
+                             "Не удалось открыть выбранный файл для чтения.");
+        if (filePathEdit)
+          filePathEdit->clear();
+        return;
+      }
+
       filePathEdit->setText(path);
       lastOpenedDir_ = QFileInfo(path).absolutePath();
     }
