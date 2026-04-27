@@ -283,7 +283,7 @@ void MainWindow::onNewAnalysisRequested() {
 
 void MainWindow::onBackToResultRequested() {
   // Обновляем данные перед возвратом
-  resultPage->buildWordRoleMap();
+  // resultPage->buildWordRoleMap();
   resultPage->updateCounts();
   resultPage->updateChart();
 
