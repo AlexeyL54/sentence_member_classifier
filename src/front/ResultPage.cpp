@@ -189,6 +189,14 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   // Добавляем готовый виджет в основной правый layout
   rightLayout->addWidget(statsWidget);
 
+  // Создаем инструкцию
+  QLabel *instructionLabel = new QLabel("Нажмите кнопку Поиск для получения подробной информации");
+  instructionLabel->setStyleSheet("font-style: italic; font-weight: bold;");
+  instructionLabel->setAlignment(Qt::AlignLeft);
+  instructionLabel->setWordWrap(true);
+
+  rightLayout->addWidget(instructionLabel);
+
   rightLayout->addStretch();
 
   mainLayout->addWidget(leftWidget, 1);
@@ -198,95 +206,7 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   connect(btnAnalize, &QPushButton::clicked, this,
           &ResultPage::onAnalyzeClicked);
 
-  fullText = "";
-
-  connect(btnSave, &QPushButton::clicked, this, [this]() {
-    QString path = QFileDialog::getExistingDirectory(
-        this, "Выберите директорию", QDir::homePath(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-
-    if (!path.isEmpty()) {
-      // Проверка на наличие кириллицы в пути
-      QRegularExpression cyrillicPattern("[\u0400-\u04FF]");
-      if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
-        QMessageBox::warning(
-            this, "Предупреждение",
-            "Путь к директории содержит кириллические символы:\n" + path +
-                "\n\nЭто может вызвать проблемы с сохранением файлов.");
-
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("Подтверждение");
-        msgBox.setText("Вы действительно хотите продолжить сохранение?");
-        msgBox.setIcon(QMessageBox::Question);
-        QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
-        QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
-        msgBox.exec();
-
-        if (msgBox.clickedButton() != yesButton) {
-          return;
-        }
-      }
-
-      std::string stdPath = path.toStdString();
-
-      const std::string SEARCH_FILE = "list.html";
-      const std::string REVIEW_FILE = "statistics.html";
-
-      QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
-      QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
-
-      // Проверяем, существуют ли уже файлы с таким именем
-      bool searchFileExists = QFile::exists(searchFilePath);
-      bool reviewFileExists = QFile::exists(reviewFilePath);
-
-      if (searchFileExists || reviewFileExists) {
-        QMessageBox warningMsgBox(this);
-        warningMsgBox.setWindowTitle("Предупреждение");
-        QString warningText = "В выбранной директории уже существуют файлы:\n";
-        if (searchFileExists) {
-          warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
-        }
-        if (reviewFileExists) {
-          warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
-        }
-        warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
-        warningMsgBox.setText(warningText);
-        warningMsgBox.setIcon(QMessageBox::Warning);
-        QPushButton *overwriteButton =
-            warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
-        QPushButton *cancelButton =
-            warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
-        warningMsgBox.exec();
-
-        if (warningMsgBox.clickedButton() != overwriteButton) {
-          return; // Пользователь отменил сохранение
-        }
-      }
-
-      // Используем уже готовые m_searchItems
-      saveAnalysis(stdPath, search_items, stats);
-
-      // Проверка, что файлы действительно сохранились
-      bool searchFileExistsAfter = QFile::exists(searchFilePath);
-      bool reviewFileExistsAfter = QFile::exists(reviewFilePath);
-
-      if (searchFileExistsAfter && reviewFileExistsAfter) {
-        QMessageBox::information(this, "Сохранение",
-                                 "Результаты успешно сохранены в:\n" + path);
-        isSaved = true;
-      } else {
-        QString errorMsg = "Ошибка сохранения!\n";
-        if (!searchFileExistsAfter) {
-          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(SEARCH_FILE) + "\n";
-        }
-        if (!reviewFileExistsAfter) {
-          errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(REVIEW_FILE) + "\n";
-        }
-        QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
-        isSaved = false;
-      }
-    }
-  });
+  connect(btnSave, &QPushButton::clicked, this, &ResultPage::SaveClicked);
 
   updateStatsDisplay();
 }
@@ -299,24 +219,24 @@ void ResultPage::setSearchItems(const std::vector<SearchItem> &items) {
  * @brief Обновляет отображение количества элементов в каждой категории.
  */
 void ResultPage::updateCounts() {
-  countLabels[0]->setText(QString::number(parts.subject.size()));
-  countLabels[1]->setText(QString::number(parts.predicate.size()));
-  countLabels[2]->setText(QString::number(parts.object.size()));
-  countLabels[3]->setText(QString::number(parts.attribute.size()));
-  countLabels[4]->setText(QString::number(parts.adverbial.size()));
-  countLabels[5]->setText(QString::number(parts.other.size()));
+    countLabels[0]->setText(QString::number(parts.subject));
+    countLabels[1]->setText(QString::number(parts.predicate));
+    countLabels[2]->setText(QString::number(parts.object));
+    countLabels[3]->setText(QString::number(parts.attribute));
+    countLabels[4]->setText(QString::number(parts.adverbial));
+    countLabels[5]->setText(QString::number(parts.other));
 }
 
 /**
  * @brief Обновляет графическое отображение (прогресс-бары) статистики.
  */
 void ResultPage::updateChart() {
-  int counts[] = {static_cast<int>(parts.subject.size()),
-                  static_cast<int>(parts.predicate.size()),
-                  static_cast<int>(parts.object.size()),
-                  static_cast<int>(parts.attribute.size()),
-                  static_cast<int>(parts.adverbial.size()),
-                  static_cast<int>(parts.other.size())};
+  int counts[] = {(parts.subject),
+                  (parts.predicate),
+                  (parts.object),
+                  (parts.attribute),
+                  (parts.adverbial),
+                  (parts.other)};
 
   int total = 0;
   for (int count : counts) {
@@ -337,6 +257,98 @@ void ResultPage::updateChart() {
   }
 }
 
+void ResultPage::SaveClicked()
+{
+     QString path = QFileDialog::getExistingDirectory(
+         this, "Выберите директорию", QDir::homePath(),
+         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+     if (!path.isEmpty()) {
+       // Проверка на наличие кириллицы в пути
+       QRegularExpression cyrillicPattern("[\u0400-\u04FF]");
+       if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
+         QMessageBox::warning(
+             this, "Предупреждение",
+             "Путь к директории содержит кириллические символы:\n" + path +
+                 "\n\nЭто может вызвать проблемы с сохранением файлов.");
+
+         QMessageBox msgBox(this);
+         msgBox.setWindowTitle("Подтверждение");
+         msgBox.setText("Вы действительно хотите продолжить сохранение?");
+         msgBox.setIcon(QMessageBox::Question);
+         QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+         QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+         msgBox.exec();
+
+         if (msgBox.clickedButton() != yesButton) {
+           return;
+         }
+       }
+
+       std::string stdPath = path.toStdString();
+
+       const std::string SEARCH_FILE = "list.html";
+       const std::string REVIEW_FILE = "statistics.html";
+
+       QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
+       QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
+
+       // Проверяем, существуют ли уже файлы с таким именем
+       bool searchFileExists = QFile::exists(searchFilePath);
+       bool reviewFileExists = QFile::exists(reviewFilePath);
+
+       if (searchFileExists || reviewFileExists) {
+         QMessageBox warningMsgBox(this);
+         warningMsgBox.setWindowTitle("Предупреждение");
+         QString warningText = "В выбранной директории уже существуют файлы:\n";
+         if (searchFileExists) {
+           warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
+         }
+         if (reviewFileExists) {
+           warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
+         }
+         warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
+         warningMsgBox.setText(warningText);
+         warningMsgBox.setIcon(QMessageBox::Warning);
+         QPushButton *overwriteButton =
+             warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
+         QPushButton *cancelButton =
+             warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
+         warningMsgBox.exec();
+
+         if (warningMsgBox.clickedButton() != overwriteButton) {
+           return; // Пользователь отменил сохранение
+         }
+       }
+
+       // Используем уже готовые m_searchItems
+       saveAnalysis(stdPath, search_items, stats);
+
+       // Проверка, что файлы действительно сохранились
+       bool searchFileExistsAfter = QFile::exists(searchFilePath);
+       bool reviewFileExistsAfter = QFile::exists(reviewFilePath);
+
+       if (searchFileExistsAfter && reviewFileExistsAfter) {
+         QMessageBox::information(this, "Сохранение",
+                                  "Результаты успешно сохранены в:\n" + path + "\n"
+                                  + "- " + QString::fromStdString(SEARCH_FILE) + "\n"
+                                  + "- " + QString::fromStdString(REVIEW_FILE) + "\n");
+         isSaved = true;
+       } else {
+         QString errorMsg = "Ошибка сохранения!\n";
+         if (!searchFileExistsAfter) {
+           errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(SEARCH_FILE) + "\n";
+         }
+         if (!reviewFileExistsAfter) {
+           errorMsg += "Не удалось сохранить файл: " + QString::fromStdString(REVIEW_FILE) + "\n";
+         }
+         QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
+         isSaved = false;
+       }
+     }
+}
+
+
 /**
  * @brief Слот, обрабатывающий нажатие кнопки поиска.
  */
@@ -349,7 +361,7 @@ void ResultPage::refreshDisplay() {
   updateCounts();
   updateChart();
   if (widgetText) {
-    widgetText->setMarkupText(fullText, m_results);
+    widgetText->setMarkupText(m_results);
     // widgetText->setMarkupText(fullText, members);
   }
 }
@@ -378,12 +390,12 @@ void ResultPage::onAnalyzeClicked() {
     members.clear();
 
     // Очищаем структуру частей предложения
-    parts.subject.clear();
-    parts.predicate.clear();
-    parts.object.clear();
-    parts.attribute.clear();
-    parts.adverbial.clear();
-    parts.other.clear();
+    parts.subject = 0;
+    parts.predicate = 0;
+    parts.object = 0;
+    parts.attribute = 0;
+    parts.adverbial = 0;
+    parts.other = 0;
 
     // Сбрасываем флаг сохранения
     isSaved = false;
@@ -454,100 +466,51 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
   m_results = results;
 
   // 1. Очищаем старые данные о членах предложения
-  parts.subject.clear();
-  parts.predicate.clear();
-  parts.object.clear();
-  parts.attribute.clear();
-  parts.adverbial.clear();
-  parts.other.clear();
+  parts.subject = 0;
+  parts.predicate = 0;
+  parts.object = 0;
+  parts.attribute = 0;
+  parts.adverbial = 0;
+  parts.other = 0;
 
   if (m_results.empty()) {
-    fullText = "Нет данных для отображения.";
-    members.clear();
     refreshDisplay();
     return;
   }
 
-  // Формируем fullText из всех предложений
-  QStringList allSentences;
+  // Проходим по каждому предложению для сбора статистики (parts)
   for (const SentenceResult &sentence : m_results) {
-    allSentences.append(QString::fromStdString(sentence.text));
-  }
-  // Объединяем предложения в один текст с переводом строки
-  fullText = allSentences.join("\n\n");
-
-  // 2. Проходим по каждому предложению для сбора статистики (parts)
-  for (const SentenceResult &sentence : m_results) {
-    /*if (sentence.entities.size() != sentence.tokens.size()) {
-      continue;
-    }*/
-
     for (size_t i = 0; i < sentence.entities.size(); ++i) {
       const std::string &type = sentence.entities[i].type_ru;
-      const std::string &sentence_part = sentence.entities[i].text;
-      QString qWord = QString::fromStdString(sentence_part);
+      //const std::string &sentence_part = sentence.entities[i].text;
+      //QString qWord = QString::fromStdString(sentence_part);
 
       if (type == "подлежащее") {
-        parts.subject.append(qWord);
+        parts.subject++;
       } else if (type == "сказуемое") {
-        parts.predicate.append(qWord);
+        parts.predicate++;
       } else if (type == "дополнение") {
-        parts.object.append(qWord);
+        parts.object++;
       } else if (type == "определение") {
-        parts.attribute.append(qWord);
+        parts.attribute++;
       } else if (type == "обстоятельство") {
-        parts.adverbial.append(qWord);
+        parts.adverbial++;
       } else {
-        parts.other.append(qWord);
+        parts.other++;
       }
     }
   }
-
-  // 3. Строим карту разметки для виджета (берем только первое предложение)
-  // buildWordRoleMap();
 
   if (widgetText) {
     // Передаём заполненный вектор в виджет для разметки
-    widgetText->setMarkupText(fullText, m_results);
-    // widgetText->setMarkupText(fullText, members);
+    widgetText->setMarkupText(m_results);
   }
 }
 
-void ResultPage::buildWordRoleMap() {
-  members.clear();
-
-  if (m_results.empty() || fullText.isEmpty()) {
-    if (widgetText) {
-      // widgetText->setMarkupText(fullText, members);
-    }
-    return;
-  }
-
-  for (const SentenceResult &sentence : m_results) {
-    for (size_t i = 0; i < sentence.entities.size(); ++i) {
-      QString fullWord =
-          QString::fromStdString(sentence.entities[i].text).toLower();
-      QString role = QString::fromStdString(sentence.entities[i].type_ru);
-
-      // Разбиваем фразу на отдельные слова
-      QStringList words = fullWord.split(' ', Qt::SkipEmptyParts);
-      for (const QString &word : words) {
-        // Очищаем слово от знаков препинания
-        QString cleanWord = word;
-        cleanWord.remove(QRegularExpression("[.,!?;:()\"'-]$"));
-        if (!cleanWord.isEmpty()) {
-          members.insert(cleanWord, role);
-        }
-      }
-    }
-  }
-
-  if (widgetText) {
-    widgetText->setMarkupText(fullText, m_results);
-    // widgetText->setMarkupText(fullText, members);
-  }
-}
-
+/**
+ * @brief Устанавливает данные статистики.
+ * @param statistics Структура с данными статистики.
+ */
 void ResultPage::setGloabalStats(const GlobalStats statistics) {
   stats = statistics;
 }

@@ -28,14 +28,11 @@ public:
    */
   explicit TextMarkupWidget(QWidget *parent = nullptr);
 
-  /**
-   * @brief Устанавливает текст и карту соответствия слов их ролям.
-   * @param text Текст для отображения.
-   * @param members Карта соответствия: слово -> роль в предложении.
-   */
-  // void setMarkupText(const QString &text,
-  //                  const QMap<QString, QString> &members);
-  void setMarkupText(const QString &text, std::vector<SentenceResult> &results);
+    /**
+     * @brief Устанавливает вектор с данными для отображения.
+     * @param results Вектор с данными (текст предложения, слова и роли).
+     */
+    void setMarkupText(std::vector<SentenceResult> &results);
 
   /**
    * @brief Устанавливает цвет текста слов.
@@ -95,8 +92,6 @@ private:
 
   QString m_wordColor;              // Цвет текста слов.
   QString m_labelColor;             // Цвет подписей (ролей предложения).
-  QString m_text;                   // Отображаемый текст.
-  QMap<QString, QString> m_members; // Карта: слово -> его роль.
 
   QScrollArea *m_scrollArea; // Область прокрутки для контента.
   QWidget *m_container;      // Контейнер для элементов компоновки.
