@@ -66,9 +66,9 @@ void TextMarkupWidget::setHighlightedRole(const QString &role) {
 QString TextMarkupWidget::highlightedRole() const { return m_highlightedRole; }
 
 void TextMarkupWidget::updateHighlighting() {
-  if (m_text.isEmpty()) {
+  /*if (m_text.isEmpty()) {
     return;
-  }
+  }*/
   for (int i = 0; i < m_flowLayout->count(); ++i) {
     QWidget *container = m_flowLayout->itemAt(i)->widget();
     if (!container)
