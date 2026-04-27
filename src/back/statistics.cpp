@@ -49,7 +49,7 @@ pickTopWord(const std::unordered_map<std::string, int> &freq) {
  *
  * Если категория пуста или максимальная частота равна 1 (все члены этой
  * категории встречаются по одному разу — нет «самого популярного»),
- * возвращается пара ("нет", 0).
+ * возвращается пара ("-", 0).
  */
 static std::pair<std::string, int>
 pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
@@ -73,6 +73,34 @@ pushSentenceContextIfMissing(std::vector<std::pair<int, std::string>> &contexts,
 }
 
 /**
+ * @brief Частоты слов по категориям (для топов на экране статистики).
+ */
+struct CategoryWordFreqs {
+  std::unordered_map<std::string, int> subject;
+  std::unordered_map<std::string, int> predicate;
+  std::unordered_map<std::string, int> definition;
+  std::unordered_map<std::string, int> addition;
+  std::unordered_map<std::string, int> adverbial;
+  std::unordered_map<std::string, int> other;
+
+  void increment(const std::string &categoryRu, const std::string &word) {
+    if (categoryRu == "подлежащее") {
+      subject[word] += 1;
+    } else if (categoryRu == "сказуемое") {
+      predicate[word] += 1;
+    } else if (categoryRu == "определение") {
+      definition[word] += 1;
+    } else if (categoryRu == "дополнение") {
+      addition[word] += 1;
+    } else if (categoryRu == "обстоятельство") {
+      adverbial[word] += 1;
+    } else if (categoryRu == "другое") {
+      other[word] += 1;
+    }
+  }
+};
+
+/**
  * @brief Увеличивает счётчик общей статистики для указанной категории.
  * @param stats Глобальная статистика.
  * @param categoryRu Название категории на русском.
@@ -90,43 +118,42 @@ static void incrementCategoryTotal(GlobalStats &stats,
   } else if (categoryRu == "обстоятельство") {
     stats.adverbials_total += 1;
   } else if (categoryRu == "другое") {
-    // Слова, не являющиеся членами предложения, тоже считаем
-    stats.members_total += 0; // уже учтено выше
+    stats.others_total += 1;
   }
 }
 
 /**
- * @brief Увеличивает частотный счётчик слова для нужной категории.
- * @param categoryRu Название категории на русском.
- * @param word Текст сущности.
- * @param subjectFreq Словарь подлежащих.
- * @param predicateFreq Словарь сказуемых.
- * @param definitionFreq Словарь определений.
- * @param additionFreq Словарь дополнений.
- * @param adverbialFreq Словарь обстоятельств.
- * @param otherFreq Словарь слов категории "другое".
+ * @brief Заполняет поля top_* из накопленных частот.
  */
-static void
-incrementTopCounter(const std::string &categoryRu, const std::string &word,
-                    std::unordered_map<std::string, int> &subjectFreq,
-                    std::unordered_map<std::string, int> &predicateFreq,
-                    std::unordered_map<std::string, int> &definitionFreq,
-                    std::unordered_map<std::string, int> &additionFreq,
-                    std::unordered_map<std::string, int> &adverbialFreq,
-                    std::unordered_map<std::string, int> &otherFreq) {
-  if (categoryRu == "подлежащее") {
-    subjectFreq[word] += 1;
-  } else if (categoryRu == "сказуемое") {
-    predicateFreq[word] += 1;
-  } else if (categoryRu == "определение") {
-    definitionFreq[word] += 1;
-  } else if (categoryRu == "дополнение") {
-    additionFreq[word] += 1;
-  } else if (categoryRu == "обстоятельство") {
-    adverbialFreq[word] += 1;
-  } else if (categoryRu == "другое") {
-    otherFreq[word] += 1;
+static void fillTopStats(GlobalStats &stats, const CategoryWordFreqs &freqs) {
+  stats.top_subject = pickTopWordOrNone(freqs.subject);
+  stats.top_predicate = pickTopWordOrNone(freqs.predicate);
+  stats.top_definition = pickTopWordOrNone(freqs.definition);
+  stats.top_addition = pickTopWordOrNone(freqs.addition);
+  stats.top_adverbial = pickTopWordOrNone(freqs.adverbial);
+  stats.top_other = pickTopWordOrNone(freqs.other);
+}
+
+/**
+ * @brief Учёт одной сущности в глобальной статистике и частотах по категориям.
+ */
+static void accumulateEntityForGlobalStats(GlobalStats &stats,
+                                           CategoryWordFreqs &freqs,
+                                           const Entity &entity) {
+  std::string word = entity.text;
+  const std::string categoryRu = entity.type_ru;
+  if (word.empty() || categoryRu.empty()) {
+    return;
   }
+
+  // Приводим к нижнему регистру для группировки
+  utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
+  const std::string wordKey = wordLower.to_string();
+
+  // Одна сущность = один член предложения в общей статистике.
+  stats.members_total += 1;
+  incrementCategoryTotal(stats, categoryRu);
+  freqs.increment(categoryRu, wordKey);
 }
 
 /**
@@ -140,50 +167,59 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
 
   stats.sentences_total = static_cast<int>(analysis_results.size());
 
-  // По одному частотному словарю на категорию: текст фрагмента в нижнем
-  // регистре -> сколько раз встретился.
-  std::unordered_map<std::string, int> subjectFreq;
-  std::unordered_map<std::string, int> predicateFreq;
-  std::unordered_map<std::string, int> definitionFreq;
-  std::unordered_map<std::string, int> additionFreq;
-  std::unordered_map<std::string, int> adverbialFreq;
-  std::unordered_map<std::string, int> otherFreq;
+  CategoryWordFreqs freqs;
 
   for (const auto &sentenceResult : analysis_results) {
     stats.words_total += countWordsInText(sentenceResult.text);
 
     for (const auto &entity : sentenceResult.entities) {
-      std::string word = entity.text;
-      const std::string categoryRu = entity.type_ru;
-      if (word.empty() || categoryRu.empty()) {
-        continue;
-      }
-
-      // Приводим к нижнему регистру для группировки
-      utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
-      std::string wordKey = wordLower.to_string();
-
-      // Одна сущность = один член предложения в общей статистике.
-      stats.members_total += 1;
-      incrementCategoryTotal(stats, categoryRu);
-      incrementTopCounter(categoryRu, wordKey, subjectFreq, predicateFreq,
-                          definitionFreq, additionFreq, adverbialFreq,
-                          otherFreq);
+      accumulateEntityForGlobalStats(stats, freqs, entity);
     }
   }
 
   // Для каждой категории — самый частый фрагмент; если все по разу (max==1) —
   // «нет».
-  stats.top_subject = pickTopWordOrNone(subjectFreq);
-  //
-  stats.top_predicate = pickTopWordOrNone(predicateFreq);
-  stats.top_definition = pickTopWordOrNone(definitionFreq);
-  stats.top_addition = pickTopWordOrNone(additionFreq);
-  stats.top_adverbial = pickTopWordOrNone(adverbialFreq);
-  // top_other не используется в текущей реализации, но можно добавить при
-  // необходимости
+  fillTopStats(stats, freqs);
 
   return stats;
+}
+
+/**
+ * @brief Ключ слова в нижнем регистре для агрегации SearchItem.
+ */
+static std::string normalizedWordKey(const std::string &word) {
+  utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
+  return wordLower.to_string();
+}
+
+/**
+ * @brief Добавляет вхождение сущности в агрегат по ключу (категория, слово).
+ */
+static void mergeEntityIntoSearchItems(
+    std::map<std::pair<std::string, std::string>, SearchItem> &itemsByKey,
+    int sentence_number, const std::string &sentenceText,
+    const Entity &entity) {
+  std::string word = entity.text;
+  const std::string categoryRu = entity.type_ru;
+  if (word.empty() || categoryRu.empty()) {
+    return;
+  }
+
+  const std::string wordKey = normalizedWordKey(word);
+
+  // operator[] создаёт SearchItem при первом появлении ключа.
+  SearchItem &item = itemsByKey[{categoryRu, wordKey}];
+
+  // Сохраняем оригинальный текст при первом вхождении
+  if (item.amount == 0) {
+    item.text = word;
+    item.type = categoryRu;
+  }
+
+  item.amount += 1;
+  // Одно предложение на номер: без дубликатов при нескольких сущностях
+  // в одном предложении.
+  pushSentenceContextIfMissing(item.sentences, sentence_number, sentenceText);
 }
 
 /**
@@ -202,30 +238,8 @@ build_search_items(const std::vector<SentenceResult> &analysis_results) {
     const int sentence_number = static_cast<int>(si) + 1;
 
     for (const auto &entity : sentenceResult.entities) {
-      std::string word = entity.text;
-      const std::string categoryRu = entity.type_ru;
-      if (word.empty() || categoryRu.empty()) {
-        continue;
-      }
-
-      // Приводим к нижнему регистру для группировки
-      utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
-      std::string wordKey = wordLower.to_string();
-
-      // operator[] создаёт SearchItem при первом появлении ключа.
-      SearchItem &item = itemsByKey[{categoryRu, wordKey}];
-
-      // Сохраняем оригинальный текст при первом вхождении
-      if (item.amount == 0) {
-        item.text = word;
-        item.type = categoryRu;
-      }
-
-      item.amount += 1;
-      // Одно предложение на номер: без дубликатов при нескольких сущностях
-      // в одном предложении.
-      pushSentenceContextIfMissing(item.sentences, sentence_number,
-                                   sentenceResult.text);
+      mergeEntityIntoSearchItems(itemsByKey, sentence_number,
+                                 sentenceResult.text, entity);
     }
   }
 

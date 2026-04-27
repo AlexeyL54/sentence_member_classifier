@@ -1,8 +1,17 @@
 #include "InputPage.hpp"
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <fstream>
+
+// Ограничение на размер входного файла для анализа.
+constexpr qint64 kMaxInputFileBytes = 2 * 1024 * 1024; // 2 MiB
+
+static bool isTxtFilePath(const QString &path) {
+  const QFileInfo info(path);
+  return info.suffix().compare(QStringLiteral("txt"), Qt::CaseInsensitive) == 0;
+}
 
 InputPage::InputPage(QWidget *parent) : QWidget(parent) {
   setWindowTitle("Анализатор текста");
@@ -52,6 +61,31 @@ void InputPage::onAnalyzeFromFile() {
   if (path.isEmpty()) {
     QMessageBox::warning(this, "Файл не выбран",
                          "Укажите текстовый файл кнопкой «Выбрать файл».");
+    return;
+  }
+
+  const QFileInfo info(path);
+  if (!info.exists() || !info.isFile()) {
+    QMessageBox::warning(this, "Ошибка файла",
+                         "Выбранный путь указывает на некорректный файл.");
+    return;
+  }
+  if (!isTxtFilePath(path)) {
+    QMessageBox::warning(this, "Неверный формат файла",
+                         "Разрешена загрузка только файлов формата .txt.");
+    return;
+  }
+  if (info.size() > kMaxInputFileBytes) {
+    const double sizeMiB = static_cast<double>(info.size()) / (1024.0 * 1024.0);
+    const double limitMiB =
+        static_cast<double>(kMaxInputFileBytes) / (1024.0 * 1024.0);
+    QMessageBox::warning(
+        this, "Файл слишком большой",
+        QString("Размер файла: %1 МБ.\n"
+                "Максимально допустимо: %2 МБ.\n\n"
+                "Выберите файл меньшего размера.")
+            .arg(QString::number(sizeMiB, 'f', 2))
+            .arg(QString::number(limitMiB, 'f', 2)));
     return;
   }
 
@@ -244,11 +278,49 @@ void InputPage::setupFilePage() {
 void InputPage::setupConnections() {
   // По нажатию «Выбрать файл» — диалог выбора, путь пишем в filePathEdit
   connect(btnSelectFile, &QPushButton::clicked, this, [this]() {
+    const QString initialDir =
+        lastOpenedDir_.isEmpty() ? QDir::homePath() : lastOpenedDir_;
     QString path = QFileDialog::getOpenFileName(
-        this, "Выберите файл", QDir::homePath(),
-        "Текстовые файлы (*.txt);;Все файлы (*.*)");
-    if (!path.isEmpty())
+        this, "Выберите файл", initialDir, "Текстовые файлы (*.txt)");
+    if (!path.isEmpty()) {
+      if (!isTxtFilePath(path)) {
+        QMessageBox::warning(this, "Неверный формат файла",
+                             "Разрешена загрузка только файлов формата .txt.");
+        if (filePathEdit)
+          filePathEdit->clear();
+        return;
+      }
+      // Сразу проверяем, что файл реально доступен для чтения до нажатия
+      // «Анализировать».
+      std::ifstream in(path.toStdString(), std::ios::binary);
+      if (!in) {
+        QMessageBox::warning(this, "Ошибка чтения",
+                             "Не удалось открыть выбранный файл для чтения.");
+        if (filePathEdit)
+          filePathEdit->clear();
+        return;
+      }
+      const QFileInfo info(path);
+      if (info.size() > kMaxInputFileBytes) {
+        const double sizeMiB =
+            static_cast<double>(info.size()) / (1024.0 * 1024.0);
+        const double limitMiB =
+            static_cast<double>(kMaxInputFileBytes) / (1024.0 * 1024.0);
+        QMessageBox::warning(
+            this, "Файл слишком большой",
+            QString("Размер файла: %1 МБ.\n"
+                    "Максимально допустимо: %2 МБ.\n\n"
+                    "Выберите файл меньшего размера.")
+                .arg(QString::number(sizeMiB, 'f', 2))
+                .arg(QString::number(limitMiB, 'f', 2)));
+        if (filePathEdit)
+          filePathEdit->clear();
+        return;
+      }
+
       filePathEdit->setText(path);
+      lastOpenedDir_ = QFileInfo(path).absolutePath();
+    }
   });
 
   // Переключение страницы стека при выборе радиокнопки
@@ -270,12 +342,14 @@ void InputPage::setupConnections() {
   connect(btnAnalyzeFile, &QPushButton::clicked, this,
           &InputPage::onAnalyzeFromFile);
 
-  auto clearAll = [this]() {
+  auto clearKeyboardText = [this]() {
     if (textInput)
       textInput->clear();
+  };
+  auto clearSelectedFilePath = [this]() {
     if (filePathEdit)
       filePathEdit->clear();
   };
-  connect(btnClearKeyboard, &QToolButton::clicked, this, clearAll);
-  connect(btnClearFile, &QToolButton::clicked, this, clearAll);
+  connect(btnClearKeyboard, &QToolButton::clicked, this, clearKeyboardText);
+  connect(btnClearFile, &QToolButton::clicked, this, clearSelectedFilePath);
 }

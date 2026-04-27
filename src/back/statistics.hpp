@@ -29,11 +29,13 @@ struct GlobalStats {
   int definitions_total = 0;
   int additions_total = 0;
   int adverbials_total = 0;
+  int others_total = 0;
   std::pair<std::string, int> top_subject;
   std::pair<std::string, int> top_predicate;
   std::pair<std::string, int> top_definition;
   std::pair<std::string, int> top_addition;
   std::pair<std::string, int> top_adverbial;
+  std::pair<std::string, int> top_other;
 };
 
 /** Агрегаты по тексту из результата extract_sentence_parts. */

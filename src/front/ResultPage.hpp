@@ -168,11 +168,13 @@ private:
   QLabel *labelDefinitions;
   QLabel *labelAdditions;
   QLabel *labelAdverbials;
+  QLabel *labelOthers;
   QLabel *top_subject;
   QLabel *top_predicate;
   QLabel *top_definition;
   QLabel *top_addition;
   QLabel *top_adverbial;
+  QLabel *top_other;
   QWidget *statsWidget;
 };
 
