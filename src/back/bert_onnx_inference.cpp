@@ -1,9 +1,9 @@
-// src/back/bert_onnx_inference.cpp
 #include "bert_onnx_inference.hpp"
 #include "cJSON.h"
 #include "simple_tokenizer.hpp"
 #include "text_splitter.hpp"
 #include "unistring.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <map>
@@ -169,7 +169,7 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
 }
 
 /**
- * @brief Группировка токенов в слова (аналог _group_into_words в Python)
+ * @brief Группировка токенов в слова
  * @param tokens Токены
  * @param token_labels Метки токенов
  * @param offsets Смещения токенов

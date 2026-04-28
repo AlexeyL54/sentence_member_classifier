@@ -1,6 +1,4 @@
-// src/back/bert_onnx_inference.h
-#ifndef BERT_ONNX_INFERENCE_H
-#define BERT_ONNX_INFERENCE_H
+#pragma once
 
 #include <map>
 #include <memory>
@@ -100,5 +98,3 @@ private:
                  const std::vector<std::pair<size_t, size_t>> &offsets,
                  const std::string &original_text);
 };
-
-#endif // BERT_ONNX_INFERENCE_H
