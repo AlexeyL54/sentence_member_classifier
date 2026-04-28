@@ -3,6 +3,11 @@
 
 namespace utf8 {
 
+/**
+ * @brief Проверяет, является ли символ пробельным.
+ * @param ch Символ для проверки.
+ * @return true, если символ пробельный.
+ */
 bool TextSplitter::isSpace(const Unistring &ch) {
   std::string s = ch.to_string();
   if (s.empty())
@@ -16,6 +21,11 @@ bool TextSplitter::isSpace(const Unistring &ch) {
   return false;
 }
 
+/**
+ * @brief Проверяет, является ли символ пунктуацией.
+ * @param ch Символ для проверки.
+ * @return true, если символ является пунктуацией.
+ */
 bool TextSplitter::isPunctuation(const Unistring &ch) {
   std::string s = ch.to_string();
   if (s.empty())
@@ -46,6 +56,11 @@ bool TextSplitter::isPunctuation(const Unistring &ch) {
   return false;
 }
 
+/**
+ * @brief Проверяет, является ли символ буквой или цифрой.
+ * @param ch Символ для проверки.
+ * @return true, если символ буква или цифра.
+ */
 bool TextSplitter::isLetterOrDigit(const Unistring &ch) {
   std::string s = ch.to_string();
   if (s.empty())
@@ -67,6 +82,11 @@ bool TextSplitter::isLetterOrDigit(const Unistring &ch) {
   return false;
 }
 
+/**
+ * @brief Очищает слово от пунктуации.
+ * @param word Слово для очистки.
+ * @return Очищенное слово.
+ */
 Unistring TextSplitter::cleanWord(const Unistring &word) {
   Unistring result;
 
@@ -82,6 +102,105 @@ Unistring TextSplitter::cleanWord(const Unistring &word) {
   return result;
 }
 
+/**
+ * @brief Создаёт токен слова.
+ * @param text Текст токена.
+ * @return Токен слова.
+ */
+TextToken createWordToken(const Unistring &text) {
+  TextToken token;
+  token.text = text;
+  token.is_word = true;
+  token.is_space = false;
+  return token;
+}
+
+/**
+ * @brief Создаёт токен пробела.
+ * @param ch Символ пробела.
+ * @return Токен пробела.
+ */
+TextToken createSpaceToken(const Unistring &ch) {
+  TextToken token;
+  token.text = ch;
+  token.is_word = false;
+  token.is_space = true;
+  return token;
+}
+
+/**
+ * @brief Создаёт токен пунктуации.
+ * @param ch Символ пунктуации.
+ * @return Токен пунктуации.
+ */
+TextToken createPunctToken(const Unistring &ch) {
+  TextToken token;
+  token.text = ch;
+  token.is_word = false;
+  token.is_space = false;
+  return token;
+}
+
+/**
+ * @brief Проверяет, является ли дефис частью слова.
+ * @param ch Символ для проверки.
+ * @param in_word Флаг, находимся ли мы внутри слова.
+ * @param current_word Текущее слово.
+ * @param text Полный текст.
+ * @param i Позиция символа в тексте.
+ * @param isLetterOrDigit Функция проверки на букву/цифру.
+ * @return true, если дефис является частью слова.
+ */
+bool isHyphenInWord(const Unistring &ch, bool in_word,
+                    const Unistring &current_word, const Unistring &text,
+                    size_t i, bool (*isLetterOrDigit)(const Unistring &)) {
+  bool is_hyphen_in_word = false;
+  std::string ch_str = ch.to_string();
+  if (ch_str == "-" || ch_str == "–" || ch_str == "—") {
+    // Проверяем, есть ли буква перед текущей позицией (в текущем слове)
+    // и есть ли буква после текущей позиции
+    bool has_letter_before = in_word && current_word.length() > 0;
+    bool has_letter_after = false;
+    if (i + 1 < text.length()) {
+      Unistring next_ch = text[i + 1];
+      has_letter_after = isLetterOrDigit(next_ch);
+    }
+    is_hyphen_in_word = has_letter_before && has_letter_after;
+  }
+  return is_hyphen_in_word;
+}
+
+/**
+ * @brief Обрабатывает многоточие в токенизаторе.
+ * @param text Полный текст.
+ * @param i Текущая позиция (ссылка для обновления).
+ * @return Токен многоточия или пустой токен.
+ */
+TextToken handleEllipsisInTokenize(const Unistring &text, size_t &i) {
+  TextToken empty_token;
+  empty_token.text = Unistring();
+
+  // Смотрим вперед на две точки
+  if (i + 2 < text.length() && text[i + 1].to_string() == "." &&
+      text[i + 2].to_string() == ".") {
+    // Это начало многоточия
+    Unistring ellipsis("...");
+    i += 2; // Пропускаем следующие две точки
+
+    TextToken punct_token;
+    punct_token.text = ellipsis;
+    punct_token.is_word = false;
+    punct_token.is_space = false;
+    return punct_token;
+  }
+  return empty_token;
+}
+
+/**
+ * @brief Токенизирует текст на слова, пробелы и знаки препинания.
+ * @param text Текст для токенизации.
+ * @return Вектор токенов.
+ */
 std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
   std::vector<TextToken> tokens;
 
@@ -90,7 +209,6 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
   }
 
   Unistring current_word;
-  size_t word_start = 0;
   bool in_word = false;
 
   for (size_t i = 0; i < text.length(); ++i) {
@@ -103,44 +221,23 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
     if (is_space) {
       // Завершаем текущее слово если оно есть
       if (in_word) {
-        TextToken token;
-        token.text = current_word;
-        token.is_word = true;
-        token.is_space = false;
-        tokens.push_back(token);
+        tokens.push_back(createWordToken(current_word));
         current_word = Unistring();
         in_word = false;
       }
 
       // Добавляем пробел как отдельный токен
-      TextToken space_token;
-      space_token.text = ch;
-      space_token.is_word = false;
-      space_token.is_space = true;
-      tokens.push_back(space_token);
+      tokens.push_back(createSpaceToken(ch));
 
     } else if (is_punct) {
       // Специальная обработка дефиса внутри слова (например, "что-то")
-      // Дефис считается частью слова, если он окружён буквами с обеих сторон
-      bool is_hyphen_in_word = false;
-      std::string ch_str = ch.to_string();
-      if (ch_str == "-" || ch_str == "–" || ch_str == "—") {
-        // Проверяем, есть ли буква перед текущей позицией (в текущем слове)
-        // и есть ли буква после текущей позиции
-        bool has_letter_before = in_word && current_word.length() > 0;
-        bool has_letter_after = false;
-        if (i + 1 < text.length()) {
-          Unistring next_ch = text[i + 1];
-          has_letter_after = isLetterOrDigit(next_ch);
-        }
-        is_hyphen_in_word = has_letter_before && has_letter_after;
-      }
+      bool is_hyphen =
+          isHyphenInWord(ch, in_word, current_word, text, i, isLetterOrDigit);
 
-      if (is_hyphen_in_word) {
+      if (is_hyphen) {
         // Дефис внутри слова - добавляем его к текущему слову
         if (!in_word) {
           in_word = true;
-          word_start = i;
           current_word = ch;
         } else {
           current_word += ch;
@@ -150,46 +247,27 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
 
       // Завершаем текущее слово если оно есть
       if (in_word) {
-        TextToken token;
-        token.text = current_word;
-        token.is_word = true;
-        token.is_space = false;
-        tokens.push_back(token);
+        tokens.push_back(createWordToken(current_word));
         current_word = Unistring();
         in_word = false;
       }
 
       // Проверяем на многоточие (три точки подряд)
       if (ch.to_string() == ".") {
-        // Смотрим вперед на две точки
-        if (i + 2 < text.length() && text[i + 1].to_string() == "." &&
-            text[i + 2].to_string() == ".") {
-          // Это начало многоточия
-          Unistring ellipsis("...");
-
-          TextToken punct_token;
-          punct_token.text = ellipsis;
-          punct_token.is_word = false;
-          punct_token.is_space = false;
-          tokens.push_back(punct_token);
-
-          i += 2; // Пропускаем следующие две точки
+        TextToken ellipsis_token = handleEllipsisInTokenize(text, i);
+        if (ellipsis_token.text.length() > 0) {
+          tokens.push_back(ellipsis_token);
           continue;
         }
       }
 
       // Добавляем знак препинания как отдельный токен
-      TextToken punct_token;
-      punct_token.text = ch;
-      punct_token.is_word = false;
-      punct_token.is_space = false;
-      tokens.push_back(punct_token);
+      tokens.push_back(createPunctToken(ch));
 
     } else if (is_letter) {
       // Начинаем или продолжаем слово
       if (!in_word) {
         in_word = true;
-        word_start = i;
         current_word = ch;
       } else {
         current_word += ch;
@@ -199,16 +277,57 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
 
   // Добавляем последнее слово если оно есть
   if (in_word) {
-    TextToken token;
-    token.text = current_word;
-    token.is_word = true;
-    token.is_space = false;
-    tokens.push_back(token);
+    tokens.push_back(createWordToken(current_word));
   }
 
   return tokens;
 }
 
+/**
+ * @brief Извлекает подстроку предложения и обрезает пробелы.
+ * @param text Полный текст.
+ * @param start Начальная позиция.
+ * @param end Конечная позиция.
+ * @return Обрезанное предложение.
+ */
+Unistring extractSentence(const Unistring &text, size_t start, size_t end) {
+  Unistring sent = text.substr(start, end - start);
+  std::string sent_str = sent.to_string();
+
+  // Обрезаем пробелы в конце предложения
+  while (!sent_str.empty() &&
+         std::isspace(static_cast<unsigned char>(sent_str.back()))) {
+    sent_str.pop_back();
+  }
+
+  return Unistring(sent_str);
+}
+
+/**
+ * @brief Пропускает пробелы после конца предложения.
+ * @param text Полный текст.
+ * @param start Начальная позиция для пропуска.
+ * @return Позиция после пробелов.
+ */
+size_t skipSpacesAfterSentence(const Unistring &text, size_t start) {
+  size_t char_count = text.length();
+  size_t j = start;
+  while (j < char_count) {
+    Unistring j_ch = text[j];
+    std::string j_str = j_ch.to_string();
+    if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
+      break;
+    }
+    j++;
+  }
+  return j;
+}
+
+/**
+ * @brief Разбивает текст на предложения.
+ * @param text Текст для разбиения.
+ * @return Вектор предложений.
+ */
 std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
   std::vector<Unistring> sentences;
 
@@ -243,97 +362,49 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
     }
 
     if (is_sentence_end) {
-      // Если это многоточие, добавляем все три точки к предложению
+      Unistring sent;
+      size_t next_start;
+
       if (is_ellipsis) {
-        // Получаем подстроку от начала предложения до конца третьей точки
-        size_t sentence_end = i + 3; // Включаем три точки
+        // Многоточие - включаем все три точки
+        size_t sentence_end = i + 3;
         if (sentence_end > char_count) {
           sentence_end = char_count;
         }
-
-        Unistring sent = text.substr(sentence_start, sentence_end - 1);
-        std::string sent_str = sent.to_string();
-
-        // Обрезаем пробелы в конце предложения
-        while (!sent_str.empty() &&
-               std::isspace(static_cast<unsigned char>(sent_str.back()))) {
-          sent_str.pop_back();
-        }
-
-        if (!sent_str.empty()) {
-          sentences.push_back(Unistring(sent_str));
-        }
-
-        // Пропускаем пробелы после знака завершения
-        size_t j = i + 1 + ellipsis_skip;
-        while (j < char_count) {
-          Unistring j_ch = text[j];
-          std::string j_str = j_ch.to_string();
-          if (!j_str.empty() &&
-              !std::isspace(static_cast<unsigned char>(j_str[0]))) {
-            break;
-          }
-          j++;
-        }
-
-        sentence_start = j;
-        i = j - 1;
-        continue;
+        sent = extractSentence(text, sentence_start, sentence_end);
+        next_start = skipSpacesAfterSentence(text, i + 1 + ellipsis_skip);
+        i = next_start - 1;
+      } else {
+        // Обычный конец предложения
+        sent = extractSentence(text, sentence_start, i + 1);
+        next_start = skipSpacesAfterSentence(text, i + 1);
+        i = next_start - 1;
       }
 
-      // Обычный конец предложения (не многоточие)
-      // Получаем подстроку от начала предложения до текущего символа
-      // включительно
-      Unistring sent = text.substr(sentence_start, i + 1);
-      std::string sent_str = sent.to_string();
-
-      // Обрезаем пробелы в конце предложения
-      while (!sent_str.empty() &&
-             std::isspace(static_cast<unsigned char>(sent_str.back()))) {
-        sent_str.pop_back();
+      if (!sent.to_string().empty()) {
+        sentences.push_back(sent);
       }
 
-      if (!sent_str.empty()) {
-        sentences.push_back(Unistring(sent_str));
-      }
-
-      // Пропускаем пробелы после знака завершения
-      size_t j = i + 1;
-      while (j < char_count) {
-        Unistring j_ch = text[j];
-        std::string j_str = j_ch.to_string();
-        if (!j_str.empty() &&
-            !std::isspace(static_cast<unsigned char>(j_str[0]))) {
-          break;
-        }
-        j++;
-      }
-
-      sentence_start = j;
-      i = j - 1;
+      sentence_start = next_start;
     }
   }
 
   // Добавляем последнее предложение если оно не пустое
-  // Это критично для случая, когда текст обрывается без точки
   if (sentence_start < char_count) {
-    Unistring sent = text.substr(sentence_start, char_count);
-    std::string sent_str = sent.to_string();
-
-    // Обрезаем пробелы в конце
-    while (!sent_str.empty() &&
-           std::isspace(static_cast<unsigned char>(sent_str.back()))) {
-      sent_str.pop_back();
-    }
-
-    if (!sent_str.empty()) {
-      sentences.push_back(Unistring(sent_str));
+    Unistring sent = extractSentence(text, sentence_start, char_count);
+    if (!sent.to_string().empty()) {
+      sentences.push_back(sent);
     }
   }
 
   return sentences;
 }
 
+/**
+ * @brief Извлекает слова из вектора токенов.
+ * @param tokens Вектор токенов.
+ * @return Вектор словесных токенов.
+ */
 std::vector<TextToken>
 TextSplitter::extractWords(const std::vector<TextToken> &tokens) {
   std::vector<TextToken> words;

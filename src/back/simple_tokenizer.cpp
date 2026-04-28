@@ -372,17 +372,17 @@ void SimpleTokenizer::pad_encoding(CoreEncoding &core, size_t max_len) {
 */
 SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
                                                         size_t max_len) {
-  // 1. Токенизация
+  // 1. токенизация
   std::vector<std::string> raw_tokens = split_text_into_tokens(text);
 
-  // 2. Основная фаза: ID, токены, смещения, word_ids
+  // 2. ID, токены, смещения, word_ids
   SimpleTokenizer::CoreEncoding core =
       build_encoding_core(text, raw_tokens, max_len);
 
-  // 3. Паддинг и special-токены
+  // 3. паддинг и спец-токены
   pad_encoding(core, max_len);
 
-  // 4. Формируем финальный результат с маской внимания
+  // 4. финальный результат с маской внимания
   EncodingResult result;
   result.input_ids = std::move(core.input_ids);
   result.tokens = std::move(core.tokens);
