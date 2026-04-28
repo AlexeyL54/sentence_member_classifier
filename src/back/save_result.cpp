@@ -31,7 +31,7 @@ const std::string REVIEW_FILE = "statistics.html";
 /**
  * @brief Имя директории с шаблонами
  */
-const std::string TEMPLATE_DIR = "templates/";
+const std::string TEMPLATE_DIR = "../resources/templates/";
 
 /**
  * @brief Загружает содержимое файла-шаблона
