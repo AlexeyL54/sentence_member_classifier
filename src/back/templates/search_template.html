@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск членов предложения</title>
+    <link rel="stylesheet" href="search_styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Поиск членов предложения</h1>
+        
+        <div class="search-box">
+            <div class="search-row">
+                <input type="text" id="searchText" placeholder="Введите слово для поиска">
+                <select id="searchType">
+                    <option value="">Все типы</option>
+                    <option value="подлежащее">Подлежащее</option>
+                    <option value="сказуемое">Сказуемое</option>
+                    <option value="дополнение">Дополнение</option>
+                    <option value="определение">Определение</option>
+                    <option value="обстоятельство">Обстоятельство</option>
+                </select>
+                <button onclick="searchWord()">Найти</button>
+                <button onclick="clearSearch()" class="clear-btn">Сброс</button>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+        
+        <div id="results">
+            <!-- Results will be inserted here -->
+        </div>
+    </div>
+    
+    <script src="search_script.js"></script>
+</body>
+</html>

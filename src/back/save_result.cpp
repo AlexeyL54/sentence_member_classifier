@@ -1,556 +1,352 @@
+/**
+ * @file save_result.cpp
+ * @brief Реализация функций для сохранения результатов анализа в HTML
+ *
+ * Этот файл содержит функции для создания HTML-страниц с результатами
+ * синтаксического анализа текста, включая интерактивный поиск и графики.
+ */
 
 #include "save_result.hpp"
 #include "statistics.hpp"
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
-#include <vector>
-
-#include <fstream>
 #include <vector>
 
 #ifdef WIN32
 #include <windows.h>
 #endif
 
+/**
+ * @brief Имя файла с результатами поиска
+ */
 const std::string SEARCH_FILE = "list.html";
+
+/**
+ * @brief Имя файла со статистикой
+ */
 const std::string REVIEW_FILE = "statistics.html";
 
-size_t length(const std::string &str) {
-  size_t len = 0;
-  u_int bytes_to_decode_symbol;
-  unsigned char first_byte_of_symbol;
+/**
+ * @brief Имя директории с шаблонами
+ */
+const std::string TEMPLATE_DIR = "templates/";
 
-  for (size_t i = 0; i < str.length();) {
-    first_byte_of_symbol = static_cast<unsigned char>(str[i]);
-
-    if (first_byte_of_symbol == 0xD0 or first_byte_of_symbol == 0xD1) {
-      bytes_to_decode_symbol = 2;
-    } else {
-      bytes_to_decode_symbol = 1;
-    }
-    len++;
-    i += bytes_to_decode_symbol;
-  }
-  return len;
-}
-
-std::string to_lower(std::string lower_str) {
-
-  size_t len = length(lower_str);
-
-  for (size_t i = 0; i < len;) {
-    unsigned char c1 = static_cast<unsigned char>(lower_str[i]);
-
-    // Если это начало 2-байтового символа UTF-8 (110xxxxx)
-    if ((c1 & 0xE0) == 0xC0) {
-
-      // Защита от некорректной UTF-8
-      if (i + 1 >= len)
-        break;
-
-      unsigned char c2 = static_cast<unsigned char>(lower_str[i + 1]);
-
-      // Специальные случаи (Ё, І, Є)
-      if (c1 == 0xD0) {
-        if (c2 == 0x81) { // Ё -> ё
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x91;
-        } else if (c2 == 0x86) { // І -> і
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x96;
-        } else if (c2 == 0x88) { // Є -> є
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = 0x94;
-        }
-        // А-П (D0 90-9F) -> а-п (D0 B0-BF)
-        else if (c2 >= 0x90 && c2 <= 0x9F) {
-          lower_str[i] = 0xD0;
-          lower_str[i + 1] = c2 + 0x20;
-        }
-        // Р-Я (D0 A0-AF) -> р-я (D1 80-8F)
-        else if (c2 >= 0xA0 && c2 <= 0xAF) {
-          lower_str[i] = 0xD1;
-          lower_str[i + 1] = c2 - 0x20;
-        }
-      }
-
-      i += 2;
-    } else {
-      // TODO: Однобайтовый символ (ASCII) или другая длина UTF-8
-      i++;
-    }
+/**
+ * @brief Загружает содержимое файла-шаблона
+ *
+ * @param filename Имя файла шаблона
+ * @return std::string Содержимое файла
+ */
+std::string loadTemplateFile(const std::string &filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) {
+    std::cerr << "Ошибка: не удалось открыть файл шаблона: " << filename
+              << std::endl;
+    return "";
   }
 
-  return std::string(lower_str);
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
 }
 
-void saveHTMLWithAdvancedSearch(const std::string filename,
-                                const std::vector<SearchItem> &items) {
-  std::ofstream htmlFile(filename);
+/**
+ * @brief Копирует файл ресурсов (CSS/JS) в выходную директорию
+ *
+ * @param source_path Путь к исходному файлу
+ * @param dest_path Путь к целевому файлу
+ */
+void copyResourceFile(const std::string &source_path,
+                      const std::string &dest_path) {
+  std::ifstream src(source_path, std::ios::binary);
+  std::ofstream dst(dest_path, std::ios::binary);
 
-  if (!htmlFile.is_open()) {
-    std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
+  if (!src.is_open() || !dst.is_open()) {
+    std::cerr << "Ошибка: не удалось скопировать файл ресурсов: " << source_path
+              << std::endl;
     return;
   }
 
-  htmlFile << "<!DOCTYPE html>\n";
-  htmlFile << "<html lang=\"ru\">\n";
-  htmlFile << "<head><meta charset=\"UTF-8\"><title>Поиск членов "
-              "предложения</title>\n";
-  htmlFile << "<style>\n";
-  htmlFile << "body{font-family:Arial;margin:20px;background:#f5f5f5}\n";
-  htmlFile << ".container{max-width:1200px;margin:0 auto}\n";
-  htmlFile << ".search-box{background:#fff;padding:20px;border-radius:10px;"
-              "margin-bottom:20px;box-shadow:0 2px 10px "
-              "rgba(0,0,0,0.1);position:sticky;top:20px}\n";
-  htmlFile << ".search-row{display:flex;gap:10px;margin-bottom:15px;flex-wrap:"
-              "wrap}\n";
-  htmlFile << ".search-row input{flex:2;padding:12px;font-size:16px;border:2px "
-              "solid #ddd;border-radius:5px}\n";
-  htmlFile
-      << ".search-row select{flex:1;padding:12px;font-size:16px;border:2px "
-         "solid #ddd;border-radius:5px}\n";
-  htmlFile << ".search-row button{padding:12px "
-              "24px;background:#4CAF50;color:#fff;border:none;border-radius:"
-              "5px;cursor:pointer}\n";
-  htmlFile << ".clear-btn{background:#f44336!important}\n";
-  htmlFile << ".stats{margin-top:10px;color:#666;font-size:14px}\n";
-  htmlFile << ".item{background:#fff;border:1px solid "
-              "#ddd;border-radius:8px;margin-bottom:20px;padding:15px}\n";
-  htmlFile << ".item.hidden{display:none}\n";
-  htmlFile
-      << ".item.highlight{background:#e8f5e9;border-left:4px solid #4CAF50}\n";
-  htmlFile << ".item-header{border-bottom:2px solid "
-              "#4CAF50;padding-bottom:10px;margin-bottom:15px}\n";
-  htmlFile << ".text{font-size:20px;font-weight:bold;color:#2196F3}\n";
-  htmlFile << ".type{display:inline-block;background:#4CAF50;color:#fff;"
-              "padding:3px 10px;border-radius:5px;margin-left:10px}\n";
-  htmlFile << ".sentence{background:#f9f9f9;padding:8px;margin:8px "
-              "0;border-left:4px solid #4CAF50;line-height:1.6}\n";
-  htmlFile << "mark{background:#FFEB3B;font-weight:bold;padding:2px "
-              "4px;border-radius:3px;color:#000}\n";
-  htmlFile << "h1{color:#333;text-align:center}\n";
-  htmlFile << "</style></head><body>\n";
-  htmlFile << "<div class=container>\n";
-  htmlFile << "<h1>Поиск членов предложения</h1>\n";
-  htmlFile << "<div class=search-box>\n";
-  htmlFile << "<div class=search-row>\n";
-  htmlFile << "<input type=text id=searchText placeholder='Введите слово для "
-              "поиска'>\n";
-  htmlFile << "<select id=searchType>\n";
-  htmlFile << "<option value=''>Все типы</option>\n";
-  htmlFile << "<option value='подлежащее'>Подлежащее</option>\n";
-  htmlFile << "<option value='сказуемое'>Сказуемое</option>\n";
-  htmlFile << "<option value='дополнение'>Дополнение</option>\n";
-  htmlFile << "<option value='определение'>Определение</option>\n";
-  htmlFile << "<option value='обстоятельство'>Обстоятельство</option>\n";
-  htmlFile << "</select>\n";
-  htmlFile << "<button onclick='searchWord()'>Найти</button>\n";
-  htmlFile
-      << "<button onclick='clearSearch()' class=clear-btn>Сброс</button>\n";
-  htmlFile << "</div>\n";
-  htmlFile << "<div class=stats id=stats></div>\n";
-  htmlFile << "</div>\n";
-  htmlFile << "<div id=results>\n";
+  dst << src.rdbuf();
+}
+
+/**
+ * @brief Копирует все необходимые ресурсы (CSS, JS) в выходную директорию
+ *
+ * @param output_dir Директория для сохранения ресурсов
+ */
+void copyResources(const std::string &output_dir) {
+  copyResourceFile(TEMPLATE_DIR + "search_styles.css",
+                   output_dir + "/search_styles.css");
+  copyResourceFile(TEMPLATE_DIR + "stats_styles.css",
+                   output_dir + "/stats_styles.css");
+  copyResourceFile(TEMPLATE_DIR + "search_script.js",
+                   output_dir + "/search_script.js");
+}
+
+/**
+ * @brief Генерирует HTML-контент для элементов поиска
+ *
+ * @param items Вектор элементов поиска
+ * @return std::string HTML-разметка элементов
+ */
+std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
+  std::stringstream html;
 
   for (const auto &item : items) {
-    htmlFile << "<div class=item data-text='" << item.text << "' data-type='"
-             << item.type << "'>\n";
-    htmlFile << "<div class=item-header>\n";
-    htmlFile << "<span class=text>" << item.text << "</span>\n";
-    htmlFile << "<span class=type>" << item.type << "</span>\n";
-    htmlFile << "<div>Появлений: " << item.amount << "</div>\n";
-    htmlFile << "</div>\n";
+    html << "<div class='item' data-text='" << item.text << "' data-type='"
+         << item.type << "'>\n";
+    html << "    <div class='item-header'>\n";
+    html << "        <span class='text'>" << item.text << "</span>\n";
+    html << "        <span class='type'>" << item.type << "</span>\n";
+    html << "        <div>Появлений: " << item.amount << "</div>\n";
+    html << "    </div>\n";
+
     for (const auto &sentence : item.sentences) {
-      htmlFile << "<div class=sentence>" << sentence.second << "</div>\n";
+      html << "    <div class='sentence'>" << sentence.second << "</div>\n";
     }
-    htmlFile << "</div>\n";
+    html << "</div>\n";
   }
 
-  htmlFile << "</div>\n";
-  htmlFile << "<script>\n";
-  htmlFile << "function highlightText(text, searchWord){\n";
-  htmlFile << "if(!searchWord) return text;\n";
-  htmlFile << "var searchLower=searchWord.toLowerCase();\n";
-  htmlFile << "var textLower=text.toLowerCase();\n";
-  htmlFile << "var result='';\n";
-  htmlFile << "var lastIndex=0;\n";
-  htmlFile << "var index=textLower.indexOf(searchLower);\n";
-  htmlFile << "while(index!==-1){\n";
-  htmlFile << "result+=text.substring(lastIndex,index);\n";
-  htmlFile << "result+='<mark>'+text.substring(index,index+searchWord.length)+'"
-              "</mark>';\n";
-  htmlFile << "lastIndex=index+searchWord.length;\n";
-  htmlFile << "index=textLower.indexOf(searchLower,lastIndex);\n";
-  htmlFile << "}\n";
-  htmlFile << "result+=text.substring(lastIndex);\n";
-  htmlFile << "return result;\n";
-  htmlFile << "}\n";
-  htmlFile << "function searchWord(){\n";
-  htmlFile
-      << "var searchText=document.getElementById('searchText').value.trim();\n";
-  htmlFile << "var searchType=document.getElementById('searchType').value;\n";
-  htmlFile << "var items=document.querySelectorAll('.item');\n";
-  htmlFile << "var found=0;\n";
-  htmlFile << "for(var i=0;i<items.length;i++){\n";
-  htmlFile << "var item=items[i];\n";
-  htmlFile << "var text=item.getAttribute('data-text');\n";
-  htmlFile << "var textLower=text.toLowerCase();\n";
-  htmlFile << "var type=item.getAttribute('data-type');\n";
-  htmlFile << "var searchLower=searchText.toLowerCase();\n";
-  htmlFile << "var show=false;\n";
-  htmlFile << "if(searchType && type!==searchType)show=false;\n";
-  htmlFile << "else if(searchText && "
-              "textLower.indexOf(searchLower)!==-1)show=true;\n";
-  htmlFile << "else if(searchText && !show){\n";
-  htmlFile << "var sentences=item.querySelectorAll('.sentence');\n";
-  htmlFile << "for(var j=0;j<sentences.length;j++){\n";
-  htmlFile << "var sentText=sentences[j].innerText;\n";
-  htmlFile << "if(sentText.toLowerCase().indexOf(searchLower)!==-1){show=true;"
-              "break;}\n";
-  htmlFile << "}\n";
-  htmlFile << "}else if(!searchText && !searchType)show=true;\n";
-  htmlFile
-      << "else if(!searchText && searchType && type===searchType)show=true;\n";
-  htmlFile << "if(show){\n";
-  htmlFile << "item.classList.remove('hidden');\n";
-  htmlFile << "item.classList.add('highlight');\n";
-  htmlFile << "found++;\n";
-  htmlFile << "var textSpan=item.querySelector('.text');\n";
-  htmlFile << "if(searchText && textLower.indexOf(searchLower)!==-1){\n";
-  htmlFile << "textSpan.innerHTML=highlightText(text,searchText);\n";
-  htmlFile << "}else{\n";
-  htmlFile << "textSpan.innerHTML=text;\n";
-  htmlFile << "}\n";
-  htmlFile << "var sentences=item.querySelectorAll('.sentence');\n";
-  htmlFile << "for(var j=0;j<sentences.length;j++){\n";
-  htmlFile << "var sent=sentences[j];\n";
-  htmlFile << "var originalText=sent.getAttribute('data-original');\n";
-  htmlFile << "if(!originalText){\n";
-  htmlFile << "sent.setAttribute('data-original',sent.innerHTML);\n";
-  htmlFile << "originalText=sent.innerHTML;\n";
-  htmlFile << "}\n";
-  htmlFile << "if(searchText && "
-              "originalText.toLowerCase().indexOf(searchLower)!==-1){\n";
-  htmlFile << "sent.innerHTML=highlightText(originalText,searchText);\n";
-  htmlFile << "}else{\n";
-  htmlFile << "sent.innerHTML=originalText;\n";
-  htmlFile << "}\n";
-  htmlFile << "}\n";
-  htmlFile << "}else{\n";
-  htmlFile << "item.classList.add('hidden');\n";
-  htmlFile << "item.classList.remove('highlight');\n";
-  htmlFile << "}\n";
-  htmlFile << "}\n";
-  htmlFile << "var stats=document.getElementById('stats');\n";
-  htmlFile << "if(searchText || searchType){\n";
-  htmlFile << "if(found===0)stats.innerHTML='❌ Ничего не найдено';\n";
-  htmlFile << "else stats.innerHTML='✅ Найдено '+found+' элементов по запросу "
-              "\"'+searchText+'\"';\n";
-  htmlFile << "}else{stats.innerHTML='';}\n";
-  htmlFile << "}\n";
-  htmlFile << "function clearSearch(){\n";
-  htmlFile << "document.getElementById('searchText').value='';\n";
-  htmlFile << "document.getElementById('searchType').value='';\n";
-  htmlFile << "var items=document.querySelectorAll('.item');\n";
-  htmlFile << "for(var i=0;i<items.length;i++){\n";
-  htmlFile << "var item=items[i];\n";
-  htmlFile << "item.classList.remove('hidden','highlight');\n";
-  htmlFile << "var textSpan=item.querySelector('.text');\n";
-  htmlFile << "textSpan.innerHTML=item.getAttribute('data-text');\n";
-  htmlFile << "var sentences=item.querySelectorAll('.sentence');\n";
-  htmlFile << "for(var j=0;j<sentences.length;j++){\n";
-  htmlFile << "var sent=sentences[j];\n";
-  htmlFile << "if(sent.getAttribute('data-original')){\n";
-  htmlFile << "sent.innerHTML=sent.getAttribute('data-original');\n";
-  htmlFile << "}\n";
-  htmlFile << "}\n";
-  htmlFile << "}\n";
-  htmlFile << "document.getElementById('stats').innerHTML='';\n";
-  htmlFile << "}\n";
-  htmlFile << "document.getElementById('searchText').addEventListener('"
-              "keypress',function(e){if(e.key==='Enter')searchWord();});\n";
-  htmlFile << "document.getElementById('searchType').addEventListener('change',"
-              "function(){searchWord();});\n";
-  htmlFile << "</script>\n";
-  htmlFile << "</body></html>\n";
-
-  htmlFile.close();
+  return html.str();
 }
 
-void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
-  std::ofstream htmlFile(filename);
+/**
+ * @brief Генерирует HTML-контент для статистической сводки
+ *
+ * @param stats Глобальная статистика
+ * @return std::string HTML-разметка статистической сводки
+ */
+std::string generateStatsSummaryHTML(const GlobalStats &stats) {
+  std::stringstream html;
 
+  html << "<div class='stat-card'>\n";
+  html << "    <div class='stat-value'>" << stats.sentences_total << "</div>\n";
+  html << "    <div class='stat-label'>Предложений</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='stat-card'>\n";
+  html << "    <div class='stat-value'>" << stats.words_total << "</div>\n";
+  html << "    <div class='stat-label'>Слов</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='stat-card'>\n";
+  html << "    <div class='stat-value'>" << stats.members_total << "</div>\n";
+  html << "    <div class='stat-label'>Членов предложения</div>\n";
+  html << "</div>\n";
+
+  return html.str();
+}
+
+/**
+ * @brief Генерирует HTML-контент для популярных слов
+ *
+ * @param stats Глобальная статистика
+ * @return std::string HTML-разметка популярных слов
+ */
+std::string generateTopItemsHTML(const GlobalStats &stats) {
+  std::stringstream html;
+
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Подлежащее</div>\n";
+  html << "    <div class='word'>«" << stats.top_subject.first << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_subject.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Сказуемое</div>\n";
+  html << "    <div class='word'>«" << stats.top_predicate.first << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_predicate.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Определение</div>\n";
+  html << "    <div class='word'>«" << stats.top_definition.first
+       << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_definition.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Дополнение</div>\n";
+  html << "    <div class='word'>«" << stats.top_addition.first << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_addition.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Обстоятельство</div>\n";
+  html << "    <div class='word'>«" << stats.top_adverbial.first << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_adverbial.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  return html.str();
+}
+
+/**
+ * @brief Генерирует JavaScript-код для графика статистики
+ *
+ * @param stats Глобальная статистика
+ * @return std::string JavaScript-код для инициализации графика
+ */
+std::string generateChartScript(const GlobalStats &stats) {
+  std::stringstream script;
+
+  script << "    const membersCtx = "
+            "document.getElementById('membersChart').getContext('2d');\n";
+  script << "    new Chart(membersCtx, {\n";
+  script << "        type: 'pie',\n";
+  script << "        data: {\n";
+  script << "            labels: [\n";
+  script << "                'Подлежащие (" << stats.subjects_total << ")',\n";
+  script << "                'Сказуемые (" << stats.predicates_total << ")',\n";
+  script << "                'Определения (" << stats.definitions_total
+         << ")',\n";
+  script << "                'Дополнения (" << stats.additions_total << ")',\n";
+  script << "                'Обстоятельства (" << stats.adverbials_total
+         << ")'\n";
+  script << "            ],\n";
+  script << "            datasets: [{\n";
+  script << "                data: [" << stats.subjects_total << ", "
+         << stats.predicates_total << ", " << stats.definitions_total << ", "
+         << stats.additions_total << ", " << stats.adverbials_total << "],\n";
+  script << "                backgroundColor: ['#4ECDC4', '#45B7D1', "
+            "'#96CEB4', '#FFEAA7', '#FF6B6B'],\n";
+  script << "                borderWidth: 1,\n";
+  script << "                borderColor: '#fff'\n";
+  script << "            }]\n";
+  script << "        },\n";
+  script << "        options: {\n";
+  script << "            responsive: true,\n";
+  script << "            maintainAspectRatio: true,\n";
+  script << "            plugins: {\n";
+  script << "                legend: { position: 'bottom' },\n";
+  script << "                tooltip: {\n";
+  script << "                    callbacks: {\n";
+  script << "                        label: function(context) {\n";
+  script << "                            const label = context.label || '';\n";
+  script << "                            const value = context.parsed || 0;\n";
+  script << "                            const total = "
+            "context.dataset.data.reduce((a, b) => a + b, 0);\n";
+  script << "                            const percent = ((value / total) * "
+            "100).toFixed(1);\n";
+  script << "                            return label + ': ' + value + ' (' + "
+            "percent + '%)';\n";
+  script << "                        }\n";
+  script << "                    }\n";
+  script << "                }\n";
+  script << "            }\n";
+  script << "        }\n";
+  script << "    });\n";
+
+  return script.str();
+}
+
+/**
+ * @brief Сохраняет HTML-страницу с расширенным поиском
+ *
+ * @param filename Имя выходного файла
+ * @param items Вектор элементов поиска
+ */
+void saveHTMLWithAdvancedSearch(const std::string filename,
+                                const std::vector<SearchItem> &items) {
+  std::string htmlTemplate =
+      loadTemplateFile(TEMPLATE_DIR + "search_template.html");
+  if (htmlTemplate.empty()) {
+    std::cerr << "Ошибка: не удалось загрузить шаблон поиска" << std::endl;
+    return;
+  }
+
+  std::string itemsHTML = generateSearchItemsHTML(items);
+
+  // Вставляем элементы в шаблон
+  size_t resultsPos = htmlTemplate.find("<div id=\"results\">");
+  if (resultsPos != std::string::npos) {
+    resultsPos += strlen("<div id=\"results\">");
+    htmlTemplate.insert(resultsPos, itemsHTML + "\n        ");
+  }
+
+  std::ofstream htmlFile(filename);
   if (!htmlFile.is_open()) {
     std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
     return;
   }
 
-  htmlFile << "<!DOCTYPE html>\n";
-  htmlFile << "<html lang=\"ru\">\n";
-  htmlFile << "<head>\n";
-  htmlFile << "    <meta charset=\"UTF-8\">\n";
-  htmlFile << "    <meta name=\"viewport\" content=\"width=device-width, "
-              "initial-scale=1.0\">\n";
-  htmlFile << "    <title>Статистика синтаксического анализа текста</title>\n";
-  htmlFile << "    <script "
-              "src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/"
-              "chart.umd.min.js\"></script>\n";
-  htmlFile << "    <style>\n";
-  htmlFile << "        body {\n";
-  htmlFile << "            font-family: 'Segoe UI', Arial, sans-serif;\n";
-  htmlFile << "            margin: 20px;\n";
-  htmlFile << "            background-color: #f5f5f5;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .container {\n";
-  htmlFile << "            max-width: 1200px;\n";
-  htmlFile << "            margin: 0 auto;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        h1 {\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "            font-weight: normal;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .stats-summary {\n";
-  htmlFile << "            display: grid;\n";
-  htmlFile
-      << "            grid-template-columns: repeat(auto-fit, minmax(200px, "
-         "1fr));\n";
-  htmlFile << "            gap: 20px;\n";
-  htmlFile << "            margin-bottom: 30px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .stat-card {\n";
-  htmlFile << "            background: white;\n";
-  htmlFile << "            border: 1px solid #ddd;\n";
-  htmlFile << "            border-radius: 4px;\n";
-  htmlFile << "            padding: 20px;\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .stat-value {\n";
-  htmlFile << "            font-size: 32px;\n";
-  htmlFile << "            font-weight: bold;\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .stat-label {\n";
-  htmlFile << "            color: #666;\n";
-  htmlFile << "            margin-top: 5px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .charts-grid {\n";
-  htmlFile << "            display: grid;\n";
-  htmlFile
-      << "            grid-template-columns: repeat(auto-fit, minmax(400px, "
-         "1fr));\n";
-  htmlFile << "            gap: 20px;\n";
-  htmlFile << "            margin-bottom: 30px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .chart-card {\n";
-  htmlFile << "            background: white;\n";
-  htmlFile << "            border: 1px solid #ddd;\n";
-  htmlFile << "            border-radius: 4px;\n";
-  htmlFile << "            padding: 20px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .chart-card h3 {\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "            margin-bottom: 20px;\n";
-  htmlFile << "            font-weight: normal;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        canvas {\n";
-  htmlFile << "            max-height: 300px;\n";
-  htmlFile << "            margin: 0 auto;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-items {\n";
-  htmlFile << "            background: white;\n";
-  htmlFile << "            border: 1px solid #ddd;\n";
-  htmlFile << "            border-radius: 4px;\n";
-  htmlFile << "            padding: 20px;\n";
-  htmlFile << "            margin-top: 20px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-items h3 {\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "            margin-bottom: 20px;\n";
-  htmlFile << "            font-weight: normal;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-grid {\n";
-  htmlFile << "            display: grid;\n";
-  htmlFile
-      << "            grid-template-columns: repeat(auto-fit, minmax(200px, "
-         "1fr));\n";
-  htmlFile << "            gap: 15px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-item {\n";
-  htmlFile << "            background-color: #f9f9f9;\n";
-  htmlFile << "            border-radius: 4px;\n";
-  htmlFile << "            padding: 12px;\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "            border-left: 3px solid #999;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-item .part {\n";
-  htmlFile << "            font-size: 14px;\n";
-  htmlFile << "            color: #666;\n";
-  htmlFile << "            margin-bottom: 6px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-item .word {\n";
-  htmlFile << "            font-weight: bold;\n";
-  htmlFile << "            font-size: 18px;\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "            margin: 5px 0;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .top-item .count {\n";
-  htmlFile << "            font-size: 20px;\n";
-  htmlFile << "            font-weight: bold;\n";
-  htmlFile << "            color: #333;\n";
-  htmlFile << "        }\n";
-  htmlFile << "        .footer {\n";
-  htmlFile << "            text-align: center;\n";
-  htmlFile << "            margin-top: 30px;\n";
-  htmlFile << "            color: #999;\n";
-  htmlFile << "            font-size: 12px;\n";
-  htmlFile << "        }\n";
-  htmlFile << "    </style>\n";
-  htmlFile << "</head>\n";
-  htmlFile << "<body>\n";
-  htmlFile << "<div class=\"container\">\n";
-  htmlFile << "    <h1>Статистика синтаксического анализа текста</h1>\n";
-  htmlFile << "    \n";
-  htmlFile << "    <div class=\"stats-summary\">\n";
-  htmlFile << "        <div class=\"stat-card\">\n";
-  htmlFile << "            <div class=\"stat-value\">" << stats.sentences_total
-           << "</div>\n";
-  htmlFile << "            <div class=\"stat-label\">Предложений</div>\n";
-  htmlFile << "        </div>\n";
-  htmlFile << "        <div class=\"stat-card\">\n";
-  htmlFile << "            <div class=\"stat-value\">" << stats.words_total
-           << "</div>\n";
-  htmlFile << "            <div class=\"stat-label\">Слов</div>\n";
-  htmlFile << "        </div>\n";
-  htmlFile << "        <div class=\"stat-card\">\n";
-  htmlFile << "            <div class=\"stat-value\">" << stats.members_total
-           << "</div>\n";
-  htmlFile
-      << "            <div class=\"stat-label\">Членов предложения</div>\n";
-  htmlFile << "        </div>\n";
-  htmlFile << "    </div>\n";
-  htmlFile << "    \n";
-  htmlFile << "    <div class=\"charts-grid\">\n";
-  htmlFile << "        <div class=\"chart-card\">\n";
-  htmlFile << "            <h3>Распределение членов предложения</h3>\n";
-  htmlFile << "            <canvas id=\"membersChart\"></canvas>\n";
-  htmlFile << "        </div>\n";
-  htmlFile << "    </div>\n";
-  htmlFile << "    \n";
-  htmlFile << "    <div class=\"top-items\">\n";
-  htmlFile << "        <h3>Самые популярные слова</h3>\n";
-  htmlFile << "        <div class=\"top-grid\">\n";
-  htmlFile << "            <div class=\"top-item\">\n";
-  htmlFile << "                <div class=\"part\">Подлежащее</div>\n";
-  htmlFile << "                <div class=\"word\">«" << stats.top_subject.first
-           << "»</div>\n";
-  htmlFile << "                <div class=\"count\">"
-           << stats.top_subject.second << " раз(а)</div>\n";
-  htmlFile << "            </div>\n";
-  htmlFile << "            <div class=\"top-item\">\n";
-  htmlFile << "                <div class=\"part\">Сказуемое</div>\n";
-  htmlFile << "                <div class=\"word\">«"
-           << stats.top_predicate.first << "»</div>\n";
-  htmlFile << "                <div class=\"count\">"
-           << stats.top_predicate.second << " раз(а)</div>\n";
-  htmlFile << "            </div>\n";
-  htmlFile << "            <div class=\"top-item\">\n";
-  htmlFile << "                <div class=\"part\">Определение</div>\n";
-  htmlFile << "                <div class=\"word\">«"
-           << stats.top_definition.first << "»</div>\n";
-  htmlFile << "                <div class=\"count\">"
-           << stats.top_definition.second << " раз(а)</div>\n";
-  htmlFile << "            </div>\n";
-  htmlFile << "            <div class=\"top-item\">\n";
-  htmlFile << "                <div class=\"part\">Дополнение</div>\n";
-  htmlFile << "                <div class=\"word\">«"
-           << stats.top_addition.first << "»</div>\n";
-  htmlFile << "                <div class=\"count\">"
-           << stats.top_addition.second << " раз(а)</div>\n";
-  htmlFile << "            </div>\n";
-  htmlFile << "            <div class=\"top-item\">\n";
-  htmlFile << "                <div class=\"part\">Обстоятельство</div>\n";
-  htmlFile << "                <div class=\"word\">«"
-           << stats.top_adverbial.first << "»</div>\n";
-  htmlFile << "                <div class=\"count\">"
-           << stats.top_adverbial.second << " раз(а)</div>\n";
-  htmlFile << "            </div>\n";
-  htmlFile << "        </div>\n";
-  htmlFile << "    </div>\n";
-  htmlFile << "    \n";
-  htmlFile << "    <div class=\"footer\">\n";
-  htmlFile << "        Giga Голиков AI\n";
-  htmlFile << "    </div>\n";
-  htmlFile << "</div>\n";
-  htmlFile << "\n";
-  htmlFile << "<script>\n";
-  htmlFile << "    const membersCtx = "
-              "document.getElementById('membersChart').getContext('2d');\n";
-  htmlFile << "    new Chart(membersCtx, {\n";
-  htmlFile << "        type: 'pie',\n";
-  htmlFile << "        data: {\n";
-  htmlFile << "            labels: [\n";
-  htmlFile << "                'Подлежащие (" << stats.subjects_total
-           << ")',\n";
-  htmlFile << "                'Сказуемые (" << stats.predicates_total
-           << ")',\n";
-  htmlFile << "                'Определения (" << stats.definitions_total
-           << ")',\n";
-  htmlFile << "                'Дополнения (" << stats.additions_total
-           << ")',\n";
-  htmlFile << "                'Обстоятельства (" << stats.adverbials_total
-           << ")'\n";
-  htmlFile << "            ],\n";
-  htmlFile << "            datasets: [{\n";
-  htmlFile << "                data: [" << stats.subjects_total << ", "
-           << stats.predicates_total << ", " << stats.definitions_total << ", "
-           << stats.additions_total << ", " << stats.adverbials_total << "],\n";
-  htmlFile
-      << "                backgroundColor: ['#4ECDC4', '#45B7D1', '#96CEB4', "
-         "'#FFEAA7', '#FF6B6B'],\n";
-  htmlFile << "                borderWidth: 1,\n";
-  htmlFile << "                borderColor: '#fff'\n";
-  htmlFile << "            }]\n";
-  htmlFile << "        },\n";
-  htmlFile << "        options: {\n";
-  htmlFile << "            responsive: true,\n";
-  htmlFile << "            maintainAspectRatio: true,\n";
-  htmlFile << "            plugins: {\n";
-  htmlFile << "                legend: { position: 'bottom' },\n";
-  htmlFile << "                tooltip: {\n";
-  htmlFile << "                    callbacks: {\n";
-  htmlFile << "                        label: function(context) {\n";
-  htmlFile
-      << "                            const label = context.label || '';\n";
-  htmlFile
-      << "                            const value = context.parsed || 0;\n";
-  htmlFile << "                            const total = "
-              "context.dataset.data.reduce((a, b) => a + b, 0);\n";
-  htmlFile << "                            const percent = ((value / total) * "
-              "100).toFixed(1);\n";
-  htmlFile
-      << "                            return label + ': ' + value + ' (' + "
-         "percent + '%)';\n";
-  htmlFile << "                        }\n";
-  htmlFile << "                    }\n";
-  htmlFile << "                }\n";
-  htmlFile << "            }\n";
-  htmlFile << "        }\n";
-  htmlFile << "    });\n";
-  htmlFile << "</script>\n";
-  htmlFile << "</body>\n";
-  htmlFile << "</html>\n";
-
+  htmlFile << htmlTemplate;
   htmlFile.close();
 }
 
+/**
+ * @brief Генерирует HTML-страницу со статистикой и графиками
+ *
+ * @param filename Имя выходного файла
+ * @param stats Глобальная статистика
+ */
+void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
+  std::string htmlTemplate =
+      loadTemplateFile(TEMPLATE_DIR + "stats_template.html");
+  if (htmlTemplate.empty()) {
+    std::cerr << "Ошибка: не удалось загрузить шаблон статистики" << std::endl;
+    return;
+  }
+
+  std::string summaryHTML = generateStatsSummaryHTML(stats);
+  std::string topItemsHTML = generateTopItemsHTML(stats);
+  std::string chartScript = generateChartScript(stats);
+
+  // Вставляем статистическую сводку
+  size_t summaryPos =
+      htmlTemplate.find("<div class=\"stats-summary\" id=\"statsSummary\">");
+  if (summaryPos != std::string::npos) {
+    summaryPos += strlen("<div class=\"stats-summary\" id=\"statsSummary\">");
+    htmlTemplate.insert(summaryPos, summaryHTML + "\n        ");
+  }
+
+  // Вставляем популярные слова
+  size_t topItemsPos =
+      htmlTemplate.find("<div class=\"top-items\" id=\"topItems\">");
+  if (topItemsPos != std::string::npos) {
+    topItemsPos += strlen("<div class=\"top-items\" id=\"topItems\">");
+    size_t closingDiv = htmlTemplate.find("</div>", topItemsPos);
+    if (closingDiv != std::string::npos) {
+      htmlTemplate.insert(closingDiv, topItemsHTML + "\n        ");
+    }
+  }
+
+  // Вставляем скрипт графика
+  size_t scriptPos = htmlTemplate.find("</script>");
+  if (scriptPos != std::string::npos) {
+    htmlTemplate.insert(scriptPos, chartScript);
+  }
+
+  std::ofstream htmlFile(filename);
+  if (!htmlFile.is_open()) {
+    std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
+    return;
+  }
+
+  htmlFile << htmlTemplate;
+  htmlFile.close();
+}
+
+/**
+ * @brief Сохраняет результаты анализа в HTML файлы
+ *
+ * @param path Путь к директории для сохранения
+ * @param items Вектор элементов поиска
+ * @param stats Глобальная статистика
+ */
 void saveAnalysis(const std::string path, std::vector<SearchItem> &items,
                   GlobalStats &stats) {
+  // Копируем ресурсы (CSS, JS)
+  copyResources(path);
 
+  // Генерируем HTML страницы
   saveHTMLWithAdvancedSearch(path + "/" + SEARCH_FILE, items);
   generateHTMLCharts(path + "/" + REVIEW_FILE, stats);
 }
