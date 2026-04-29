@@ -5,6 +5,7 @@
 #include <QFontMetrics>
 #include <QRegularExpression>
 #include <QVBoxLayout>
+#include <iostream>
 
 /**
  * @brief Конструктор класса TextMarkupWidget.
@@ -40,10 +41,16 @@ TextMarkupWidget::TextMarkupWidget(QWidget *parent)
  * @param results Вектор с данными (текст предложения, слова и роли).
  */
 void TextMarkupWidget::setMarkupText(std::vector<SentenceResult> &results) {
+  std::cout << "=== setMarkupText received " << results.size()
+            << " sentences ===" << std::endl;
+  for (size_t i = 0; i < results.size(); ++i) {
+    std::cout << "Sentence " << i << ": " << results[i].text.substr(0, 50)
+              << "..." << std::endl;
+    std::cout << "  Entities: " << results[i].entities.size() << std::endl;
+  }
   m_results = results;
   rebuild();
 }
-
 /**
  * @brief Устанавливает цвет текста слов.
  * @param color Цвет в формате CSS (например, "#000000").

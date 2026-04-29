@@ -1,5 +1,8 @@
 #include "text_splitter.hpp"
+#include "unistring.hpp"
 #include <cctype>
+#include <cstddef>
+#include <unicode/brkiter.h>
 
 namespace utf8 {
 
@@ -284,116 +287,57 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
 }
 
 /**
- * @brief Извлекает подстроку предложения и обрезает пробелы.
- * @param text Полный текст.
- * @param start Начальная позиция.
- * @param end Конечная позиция.
- * @return Обрезанное предложение.
- */
-Unistring extractSentence(const Unistring &text, size_t start, size_t end) {
-  Unistring sent = text.substr(start, end - start);
-  std::string sent_str = sent.to_string();
-
-  // Обрезаем пробелы в конце предложения
-  while (!sent_str.empty() &&
-         std::isspace(static_cast<unsigned char>(sent_str.back()))) {
-    sent_str.pop_back();
-  }
-
-  return Unistring(sent_str);
-}
-
-/**
- * @brief Пропускает пробелы после конца предложения.
- * @param text Полный текст.
- * @param start Начальная позиция для пропуска.
- * @return Позиция после пробелов.
- */
-size_t skipSpacesAfterSentence(const Unistring &text, size_t start) {
-  size_t char_count = text.length();
-  size_t j = start;
-  while (j < char_count) {
-    Unistring j_ch = text[j];
-    std::string j_str = j_ch.to_string();
-    if (!j_str.empty() && !std::isspace(static_cast<unsigned char>(j_str[0]))) {
-      break;
-    }
-    j++;
-  }
-  return j;
-}
-
-/**
  * @brief Разбивает текст на предложения.
  * @param text Текст для разбиения.
  * @return Вектор предложений.
  */
 std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
   std::vector<Unistring> sentences;
+  Unistring sentence = "";
 
   if (text.length() == 0) {
     return sentences;
   }
 
-  size_t char_count = text.length();
-  size_t sentence_start = 0;
+  for (size_t i = 0; i < text.length(); i++) {
+    if (text[i] != "\n" and text[i] != "\t")
+      sentence += text[i];
 
-  for (size_t i = 0; i < char_count; ++i) {
-    Unistring ch = text[i];
-    std::string ch_str = ch.to_string();
-
-    bool is_sentence_end =
-        (ch_str == "." || ch_str == "!" || ch_str == "?" || ch_str == "\n");
-
-    // Проверка на многоточие (...)
-    bool is_ellipsis = false;
-    int ellipsis_skip = 0;
-    if (ch_str == ".") {
-      if (i + 2 < char_count) {
-        Unistring next1 = text[i + 1];
-        Unistring next2 = text[i + 2];
-
-        if (next1.to_string() == "." && next2.to_string() == ".") {
-          is_ellipsis = true;
-          is_sentence_end = true;
-          ellipsis_skip = 2; // Пропустим следующие 2 точки
-        }
+    //  ». »... »…
+    if (text[i] == "»") {
+      for (size_t j = i + 1;
+           j < text.length() and (text[j] == "." or text[j] == "…"); j++, i++) {
+        sentence += text[j];
       }
-    }
+      sentences.push_back(sentence);
+      sentence = "";
 
-    if (is_sentence_end) {
-      Unistring sent;
-      size_t next_start;
-
-      if (is_ellipsis) {
-        // Многоточие - включаем все три точки
-        size_t sentence_end = i + 3;
-        if (sentence_end > char_count) {
-          sentence_end = char_count;
-        }
-        sent = extractSentence(text, sentence_start, sentence_end);
-        next_start = skipSpacesAfterSentence(text, i + 1 + ellipsis_skip);
-        i = next_start - 1;
-      } else {
-        // Обычный конец предложения
-        sent = extractSentence(text, sentence_start, i + 1);
-        next_start = skipSpacesAfterSentence(text, i + 1);
-        i = next_start - 1;
+      // . .. ...
+    } else if (text[i] == ".") {
+      for (size_t j = i + 1; j < text.length() and text[j] == "."; j++, i++) {
+        sentence += text[j];
       }
+      sentences.push_back(sentence);
+      sentence = "";
 
-      if (!sent.to_string().empty()) {
-        sentences.push_back(sent);
+      // ! ? !.. ?.. !» ?»
+    } else if (text[i] == "!" or text[i] == "?") {
+      for (size_t j = i + 1;
+           j < text.length() and (text[j] == "." or text[j] == "»"); j++, i++) {
+        sentence += text[j];
       }
+      sentences.push_back(sentence);
+      sentence = "";
 
-      sentence_start = next_start;
-    }
-  }
+      // конец текста без знака завершения
+    } else if (i == text.length() - 1) {
+      sentences.push_back(sentence);
+      sentence = "";
 
-  // Добавляем последнее предложение если оно не пустое
-  if (sentence_start < char_count) {
-    Unistring sent = extractSentence(text, sentence_start, char_count);
-    if (!sent.to_string().empty()) {
-      sentences.push_back(sent);
+      // …
+    } else if (text[i] == "…") {
+      sentences.push_back(sentence);
+      sentence = "";
     }
   }
 
@@ -409,7 +353,7 @@ std::vector<TextToken>
 TextSplitter::extractWords(const std::vector<TextToken> &tokens) {
   std::vector<TextToken> words;
 
-  for (const auto &token : tokens) {
+  for (const TextToken &token : tokens) {
     if (token.is_word && !token.is_space) {
       words.push_back(token);
     }

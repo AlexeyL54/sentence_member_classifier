@@ -6,7 +6,7 @@
 #include <fstream>
 
 // Ограничение на размер входного файла для анализа.
-constexpr qint64 kMaxInputFileBytes = 2 * 1024 * 1024; // 2 MiB
+constexpr qint64 kMaxInputFileBytes = 500 * 1024; // 2 MiB
 
 static bool isTxtFilePath(const QString &path) {
   const QFileInfo info(path);
@@ -79,13 +79,12 @@ void InputPage::onAnalyzeFromFile() {
     const double sizeMiB = static_cast<double>(info.size()) / (1024.0 * 1024.0);
     const double limitMiB =
         static_cast<double>(kMaxInputFileBytes) / (1024.0 * 1024.0);
-    QMessageBox::warning(
-        this, "Файл слишком большой",
-        QString("Размер файла: %1 МБ.\n"
-                "Максимально допустимо: %2 МБ.\n\n"
-                "Выберите файл меньшего размера.")
-            .arg(QString::number(sizeMiB, 'f', 2))
-            .arg(QString::number(limitMiB, 'f', 2)));
+    QMessageBox::warning(this, "Файл слишком большой",
+                         QString("Размер файла: %1 МБ.\n"
+                                 "Максимально допустимо: %2 МБ.\n\n"
+                                 "Выберите файл меньшего размера.")
+                             .arg(QString::number(sizeMiB, 'f', 2))
+                             .arg(QString::number(limitMiB, 'f', 2)));
     return;
   }
 
@@ -306,13 +305,12 @@ void InputPage::setupConnections() {
             static_cast<double>(info.size()) / (1024.0 * 1024.0);
         const double limitMiB =
             static_cast<double>(kMaxInputFileBytes) / (1024.0 * 1024.0);
-        QMessageBox::warning(
-            this, "Файл слишком большой",
-            QString("Размер файла: %1 МБ.\n"
-                    "Максимально допустимо: %2 МБ.\n\n"
-                    "Выберите файл меньшего размера.")
-                .arg(QString::number(sizeMiB, 'f', 2))
-                .arg(QString::number(limitMiB, 'f', 2)));
+        QMessageBox::warning(this, "Файл слишком большой",
+                             QString("Размер файла: %1 МБ.\n"
+                                     "Максимально допустимо: %2 МБ.\n\n"
+                                     "Выберите файл меньшего размера.")
+                                 .arg(QString::number(sizeMiB, 'f', 2))
+                                 .arg(QString::number(limitMiB, 'f', 2)));
         if (filePathEdit)
           filePathEdit->clear();
         return;
