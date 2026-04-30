@@ -3,6 +3,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <fstream>
 
 // Ограничение на размер входного файла для анализа.
@@ -11,6 +12,21 @@ constexpr qint64 kMaxInputFileBytes = 500 * 1024; // 2 MiB
 static bool isTxtFilePath(const QString &path) {
   const QFileInfo info(path);
   return info.suffix().compare(QStringLiteral("txt"), Qt::CaseInsensitive) == 0;
+}
+
+static bool containsCyrillic(const QString &path) {
+  for (const QChar &ch : path) {
+    ushort code = ch.unicode();
+    // Диапазон кириллицы: 0x0400-0x04FF
+    if (code >= 0x0400 && code <= 0x04FF) {
+      return true;
+    }
+    // Также проверяем букву Ё (0x0401) и её строчную версию
+    if (code == 0x0401 || code == 0x0451) {
+      return true;
+    }
+  }
+  return false;
 }
 
 InputPage::InputPage(QWidget *parent) : QWidget(parent) {
@@ -289,6 +305,16 @@ void InputPage::setupConnections() {
           filePathEdit->clear();
         return;
       }
+
+      if (containsCyrillic(path)) {
+        QMessageBox::warning(
+            this, "Предупреждение",
+            "Путь к файлу содержит кириллические символы:\n" + path +
+                "\n\nЭто может вызвать проблемы с чтением файла.");
+        if (filePathEdit)
+          filePathEdit->clear();
+      }
+
       // Сразу проверяем, что файл реально доступен для чтения до нажатия
       // «Анализировать».
       std::ifstream in(path.toStdString(), std::ios::binary);

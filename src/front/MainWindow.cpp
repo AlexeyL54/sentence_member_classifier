@@ -67,8 +67,14 @@ void MainWindow::closeEvent(QCloseEvent *event) {
       }
 
       // Проверка на наличие кириллицы в пути
-      QRegularExpression cyrillicPattern("[\\u0400-\\u04FF]");
-      if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
+      bool hasCyrillic = false;
+      for (const QChar &ch : path) {
+        if (ch.unicode() >= 0x0400 && ch.unicode() <= 0x04FF) {
+          hasCyrillic = true;
+          break;
+        }
+      }
+      if (hasCyrillic) {
         QMessageBox::warning(
             this, "Предупреждение",
             "Путь к директории содержит кириллические символы:\n" + path +

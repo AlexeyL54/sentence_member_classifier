@@ -84,7 +84,7 @@ canvas {
 
 .top-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
 }
 
@@ -107,6 +107,7 @@ canvas {
     font-size: 18px;
     color: #333;
     margin: 5px 0;
+    word-break: break-word;
 }
 
 .top-item .count {
@@ -120,4 +121,18 @@ canvas {
     margin-top: 30px;
     color: #999;
     font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .top-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    
+    .top-item .word {
+        font-size: 14px;
+    }
+    
+    .top-item .count {
+        font-size: 16px;
+    }
 }
