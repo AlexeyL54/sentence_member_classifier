@@ -268,7 +268,7 @@ std::vector<WordInfo> group_tokens_into_words(
 }
 
 /**
- * @brief Группировка слов в фразы (сущности)
+ * @brief Группировка слов в фразы (сущности) с дополнительными правилами
  * @param words Вектор информации о словах
  * @param labels_map Карта меток
  * @param original_text Исходный текст
@@ -279,50 +279,96 @@ std::vector<Entity> group_words_into_phrases(
     const std::map<int, std::pair<std::string, std::string>> &labels_map,
     const std::string &original_text) {
   std::vector<Entity> entities;
+
+  if (words.empty()) {
+    return entities;
+  }
+
+  // Вспомогательная функция для проверки, является ли слово предлогом
+  auto is_preposition = [](const std::string &word_text) -> bool {
+    static const std::vector<std::string> prepositions = {
+        "в",      "во",  "без",   "до",   "для",   "за",    "из",    "из-за",
+        "из-под", "к",   "ко",    "на",   "над",   "о",     "об",    "обо",
+        "от",     "ото", "по",    "под",  "подо",  "при",   "про",   "с",
+        "со",     "у",   "через", "чрез", "между", "перед", "передо"};
+    std::string lower_word = utf8::Unistring(word_text).to_lower().to_string();
+    return std::find(prepositions.begin(), prepositions.end(), lower_word) !=
+           prepositions.end();
+  };
+
+  // Вспомогательная функция для проверки, начинается ли слово с заглавной буквы
+  auto is_capitalized = [](const std::string &word_text) -> bool {
+    if (word_text.empty())
+      return false;
+    utf8::Unistring uni_word(word_text);
+    if (uni_word.length() == 0)
+      return false;
+    utf8::Unistring first_char = uni_word[0];
+    std::string first_char_str = first_char.to_string();
+
+    // Проверка на заглавную кириллическую букву
+    if (first_char_str.size() == 2) {
+      unsigned char c1 = static_cast<unsigned char>(first_char_str[0]);
+      unsigned char c2 = static_cast<unsigned char>(first_char_str[1]);
+      // А-Я в UTF-8: D0 90-9F, Ё: D0 81
+      if (c1 == 0xD0) {
+        return (c2 >= 0x90 && c2 <= 0x9F) || c2 == 0x81;
+      }
+    }
+    // ASCII заглавные
+    return std::isupper(static_cast<unsigned char>(first_char_str[0]));
+  };
+
+  // Вспомогательная функция для получения базовой метки (без BIO-префикса)
+  auto get_base = [](const std::string &label) -> std::string {
+    if (label.size() >= 2 &&
+        (label.substr(0, 2) == "B-" || label.substr(0, 2) == "I-")) {
+      return label.substr(2);
+    }
+    return label;
+  };
+
+  // Вспомогательная функция для проверки знака препинания
+  auto is_punct = [](const std::string &text) -> bool {
+    utf8::Unistring uni(text);
+    return utf8::TextSplitter::isPunctuation(uni);
+  };
+
+  // Первый проход: предварительное объединение в сущности (без правил)
+  std::vector<Entity> raw_entities;
   Entity *current_entity = nullptr;
 
   for (const WordInfo &word : words) {
     // Пропускаем знаки препинания
-    if (is_punctuation(word.text)) {
+    if (is_punct(word.text)) {
       continue;
     }
 
-    std::string base_label = get_base_label(word.main_label);
+    std::string base_label = get_base(word.main_label);
     bool is_b_prefix =
         (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "B-");
     bool is_i_prefix =
         (word.main_label.size() >= 2 && word.main_label.substr(0, 2) == "I-");
 
     if (current_entity == nullptr) {
-      // Нет текущей сущности - начинаем новую для любой метки (включая O)
-      entities.push_back(createEntity(word, original_text, labels_map));
-      current_entity = &entities.back();
-
+      raw_entities.push_back(createEntity(word, original_text, labels_map));
+      current_entity = &raw_entities.back();
     } else {
-      // Есть текущая сущность
-      std::string current_base = get_base_label(current_entity->type);
+      std::string current_base = get_base(current_entity->type);
 
       if (base_label == "O") {
-        // Слово с меткой O - завершаем текущую сущность и начинаем новую
         current_entity = nullptr;
-        entities.push_back(createEntity(word, original_text, labels_map));
-        current_entity = &entities.back();
-
+        raw_entities.push_back(createEntity(word, original_text, labels_map));
+        current_entity = &raw_entities.back();
       } else if (is_b_prefix) {
-        // B-префикс - начинаем новую сущность
         current_entity = nullptr;
-        entities.push_back(createEntity(word, original_text, labels_map));
-        current_entity = &entities.back();
-
+        raw_entities.push_back(createEntity(word, original_text, labels_map));
+        current_entity = &raw_entities.back();
       } else if (is_i_prefix) {
-        // I-префикс - проверяем возможность продолжения
-        std::string word_base = get_base_label(word.main_label);
+        std::string word_base = get_base(word.main_label);
         size_t distance = word.start - current_entity->end;
 
-        // Условия объединения: I-префикс, одинаковая базовая метка, расстояние
-        // <= 2
         if (current_base == word_base && distance <= 2) {
-          // Продолжаем текущую сущность
           std::string original_word_text;
           if (word.start < original_text.length() &&
               word.end <= original_text.length()) {
@@ -334,18 +380,197 @@ std::vector<Entity> group_words_into_phrases(
           current_entity->text += " " + original_word_text;
           current_entity->end = word.end;
         } else {
-          // Не можем продолжить - завершаем текущую и начинаем новую
           current_entity = nullptr;
-          entities.push_back(createEntity(word, original_text, labels_map));
-          current_entity = &entities.back();
+          raw_entities.push_back(createEntity(word, original_text, labels_map));
+          current_entity = &raw_entities.back();
         }
       } else {
-        // Другие случаи - завершаем текущую сущность и начинаем новую
         current_entity = nullptr;
-        entities.push_back(createEntity(word, original_text, labels_map));
-        current_entity = &entities.back();
+        raw_entities.push_back(createEntity(word, original_text, labels_map));
+        current_entity = &raw_entities.back();
       }
     }
+  }
+
+  // Второй проход: применение дополнительных правил к raw_entities
+
+  // Правило 1: если между предлогом и обстоятельством есть определение,
+  // всех их нужно считать одним обстоятельством
+  for (size_t i = 0; i + 2 < raw_entities.size(); ++i) {
+    Entity &first = raw_entities[i];
+    Entity &second = raw_entities[i + 1];
+    Entity &third = raw_entities[i + 2];
+
+    std::string first_base = get_base(first.type);
+    std::string second_base = get_base(second.type);
+    std::string third_base = get_base(third.type);
+
+    bool first_is_prep = is_preposition(first.text);
+    bool second_is_definition = (second_base == "DEFINITION");
+    bool third_is_adverbial = (third_base == "ADVERBIAL");
+
+    if (first_is_prep && second_is_definition && third_is_adverbial) {
+      // Проверяем расстояние между сущностями
+      size_t dist1 = second.start - first.end;
+      size_t dist2 = third.start - second.end;
+
+      if (dist1 <= 3 && dist2 <= 3) {
+        // Объединяем предлог, определение и обстоятельство в одну сущность
+        std::string merged_text =
+            first.text + " " + second.text + " " + third.text;
+        Entity merged;
+        merged.text = merged_text;
+        merged.type = "B-ADVERBIAL";
+        merged.type_ru = "обстоятельство";
+        merged.start = first.start;
+        merged.end = third.end;
+
+        // Заменяем три сущности одной
+        raw_entities.erase(raw_entities.begin() + i,
+                           raw_entities.begin() + i + 3);
+        raw_entities.insert(raw_entities.begin() + i, merged);
+        i--; // Корректируем индекс после удаления
+      }
+    }
+  }
+
+  // Правило 2: объединение слов с заглавной буквы
+  for (size_t i = 0; i < raw_entities.size(); ++i) {
+    // Ищем последовательность сущностей, начинающихся с заглавной буквы
+    std::vector<size_t> capital_sequence = {i};
+    size_t j = i + 1;
+
+    while (j < raw_entities.size()) {
+      // Получаем первое слово текущей сущности
+      std::string first_word_of_current = raw_entities[j - 1].text;
+      size_t space_pos = first_word_of_current.find(' ');
+      if (space_pos != std::string::npos) {
+        first_word_of_current = first_word_of_current.substr(0, space_pos);
+      }
+
+      // Получаем первое слово следующей сущности
+      std::string first_word_of_next = raw_entities[j].text;
+      space_pos = first_word_of_next.find(' ');
+      if (space_pos != std::string::npos) {
+        first_word_of_next = first_word_of_next.substr(0, space_pos);
+      }
+
+      // Проверяем расстояние
+      size_t distance = raw_entities[j].start - raw_entities[j - 1].end;
+
+      if (is_capitalized(first_word_of_next) && distance <= 3) {
+        capital_sequence.push_back(j);
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    // Если нашли последовательность из 2+ слов с заглавной
+    if (capital_sequence.size() >= 2) {
+      // Проверяем, есть ли среди них подлежащее или дополнение
+      bool has_subject = false;
+      bool has_addition = false;
+
+      for (size_t idx : capital_sequence) {
+        std::string type_base = get_base(raw_entities[idx].type);
+        if (type_base == "SUBJECT")
+          has_subject = true;
+        if (type_base == "ADDITION")
+          has_addition = true;
+      }
+
+      std::string target_type;
+      std::string target_type_ru;
+      if (has_subject) {
+        target_type = "B-SUBJECT";
+        target_type_ru = "подлежащее";
+      } else if (has_addition) {
+        target_type = "B-ADDITION";
+        target_type_ru = "дополнение";
+      } else {
+        // Если нет ни подлежащего, ни дополнения, пропускаем объединение
+        i = j;
+        continue;
+      }
+
+      // Объединяем все сущности в последовательности
+      std::string merged_text;
+      size_t merged_start = raw_entities[capital_sequence[0]].start;
+      size_t merged_end = raw_entities[capital_sequence.back()].end;
+
+      for (size_t idx : capital_sequence) {
+        if (!merged_text.empty())
+          merged_text += " ";
+        merged_text += raw_entities[idx].text;
+      }
+
+      Entity merged;
+      merged.text = merged_text;
+      merged.type = target_type;
+      merged.type_ru = target_type_ru;
+      merged.start = merged_start;
+      merged.end = merged_end;
+
+      // Заменяем последовательность одной сущностью
+      raw_entities.erase(raw_entities.begin() + i, raw_entities.begin() + j);
+      raw_entities.insert(raw_entities.begin() + i, merged);
+
+      // Переходим к следующей после объединенной сущности
+      i = i; // Остаемся на той же позиции (новая объединенная сущность)
+    } else {
+      i = j;
+    }
+  }
+
+  // Правило 3: предлог перед обстоятельством или дополнением -> всё
+  // обстоятельство
+  for (size_t i = 0; i + 1 < raw_entities.size(); ++i) {
+    Entity &first = raw_entities[i];
+    Entity &second = raw_entities[i + 1];
+
+    std::string second_base = get_base(second.type);
+
+    bool first_is_prep = is_preposition(first.text);
+    bool second_is_adverbial = (second_base == "ADVERBIAL");
+    bool second_is_addition = (second_base == "ADDITION");
+    size_t distance = second.start - first.end;
+
+    if (first_is_prep && (second_is_adverbial || second_is_addition) &&
+        distance <= 3) {
+      // Объединяем предлог и обстоятельство/дополнение в обстоятельство
+      std::string merged_text = first.text + " " + second.text;
+      Entity merged;
+      merged.text = merged_text;
+      merged.type = "B-ADVERBIAL";
+      merged.type_ru = "обстоятельство";
+      merged.start = first.start;
+      merged.end = second.end;
+
+      raw_entities.erase(raw_entities.begin() + i,
+                         raw_entities.begin() + i + 2);
+      raw_entities.insert(raw_entities.begin() + i, merged);
+      i--; // Корректируем индекс
+    }
+  }
+
+  // Сохраняем все сущности, включая "O" (другое)
+  // НО: для "O" нужно правильно установить русское название
+  for (const Entity &entity : raw_entities) {
+    Entity final_entity = entity;
+
+    // Если тип сущности "O" или её базовая метка "O", устанавливаем правильное
+    // русское название
+    std::string base_type = get_base(entity.type);
+    if (base_type == "O") {
+      final_entity.type_ru = "другое";
+      // Убеждаемся, что type содержит правильный BIO-формат
+      if (final_entity.type == "O" || final_entity.type.empty()) {
+        final_entity.type = "O";
+      }
+    }
+
+    entities.push_back(final_entity);
   }
 
   return entities;
