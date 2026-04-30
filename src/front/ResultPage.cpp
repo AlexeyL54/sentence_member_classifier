@@ -13,27 +13,10 @@
 #include <QVector>
 
 /**
- * @brief Конструктор класса ResultPage.
- * @param parent Указатель на родительский виджет.
+ * @brief Инициализирует левую часть интерфейса с текстовым полем и кнопками.
+ * @param leftLayout Layout для размещения элементов.
  */
-ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
-  setWindowTitle("Анализ предложения");
-  resize(1200, 400);
-
-  // Создаем центральный виджет и главный layout
-  QWidget *centralWidget = new QWidget(this);
-  QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
-  mainLayout->setContentsMargins(0, 0, 0, 0);
-  mainLayout->setSpacing(10);
-  setCentralWidget(centralWidget);
-
-  // Левая часть: текстовое поле с разметкой
-  leftWidget = new QWidget(centralWidget);
-  leftWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-  QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
-  leftLayout->setContentsMargins(10, 10, 10, 10);
-  leftLayout->setSpacing(10);
-
+void ResultPage::initLeftPanel(QVBoxLayout *leftLayout) {
   widgetText = new TextMarkupWidget(leftWidget);
   widgetText->setWordColor(QApplication::palette().text().color().name());
   widgetText->setLabelColor("#808080");
@@ -59,86 +42,103 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   btnAnalize->setFixedWidth(150);
 
   leftLayout->addWidget(buttonContainer);
+}
 
-  // Правая часть: чекбоксы и лейблы с количеством
-  rightWidget = new QWidget(centralWidget);
-  rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  rightWidget->setFixedWidth(410);
+/**
+ * @brief Создает чекбокс для отображения члена предложения.
+ * @param parent Родительский виджет.
+ * @param name Название члена предложения.
+ * @param role Роль члена предложения.
+ * @param index Индекс чекбокса в массиве.
+ * @return Указатель на созданный чекбокс.
+ */
+QCheckBox *ResultPage::createPartCheckbox(QWidget *parent,
+                                          const QString &name,
+                                          const QString &role, int index) {
+  QWidget *rowWidget = new QWidget(parent);
+  QHBoxLayout *hLayout = new QHBoxLayout(rowWidget);
+  hLayout->setContentsMargins(0, 0, 0, 0);
+  hLayout->setSpacing(8);
 
-  QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
-  rightLayout->setContentsMargins(15, 15, 15, 15);
-  rightLayout->setSpacing(12);
-  rightLayout->setAlignment(Qt::AlignTop);
+  QCheckBox *cb = new QCheckBox(name, rowWidget);
+  cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  cb->setFixedWidth(150);
 
+#ifdef WIN32
+  connect(cb, &QCheckBox::stateChanged, this,
+          [this, role](int state) { onCheckboxStateChanged(state, role); });
+#else
+  connect(cb, &QCheckBox::checkStateChanged, this,
+          [this, role](int state) { onCheckboxStateChanged(state, role); });
+#endif
+
+  countLabels[index] = new QLabel("0", rowWidget);
+  countLabels[index]->setMinimumWidth(35);
+  countLabels[index]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  countLabels[index]->setStyleSheet("font-weight: bold;");
+
+  bars[index] = new QProgressBar(rowWidget);
+  bars[index]->setTextVisible(false);
+  bars[index]->setRange(0, 1);
+  bars[index]->setFixedWidth(150);
+  bars[index]->setFixedHeight(20);
+
+  hLayout->addWidget(cb);
+  hLayout->addWidget(countLabels[index]);
+  hLayout->addWidget(bars[index]);
+  hLayout->addStretch();
+
+  QVBoxLayout *rightLayout =
+      qobject_cast<QVBoxLayout *>(parent->layout());
+  if (rightLayout) {
+    rightLayout->addWidget(rowWidget);
+  }
+
+  return cb;
+}
+
+/**
+ * @brief Инициализирует правую панель с чекбоксами членов предложения.
+ * @param rightLayout Layout для размещения элементов.
+ */
+void ResultPage::initRightPanel(QVBoxLayout *rightLayout) {
   // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
   QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
 
   for (int i = 0; i < partNames.size(); ++i) {
-    QWidget *rowWidget = new QWidget(rightWidget);
-    QHBoxLayout *hLayout = new QHBoxLayout(rowWidget);
-    hLayout->setContentsMargins(0, 0, 0, 0);
-    hLayout->setSpacing(8);
-
-    QCheckBox *cb = new QCheckBox(partNames[i], rowWidget);
-    cb->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    cb->setFixedWidth(150);
-
-    QString role = roles.at(i);
-    // connect(cb, &QCheckBox::stateChanged, this,
-    // &ResultPage::onCheckboxStateChanged);
-#ifdef WIN32
-    connect(cb, &QCheckBox::stateChanged, this,
-            [this, role](int state) { onCheckboxStateChanged(state, role); });
-#else
-    connect(cb, &QCheckBox::checkStateChanged, this,
-            [this, role](int state) { onCheckboxStateChanged(state, role); });
-#endif
-
+    QCheckBox *cb =
+        createPartCheckbox(rightWidget, partNames[i], roles.at(i), i);
     m_checkBoxes.append(cb);
-
-    countLabels[i] = new QLabel("0", rowWidget);
-    countLabels[i]->setMinimumWidth(35);
-    countLabels[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    countLabels[i]->setStyleSheet("font-weight: bold;");
-
-    bars[i] = new QProgressBar(rowWidget);
-    bars[i]->setTextVisible(false);
-    bars[i]->setRange(0, 1);
-    bars[i]->setFixedWidth(150);
-    bars[i]->setFixedHeight(20);
-
-    hLayout->addWidget(cb);
-    hLayout->addWidget(countLabels[i]);
-    hLayout->addWidget(bars[i]);
-    hLayout->addStretch();
-
-    rightLayout->addWidget(rowWidget);
   }
+}
 
-  // --- ДОБАВЛЕНИЕ СТАТИСТИКИ ---
-
-  statsWidget = new QWidget(rightWidget);
-  QVBoxLayout *statsLayout = new QVBoxLayout(statsWidget);
-  statsLayout->setContentsMargins(15, 25, 15, 15); // Отступ сверху
+/**
+ * @brief Создает и инициализирует виджет общей статистики.
+ * @param parent Родительский виджет.
+ * @return Указатель на созданный layout статистики.
+ */
+QVBoxLayout *ResultPage::createGeneralStatsWidget(QWidget *parent) {
+  QVBoxLayout *statsLayout = new QVBoxLayout(parent);
+  statsLayout->setContentsMargins(15, 25, 15, 15);
   statsLayout->setSpacing(6);
-  statsWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+  parent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 
-  QLabel *statsTitle = new QLabel("Статистика", statsWidget);
+  QLabel *statsTitle = new QLabel("Статистика", parent);
   statsTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
   statsLayout->addWidget(statsTitle);
 
   // --- ОБЩАЯ СТАТИСТИКА ---
-  labelSentences = new QLabel("Предложений: 0", statsWidget);
-  labelWords = new QLabel("Слов: 0", statsWidget);
-  labelMembers = new QLabel("Членов предложения: 0", statsWidget);
-  labelSubjects = new QLabel("Подлежащих: 0", statsWidget);
-  labelPredicates = new QLabel("Сказуемых: 0", statsWidget);
-  labelDefinitions = new QLabel("Определений: 0", statsWidget);
-  labelAdditions = new QLabel("Дополнений: 0", statsWidget);
-  labelAdverbials = new QLabel("Обстоятельств: 0", statsWidget);
-  labelOthers = new QLabel("Других: 0", statsWidget);
+  labelSentences = new QLabel("Предложений: 0", parent);
+  labelWords = new QLabel("Слов: 0", parent);
+  labelMembers = new QLabel("Членов предложения: 0", parent);
+  labelSubjects = new QLabel("Подлежащих: 0", parent);
+  labelPredicates = new QLabel("Сказуемых: 0", parent);
+  labelDefinitions = new QLabel("Определений: 0", parent);
+  labelAdditions = new QLabel("Дополнений: 0", parent);
+  labelAdverbials = new QLabel("Обстоятельств: 0", parent);
+  labelOthers = new QLabel("Других: 0", parent);
 
   // Добавляем общую статистику в layout
   statsLayout->addWidget(labelSentences);
@@ -151,21 +151,25 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   statsLayout->addWidget(labelAdverbials);
   statsLayout->addWidget(labelOthers);
 
-  // Самые популярные члены предложения
-  // Создаем контейнер для этого блока
-  QWidget *popularWidget = new QWidget(statsWidget);
+  return statsLayout;
+}
+
+/**
+ * @brief Создает виджет популярных членов предложения.
+ * @param parent Родительский виджет.
+ * @return Указатель на созданный виджет.
+ */
+QWidget *ResultPage::createPopularPartsWidget(QWidget *parent) {
+  QWidget *popularWidget = new QWidget(parent);
   QVBoxLayout *popularLayout = new QVBoxLayout(popularWidget);
-  popularLayout->setContentsMargins(
-      0, 10, 0, 0); // Отступ сверху для отделения от общей статистики
+  popularLayout->setContentsMargins(0, 10, 0, 0);
   popularLayout->setSpacing(6);
 
-  // Заголовок блока
   QLabel *popularTitle =
       new QLabel("Самые популярные члены предложения", popularWidget);
   popularTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
   popularLayout->addWidget(popularTitle);
 
-  // Лейблы для названий и слов (теперь они дочерние для popularWidget)
   top_subject = new QLabel("Подлежащее:", popularWidget);
   top_predicate = new QLabel("Сказуемое:", popularWidget);
   top_definition = new QLabel("Определение:", popularWidget);
@@ -173,21 +177,212 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   top_adverbial = new QLabel("Обстоятельство:", popularWidget);
   top_other = new QLabel("Другое:", popularWidget);
 
-  // Добавляем элементы в layout контейнера столбиком
   popularLayout->addWidget(top_subject);
   popularLayout->addWidget(top_predicate);
   popularLayout->addWidget(top_definition);
   popularLayout->addWidget(top_addition);
   popularLayout->addWidget(top_adverbial);
   popularLayout->addWidget(top_other);
-  // Добавляем готовый контейнер в основной layout статистики
+
+  return popularWidget;
+}
+
+/**
+ * @brief Инициализирует панель статистики.
+ * @param rightLayout Layout правой панели для добавления статистики.
+ */
+void ResultPage::initStatsPanel(QVBoxLayout *rightLayout) {
+  statsWidget = new QWidget(rightWidget);
+  QVBoxLayout *statsLayout = createGeneralStatsWidget(statsWidget);
+
+  QWidget *popularWidget = createPopularPartsWidget(statsWidget);
   statsLayout->addWidget(popularWidget);
 
-  // Добавляем растяжку, чтобы статистика была вверху
   statsLayout->addStretch();
-
-  // Добавляем готовый виджет в основной правый layout
   rightLayout->addWidget(statsWidget);
+}
+
+/**
+ * @brief Подсчитывает количество членов предложения по типам.
+ * @param results Результаты анализа предложений.
+ * @param parts Структура для хранения подсчитанных значений.
+ */
+void ResultPage::countSentenceParts(const std::vector<SentenceResult> &results,
+                                    SentenceParts &parts) {
+  for (const SentenceResult &sentence : results) {
+    for (size_t i = 0; i < sentence.entities.size(); ++i) {
+      const std::string &type = sentence.entities[i].type_ru;
+
+      if (type == "подлежащее") {
+        parts.subject++;
+      } else if (type == "сказуемое") {
+        parts.predicate++;
+      } else if (type == "дополнение") {
+        parts.object++;
+      } else if (type == "определение") {
+        parts.attribute++;
+      } else if (type == "обстоятельство") {
+        parts.adverbial++;
+      } else {
+        parts.other++;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Проверяет наличие кириллических символов в пути.
+ * @param path Путь для проверки.
+ * @return true, если путь содержит кириллицу, иначе false.
+ */
+bool ResultPage::pathContainsCyrillic(const QString &path) {
+  QRegularExpression cyrillicPattern("[\\u0400-\\u04FF]");
+  return cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch();
+}
+
+/**
+ * @brief Показывает предупреждение о кириллических символах в пути.
+ * @param path Путь с кириллицей.
+ * @return true, если пользователь подтвердил продолжение, иначе false.
+ */
+bool ResultPage::showCyrillicWarning(const QString &path) {
+  QMessageBox::warning(
+      this, "Предупреждение",
+      "Путь к директории содержит кириллические символы:\n" + path +
+          "\n\nЭто может вызвать проблемы с сохранением файлов.");
+
+  QMessageBox msgBox(this);
+  msgBox.setWindowTitle("Подтверждение");
+  msgBox.setText("Вы действительно хотите продолжить сохранение?");
+  msgBox.setIcon(QMessageBox::Question);
+  QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+  QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+  msgBox.exec();
+
+  return msgBox.clickedButton() == yesButton;
+}
+
+/**
+ * @brief Проверяет существование файлов для сохранения.
+ * @param path Путь к директории.
+ * @param searchFile Имя файла поиска.
+ * @param reviewFile Имя файла статистики.
+ * @param searchFileExists Флаг существования файла поиска (выходной параметр).
+ * @param reviewFileExists Флаг существования файла статистики (выходной параметр).
+ */
+void ResultPage::checkExistingFiles(const QString &path,
+                                    const std::string &searchFile,
+                                    const std::string &reviewFile,
+                                    bool &searchFileExists,
+                                    bool &reviewFileExists) {
+  QString searchFilePath = path + "/" + QString::fromStdString(searchFile);
+  QString reviewFilePath = path + "/" + QString::fromStdString(reviewFile);
+
+  searchFileExists = QFile::exists(searchFilePath);
+  reviewFileExists = QFile::exists(reviewFilePath);
+}
+
+/**
+ * @brief Показывает предупреждение о перезаписи существующих файлов.
+ * @param searchFileExists Флаг существования файла поиска.
+ * @param reviewFileExists Флаг существования файла статистики.
+ * @return true, если пользователь подтвердил перезапись, иначе false.
+ */
+bool ResultPage::showOverwriteWarning(bool searchFileExists,
+                                      bool reviewFileExists) {
+  const std::string SEARCH_FILE = "list.html";
+  const std::string REVIEW_FILE = "statistics.html";
+
+  QMessageBox warningMsgBox(this);
+  warningMsgBox.setWindowTitle("Предупреждение");
+  QString warningText = "В выбранной директории уже существуют файлы:\n";
+  if (searchFileExists) {
+    warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
+  }
+  if (reviewFileExists) {
+    warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
+  }
+  warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
+  warningMsgBox.setText(warningText);
+  warningMsgBox.setIcon(QMessageBox::Warning);
+  QPushButton *overwriteButton =
+      warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
+  warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
+  warningMsgBox.exec();
+
+  return warningMsgBox.clickedButton() == overwriteButton;
+}
+
+/**
+ * @brief Показывает результат сохранения файлов.
+ * @param path Путь сохранения.
+ * @param searchFileExists Флаг существования файла поиска после сохранения.
+ * @param reviewFileExists Флаг существования файла статистики после сохранения.
+ * @return true, если сохранение успешно, иначе false.
+ */
+bool ResultPage::showSaveResult(const QString &path,
+                                bool searchFileExists,
+                                bool reviewFileExists) {
+  const std::string SEARCH_FILE = "list.html";
+  const std::string REVIEW_FILE = "statistics.html";
+
+  if (searchFileExists && reviewFileExists) {
+    QMessageBox::information(
+        this, "Сохранение",
+        "Результаты успешно сохранены в:\n" + path + "\n" + "- " +
+            QString::fromStdString(SEARCH_FILE) + "\n" + "- " +
+            QString::fromStdString(REVIEW_FILE) + "\n");
+    return true;
+  } else {
+    QString errorMsg = "Ошибка сохранения!\n";
+    if (!searchFileExists) {
+      errorMsg += "Не удалось сохранить файл: " +
+                  QString::fromStdString(SEARCH_FILE) + "\n";
+    }
+    if (!reviewFileExists) {
+      errorMsg += "Не удалось сохранить файл: " +
+                  QString::fromStdString(REVIEW_FILE) + "\n";
+    }
+    QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
+    return false;
+  }
+}
+
+/**
+ * @brief Конструктор класса ResultPage.
+ * @param parent Указатель на родительский виджет.
+ */
+ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
+  setWindowTitle("Анализ предложения");
+  resize(1200, 400);
+
+  // Создаем центральный виджет и главный layout
+  QWidget *centralWidget = new QWidget(this);
+  QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
+  mainLayout->setContentsMargins(0, 0, 0, 0);
+  mainLayout->setSpacing(10);
+  setCentralWidget(centralWidget);
+
+  // Левая часть: текстовое поле с разметкой
+  leftWidget = new QWidget(centralWidget);
+  leftWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
+  leftLayout->setContentsMargins(10, 10, 10, 10);
+  leftLayout->setSpacing(10);
+  initLeftPanel(leftLayout);
+
+  // Правая часть: чекбоксы и лейблы с количеством
+  rightWidget = new QWidget(centralWidget);
+  rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+  rightWidget->setFixedWidth(410);
+
+  QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
+  rightLayout->setContentsMargins(15, 15, 15, 15);
+  rightLayout->setSpacing(12);
+  rightLayout->setAlignment(Qt::AlignTop);
+
+  initRightPanel(rightLayout);
+  initStatsPanel(rightLayout);
 
   // Создаем инструкцию
   QLabel *instructionLabel =
@@ -197,7 +392,6 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
   instructionLabel->setWordWrap(true);
 
   rightLayout->addWidget(instructionLabel);
-
   rightLayout->addStretch();
 
   mainLayout->addWidget(leftWidget, 1);
@@ -261,22 +455,8 @@ void ResultPage::SaveClicked() {
 
   if (!path.isEmpty()) {
     // Проверка на наличие кириллицы в пути
-    QRegularExpression cyrillicPattern("[\u0400-\u04FF]");
-    if (cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch()) {
-      QMessageBox::warning(
-          this, "Предупреждение",
-          "Путь к директории содержит кириллические символы:\n" + path +
-              "\n\nЭто может вызвать проблемы с сохранением файлов.");
-
-      QMessageBox msgBox(this);
-      msgBox.setWindowTitle("Подтверждение");
-      msgBox.setText("Вы действительно хотите продолжить сохранение?");
-      msgBox.setIcon(QMessageBox::Question);
-      QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
-      QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
-      msgBox.exec();
-
-      if (msgBox.clickedButton() != yesButton) {
+    if (pathContainsCyrillic(path)) {
+      if (!showCyrillicWarning(path)) {
         return;
       }
     }
@@ -286,33 +466,12 @@ void ResultPage::SaveClicked() {
     const std::string SEARCH_FILE = "list.html";
     const std::string REVIEW_FILE = "statistics.html";
 
-    QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
-    QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
-
-    // Проверяем, существуют ли уже файлы с таким именем
-    bool searchFileExists = QFile::exists(searchFilePath);
-    bool reviewFileExists = QFile::exists(reviewFilePath);
+    bool searchFileExists, reviewFileExists;
+    checkExistingFiles(path, SEARCH_FILE, REVIEW_FILE, searchFileExists,
+                       reviewFileExists);
 
     if (searchFileExists || reviewFileExists) {
-      QMessageBox warningMsgBox(this);
-      warningMsgBox.setWindowTitle("Предупреждение");
-      QString warningText = "В выбранной директории уже существуют файлы:\n";
-      if (searchFileExists) {
-        warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
-      }
-      if (reviewFileExists) {
-        warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
-      }
-      warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
-      warningMsgBox.setText(warningText);
-      warningMsgBox.setIcon(QMessageBox::Warning);
-      QPushButton *overwriteButton =
-          warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
-      QPushButton *cancelButton =
-          warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
-      warningMsgBox.exec();
-
-      if (warningMsgBox.clickedButton() != overwriteButton) {
+      if (!showOverwriteWarning(searchFileExists, reviewFileExists)) {
         return; // Пользователь отменил сохранение
       }
     }
@@ -321,29 +480,13 @@ void ResultPage::SaveClicked() {
     saveAnalysis(stdPath, search_items, stats);
 
     // Проверка, что файлы действительно сохранились
-    bool searchFileExistsAfter = QFile::exists(searchFilePath);
-    bool reviewFileExistsAfter = QFile::exists(reviewFilePath);
+    bool searchFileExistsAfter = QFile::exists(
+        path + "/" + QString::fromStdString(SEARCH_FILE));
+    bool reviewFileExistsAfter = QFile::exists(
+        path + "/" + QString::fromStdString(REVIEW_FILE));
 
-    if (searchFileExistsAfter && reviewFileExistsAfter) {
-      QMessageBox::information(
-          this, "Сохранение",
-          "Результаты успешно сохранены в:\n" + path + "\n" + "- " +
-              QString::fromStdString(SEARCH_FILE) + "\n" + "- " +
-              QString::fromStdString(REVIEW_FILE) + "\n");
-      isSaved = true;
-    } else {
-      QString errorMsg = "Ошибка сохранения!\n";
-      if (!searchFileExistsAfter) {
-        errorMsg += "Не удалось сохранить файл: " +
-                    QString::fromStdString(SEARCH_FILE) + "\n";
-      }
-      if (!reviewFileExistsAfter) {
-        errorMsg += "Не удалось сохранить файл: " +
-                    QString::fromStdString(REVIEW_FILE) + "\n";
-      }
-      QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
-      isSaved = false;
-    }
+    isSaved = showSaveResult(path, searchFileExistsAfter,
+                             reviewFileExistsAfter);
   }
 }
 
@@ -477,27 +620,7 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
   }
 
   // Проходим по каждому предложению для сбора статистики (parts)
-  for (const SentenceResult &sentence : m_results) {
-    for (size_t i = 0; i < sentence.entities.size(); ++i) {
-      const std::string &type = sentence.entities[i].type_ru;
-      // const std::string &sentence_part = sentence.entities[i].text;
-      // QString qWord = QString::fromStdString(sentence_part);
-
-      if (type == "подлежащее") {
-        parts.subject++;
-      } else if (type == "сказуемое") {
-        parts.predicate++;
-      } else if (type == "дополнение") {
-        parts.object++;
-      } else if (type == "определение") {
-        parts.attribute++;
-      } else if (type == "обстоятельство") {
-        parts.adverbial++;
-      } else {
-        parts.other++;
-      }
-    }
-  }
+  countSentenceParts(m_results, parts);
 
   if (widgetText) {
     // Передаём заполненный вектор в виджет для разметки

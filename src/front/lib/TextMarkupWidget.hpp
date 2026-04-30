@@ -2,6 +2,8 @@
 #define TEXTMARKUPWIDGET_H
 
 #include "../../back/bert_onnx_inference.hpp"
+#include "../../back/unistring.hpp"
+
 #include <QLabel>
 #include <QLayout>
 #include <QMap>
@@ -28,11 +30,11 @@ public:
    */
   explicit TextMarkupWidget(QWidget *parent = nullptr);
 
-    /**
-     * @brief Устанавливает вектор с данными для отображения.
-     * @param results Вектор с данными (текст предложения, слова и роли).
-     */
-    void setMarkupText(std::vector<SentenceResult> &results);
+  /**
+   * @brief Устанавливает вектор с данными для отображения.
+   * @param results Вектор с данными (текст предложения, слова и роли).
+   */
+  void setMarkupText(std::vector<SentenceResult> &results);
 
   /**
    * @brief Устанавливает цвет текста слов.
@@ -90,8 +92,77 @@ private:
    */
   void updateHighlighting();
 
-  QString m_wordColor;              // Цвет текста слов.
-  QString m_labelColor;             // Цвет подписей (ролей предложения).
+  /**
+   * @brief Создает виджет для знака препинания или другого одиночного символа.
+   * @param charStr Строка UTF-8 с символом.
+   * @param containerHeight Высота контейнера.
+   * @return Указатель на созданный виджет.
+   */
+  QWidget *createPunctuationWidget(const std::string &charStr,
+                                   int containerHeight);
+
+  /**
+   * @brief Создает виджет для слова с подписью члена предложения.
+   * @param entityText Текст слова.
+   * @param shortRole Краткая роль члена предложения.
+   * @param fullRole Полная роль члена предложения (для tooltip).
+   * @param containerHeight Высота контейнера.
+   * @return Указатель на созданный виджет.
+   */
+  QWidget *createWordWidget(const QString &entityText, const QString &shortRole,
+                            const QString &fullRole, int containerHeight);
+
+  /**
+   * @brief Обрабатывает промежуток текста между сущностями.
+   * @param uniGap Подстрока Unistring с текстом промежутка.
+   * @param containerHeight Высота контейнера.
+   */
+  void processGap(const utf8::Unistring &uniGap, int containerHeight);
+
+  /**
+   * @brief Обрабатывает хвост строки после последней сущности.
+   * @param uniTail Подстрока Unistring с текстом хвоста.
+   * @param containerHeight Высота контейнера.
+   */
+  void processTail(const utf8::Unistring &uniTail, int containerHeight);
+
+  /**
+   * @brief Очищает текущий layout виджета.
+   */
+  void clearLayout();
+
+  /**
+   * @brief Вычисляет высоту контейнера для слов и подписей.
+   * @return Высота контейнера в пикселях.
+   */
+  int calculateContainerHeight();
+
+  /**
+   * @brief Создает мапу соответствия полных и кратких ролей.
+   * @return Мапа ролей.
+   */
+  QMap<QString, QString> createRoleMap();
+
+  /**
+   * @brief Преобразует байтовое смещение в символьный индекс.
+   * @param bytePos Байтовое смещение.
+   * @param byteOffsets Вектор смещений байтов.
+   * @return Символьный индекс.
+   */
+  size_t byteToCharIndex(size_t bytePos,
+                         const std::vector<size_t> &byteOffsets);
+
+  /**
+   * @brief Обрабатывает одно предложение с сущностями.
+   * @param sentence Предложение с сущностями.
+   * @param containerHeight Высота контейнера.
+   * @param roleMap Мапа ролей.
+   */
+  void processSentence(const SentenceResult &sentence, int containerHeight,
+                       const QMap<QString, QString> &roleMap);
+
+  QString m_wordColor;  // Цвет текста слов.
+  QString m_labelColor; // Цвет подписей (ролей предложения).
 
   QScrollArea *m_scrollArea; // Область прокрутки для контента.
   QWidget *m_container;      // Контейнер для элементов компоновки.

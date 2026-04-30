@@ -53,6 +53,18 @@ public:
    */
   void refreshDisplay();
 
+  /**
+   * @brief Структура для хранения частей предложения.
+   */
+  struct SentenceParts {
+    int subject = 0;   // Подлежащие
+    int predicate = 0; // Сказуемые
+    int object = 0;    // Дополнения
+    int attribute = 0; // Определения
+    int adverbial = 0; // Обстоятельства
+    int other = 0;     // Другие части
+  };
+
 signals:
   /**
    * @brief Сигнал, испускаемый при запросе поиска.
@@ -73,9 +85,9 @@ private slots:
   void onAnalyzeClicked();
 
   /**
-  * @brief Слот, обрабатывающий нажатие кнопки Сохранить.
-  */
- void SaveClicked();
+   * @brief Слот, обрабатывающий нажатие кнопки Сохранить.
+   */
+  void SaveClicked();
 
   /**
    * @brief Слот, обрабатывающий выбор чекбокса
@@ -96,7 +108,7 @@ public:
    * @param items Вектор элементов для сохранения в файл.
    */
   void setSearchItems(const std::vector<SearchItem> &items);
-  //std::vector<SentenceResult> makeData();
+  // std::vector<SentenceResult> makeData();
 
   /**
    * @brief Обновляет данные в разделе статистики
@@ -108,6 +120,104 @@ public:
    * @param statistics Структура с данными статистики.
    */
   void setGloabalStats(const GlobalStats stats);
+
+private:
+  /**
+   * @brief Инициализирует левую часть интерфейса с текстовым полем и кнопками.
+   * @param leftLayout Layout для размещения элементов.
+   */
+  void initLeftPanel(QVBoxLayout *leftLayout);
+
+  /**
+   * @brief Создает чекбокс для отображения члена предложения.
+   * @param parent Родительский виджет.
+   * @param name Название члена предложения.
+   * @param role Роль члена предложения.
+   * @param index Индекс чекбокса в массиве.
+   * @return Указатель на созданный чекбокс.
+   */
+  QCheckBox *createPartCheckbox(QWidget *parent, const QString &name,
+                                const QString &role, int index);
+
+  /**
+   * @brief Инициализирует правую панель с чекбоксами членов предложения.
+   * @param rightLayout Layout для размещения элементов.
+   */
+  void initRightPanel(QVBoxLayout *rightLayout);
+
+  /** brief Создает и инициализи
+   *param parent Родительский виджет
+   *return Указатель на созданный layout статистики.
+   */
+  QVBoxLayout *createGeneralStatsWidget(QWidget *parent);
+
+  /**
+   * @brief Создает виджет популярных членов предложения.
+   * @param parent Родительский виджет.
+   * @return Указатель на созданный виджет.
+   */
+  QWidget *createPopularPartsWidget(QWidget *parent);
+
+  /**
+   * @brief Инициализирует панель статистики.
+   * @param rightLayout Layout правой панели для добавления статистики.
+   */
+  void initStatsPanel(QVBoxLayout *rightLayout);
+
+  /**
+   * @brief Подсчитывает количество членов предложения по типам.
+   * @param results Результаты анализа предложений.
+   * @param parts Структура для хранения подсчитанных значений.
+   */
+  void countSentenceParts(const std::vector<SentenceResult> &results,
+                          SentenceParts &parts);
+
+  /**
+   * @brief Проверяет наличие кириллических символов в пути.
+   * @param path Путь для проверки.
+   * @return true, если путь содержит кириллицу, иначе false.
+   */
+  bool pathContainsCyrillic(const QString &path);
+
+  /**
+   * @brief Показывает предупреждение о кириллических символах в пути.
+   * @param path Путь с кириллицей.
+   * @return true, если пользователь подтвердил продолжение, иначе false.
+   */
+  bool showCyrillicWarning(const QString &path);
+
+  /**
+   * @brief Проверяет существование файлов для сохранения.
+   * @param path Путь к директории.
+   * @param searchFile Имя файла поиска.
+   * @param reviewFile Имя файла статистики.
+   * @param searchFileExists Флаг существования файла поиска (выходной
+   * параметр).
+   * @param reviewFileExists Флаг существования файла статистики (выходной
+   * параметр).
+   */
+  void checkExistingFiles(const QString &path, const std::string &searchFile,
+                          const std::string &reviewFile, bool &searchFileExists,
+                          bool &reviewFileExists);
+
+  /**
+   * @brief Показывает предупреждение о перезаписи существующих файлов.
+   * @param searchFileExists Флаг существования файла поиска.
+   * @param reviewFileExists Флаг существования файла статистики.
+   * @return true, если пользователь подтвердил перезапись, иначе false.
+   */
+  bool showOverwriteWarning(bool searchFileExists, bool reviewFileExists);
+
+  /**
+   * @brief Показывает результат сохранения файлов.
+   * @param path Путь сохранения.
+   * @param searchFileExists Флаг существования файла поиска после сохранения.
+   * @param reviewFileExists Флаг существования файла статистики после
+   * сохранения.
+   * @return true, если сохранение успешно, иначе false.
+   */
+  bool showSaveResult(const QString &path, bool searchFileExists,
+                      bool reviewFileExists);
 
 private:
   TextMarkupWidget *widgetText;
@@ -127,17 +237,7 @@ private:
 
   std::vector<SearchItem> search_items;
 
-  /**
-   * @brief Структура для хранения частей предложения.
-   */
-  struct SentenceParts {
-      int subject = 0;   // Подлежащие
-      int predicate = 0; // Сказуемые
-      int object = 0;    // Дополнения
-      int attribute = 0; // Определения
-      int adverbial = 0; // Обстоятельства
-      int other = 0;     // Другие части
-  } parts;
+  SentenceParts parts;
 
   bool isSaved = false;
 

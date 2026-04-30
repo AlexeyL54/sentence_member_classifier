@@ -1,0 +1,154 @@
+[
+  {
+    "tokens": [ "Как", "сообщил", "Герасимов", "российская", "армия", "сейчас", "ведет", "наступление", "по", "всем", "направлениям" ],
+    "tags": [ "O", "B-PREDICATE", "B-SUBJECT", "B-DEFINITION", "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "За", "последние", "два", "месяца", "она", "установила", "контроль", "над", "множеством", "населенных", "пунктов", "и", "полностью", "завершила", "освобождение", "ЛНР" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "B-DEFINITION", "I-ADDITION", "O", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Начальник", "Генштаба", "проверил", "ход", "выполнения", "боевых", "задач", "соединениями", "и", "воинскими", "частями", "Южной", "группировки" ],
+    "tags": [ "B-SUBJECT", "I-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "B-DEFINITION", "I-ADDITION", "B-ADDITION", "O", "B-DEFINITION", "B-ADDITION", "B-DEFINITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Северная", "группировка", "продолжает", "создавать", "полосу", "безопасности", "в", "Сумской", "и", "Харьковской", "областях", "одновременно", "наступая", "на", "нескольких", "направлениях" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "B-DEFINITION", "O", "B-DEFINITION", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Дальневосточную", "ипотеку", "распространят", "на", "новые", "категории", "россиян" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Канцлер", "Германии", "решил", "собрать", "Совет", "национальной", "безопасности", "чтобы", "обсудить", "дефицит", "топлива" ],
+    "tags": [ "B-SUBJECT", "I-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "I-ADDITION", "I-ADDITION", "O", "B-PREDICATE", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "В", "Волгоградской", "области", "нашли", "тела", "троих", "пропавших", "рыбаков", "четвертого", "ищут" ],
+    "tags": [ "B-ADVERBIAL", "B-DEFINITION", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "B-DEFINITION", "B-ADDITION", "B-ADDITION", "B-PREDICATE" ]
+  },
+  {
+    "tokens": [ "Заявление", "о", "пропаже", "людей", "поступило", "в", "дежурную", "часть", "полиции", "накануне" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "I-ADDITION", "I-ADDITION", "B-PREDICATE", "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-ADDITION", "B-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Четверо", "местных", "жителей", "ушли", "на", "рыбалку", "в", "район", "хутора", "Громки", "и", "возвращаясь", "на", "лодке", "домой", "перестали", "выходить", "на", "связь" ],
+    "tags": [ "B-SUBJECT", "B-DEFINITION", "B-ADDITION", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "O", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "I-PREDICATE", "I-PREDICATE" ]
+  },
+  {
+    "tokens": [ "В", "Екатеринбурге", "из-за", "атаки", "БПЛА", "поврежден", "жилой", "дом", "есть", "пострадавшие" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "B-PREDICATE", "B-DEFINITION", "B-ADDITION", "B-PREDICATE", "B-SUBJECT" ]
+  },
+  {
+    "tokens": [ "Зафиксировано", "шесть", "обращений", "в", "службу", "скорой", "помощи" ],
+    "tags": [ "B-PREDICATE", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Пациентов", "в", "тяжелом", "состоянии", "нет" ],
+    "tags": [ "B-ADDITION", "B-ADDITION", "B-DEFINITION", "I-ADDITION", "B-PREDICATE" ]
+  },
+  {
+    "tokens": [ "В", "основном", "диагностировано", "отравление", "продуктами", "горения", "легкой", "степени" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "I-ADDITION", "B-DEFINITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Штурмовики", "группировки", "Север", "заняли", "опорный", "пункт", "ВСУ", "в", "Харьковской", "области" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "B-DEFINITION", "B-ADDITION", "B-ADDITION", "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Основная", "задача", "заключалась", "в", "зачистке", "окопов", "и", "передаче", "их", "основной", "группе", "которая", "закрепится", "и", "улучшит", "позиции", "в", "случае", "атак", "со", "стороны", "противника" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "I-ADDITION", "O", "B-ADDITION", "I-ADDITION", "B-DEFINITION", "B-ADDITION", "B-SUBJECT", "B-PREDICATE", "O", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Перед", "штурмом", "военные", "отрабатывали", "элементы", "боевой", "работы", "по", "данным", "разведки" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Они", "заранее", "знали", "карту", "местности", "и", "маршруты", "украинских", "боевиков", "предварительно", "продумали", "их", "огневые", "точки", "и", "обговорили", "план", "действий", "с", "командиром" ],
+    "tags": [ "B-SUBJECT", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "O", "B-ADDITION", "B-DEFINITION", "I-ADDITION", "B-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-ADDITION", "O", "B-PREDICATE", "B-ADDITION", "I-ADDITION", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Днем", "16", "марта", "в", "Удомле", "на", "проспекте", "Курчатова", "автомобиль", "Лада", "Веста", "сбил", "32-летнего", "мужчину" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "I-SUBJECT", "I-SUBJECT", "B-PREDICATE", "B-DEFINITION", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "16-летняя", "автомобилистка", "без", "прав", "устроила", "ДТП", "с", "пострадавшими", "под", "Удомлей" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "В", "Удомле", "задержали", "грабителя", "похитившего", "хлеб", "и", "приправы" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-ADDITION", "B-DEFINITION", "I-DEFINITION", "I-DEFINITION", "I-DEFINITION" ]
+  },
+  {
+    "tokens": [ "За", "гибель", "лося", "от", "удара", "тока", "в", "Удомельском", "районе", "виновный", "заплатит", "штраф" ],
+    "tags": [ "B-ADDITION", "I-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "За", "буллинг", "соседки", "по", "дачному", "участку", "житель", "Удомли", "заплатит", "штраф" ],
+    "tags": [ "B-ADDITION", "I-ADDITION", "I-ADDITION", "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-SUBJECT", "I-SUBJECT", "B-PREDICATE", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Водитель", "без", "прав", "из", "Удомли", "пытался", "свалить", "всю", "вину", "на", "друга" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "I-ADDITION", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Московский", "подрядчик", "не", "смог", "построить", "забор", "вокруг", "школы", "в", "Удомле" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "I-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "В", "Тверской", "области", "водитель", "сжег", "лесовоз", "пытаясь", "согреться" ],
+    "tags": [ "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Калининская", "АЭС", "выпустила", "в", "2025", "году", "в", "водоемы", "свыше", "двух", "тонн", "рыбы" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADVERBIAL", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "В", "Удомельском", "районе", "от", "укусов", "бешеной", "собаки", "пострадали", "взрослый", "и", "двое", "детей" ],
+    "tags": [ "B-ADVERBIAL", "B-DEFINITION", "B-ADVERBIAL", "B-ADDITION", "I-ADDITION", "B-DEFINITION", "I-ADDITION", "B-PREDICATE", "B-ADDITION", "O", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Около", "миллиона", "рублей", "задолжала", "своему", "сыну", "алиментщица", "из", "Удомли" ],
+    "tags": [ "B-ADVERBIAL", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "B-DEFINITION", "B-ADDITION", "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Жительница", "Удомли", "перепутав", "автостоянки", "нахамила", "не", "тому", "мужчине" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "B-DEFINITION", "I-DEFINITION", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "В", "Тверской", "области", "бабушка", "распевала", "на", "все", "болото", "чтобы", "ее", "услышали", "и", "нашли" ],
+    "tags": [ "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL", "I-ADVERBIAL", "O", "B-ADDITION", "B-PREDICATE", "O", "B-PREDICATE" ]
+  },
+  {
+    "tokens": [ "Уроженец", "Удомли", "избил", "друга", "ножкой", "от", "стула" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Суд", "отправил", "драчуна", "в", "колонию", "строгого", "режима" ],
+    "tags": [ "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-DEFINITION", "B-ADDITION" ]
+  },
+  {
+    "tokens": [ "Школьник", "из", "Брянска", "хотел", "купить", "игровой", "валюты", "и", "отдал", "мошенникам", "160", "тысяч", "рублей" ],
+    "tags": [ "B-SUBJECT", "B-ADVERBIAL", "I-ADVERBIAL", "B-PREDICATE", "I-PREDICATE", "B-DEFINITION", "B-ADDITION", "O", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "В", "Удомле", "педагог", "заплатит", "штраф", "за", "хамство", "в", "адрес", "дедушки", "ученика" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "I-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Жительница", "Удомли", "лишилась", "двух", "автомобилей", "из-за", "тяги", "к", "алкоголю" ],
+    "tags": [ "B-SUBJECT", "B-ADDITION", "B-PREDICATE", "B-ADDITION", "B-ADDITION", "B-ADVERBIAL", "I-ADVERBIAL", "B-ADDITION", "I-ADDITION" ]
+  },
+  {
+    "tokens": [ "Только", "месяц", "житель", "Удомли", "успел", "поездить", "по", "фальшивым", "правам" ],
+    "tags": [ "B-ADVERBIAL", "I-ADVERBIAL", "B-SUBJECT", "B-ADDITION", "B-PREDICATE", "I-PREDICATE", "B-ADVERBIAL", "B-DEFINITION", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Супругам", "погибших", "бойцов", "СВО", "дали", "право", "бесплатно", "поступить", "в", "ВУЗ" ],
+    "tags": [ "B-ADDITION", "B-DEFINITION", "B-ADDITION", "I-ADDITION", "B-PREDICATE", "I-PREDICATE", "B-ADVERBIAL", "I-PREDICATE", "B-ADVERBIAL", "I-ADVERBIAL" ]
+  },
+  {
+    "tokens": [ "Европейские", "авиакомпании", "начали", "отменять", "рейсы", "и", "сокращать", "расписания" ],
+    "tags": [ "B-DEFINITION", "B-SUBJECT", "B-PREDICATE", "I-PREDICATE", "B-ADDITION", "O", "I-PREDICATE", "B-ADDITION" ]
+  }
+]
