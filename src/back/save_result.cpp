@@ -26,7 +26,7 @@ const std::string SEARCH_FILE = "list.html";
 /**
  * @brief Имя файла со статистикой
  */
-const std::string REVIEW_FILE = "statistics.html";
+const std::string STATS_FILE = "statistics.html";
 
 /**
  * @brief Имя директории с шаблонами
@@ -53,37 +53,41 @@ std::string loadTemplateFile(const std::string &filename) {
 }
 
 /**
- * @brief Копирует файл ресурсов (CSS/JS) в выходную директорию
+ * @brief Загружает CSS файл в виде строки
  *
- * @param source_path Путь к исходному файлу
- * @param dest_path Путь к целевому файлу
+ * @param filename Имя CSS файла
+ * @return std::string Содержимое CSS
  */
-void copyResourceFile(const std::string &source_path,
-                      const std::string &dest_path) {
-  std::ifstream src(source_path, std::ios::binary);
-  std::ofstream dst(dest_path, std::ios::binary);
-
-  if (!src.is_open() || !dst.is_open()) {
-    std::cerr << "Ошибка: не удалось скопировать файл ресурсов: " << source_path
+std::string loadCSS(const std::string &filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) {
+    std::cerr << "Ошибка: не удалось открыть CSS файл: " << filename
               << std::endl;
-    return;
+    return "";
   }
 
-  dst << src.rdbuf();
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
 }
 
 /**
- * @brief Копирует все необходимые ресурсы (CSS, JS) в выходную директорию
+ * @brief Загружает JS файл в виде строки
  *
- * @param output_dir Директория для сохранения ресурсов
+ * @param filename Имя JS файла
+ * @return std::string Содержимое JS
  */
-void copyResources(const std::string &output_dir) {
-  copyResourceFile(TEMPLATE_DIR + "search_styles.css",
-                   output_dir + "/search_styles.css");
-  copyResourceFile(TEMPLATE_DIR + "stats_styles.css",
-                   output_dir + "/stats_styles.css");
-  copyResourceFile(TEMPLATE_DIR + "search_script.js",
-                   output_dir + "/search_script.js");
+std::string loadJS(const std::string &filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) {
+    std::cerr << "Ошибка: не удалось открыть JS файл: " << filename
+              << std::endl;
+    return "";
+  }
+
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
 }
 
 /**
@@ -92,12 +96,34 @@ void copyResources(const std::string &output_dir) {
  * @param items Вектор элементов поиска
  * @return std::string HTML-разметка элементов
  */
+/**
+ * @brief Генерирует HTML-контент для элементов поиска
+ *
+ * @param items Вектор элементов поиска
+ * @return std::string HTML-разметка элементов
+ */
 std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
   std::stringstream html;
+  int orderIndex = 0;
 
   for (const auto &item : items) {
-    html << "<div class='item' data-text='" << item.text << "' data-type='"
-         << item.type << "'>\n";
+    // Экранируем кавычки для безопасного вставки в атрибуты
+    std::string escapedText = item.text;
+    std::string escapedType = item.type;
+
+    size_t pos = 0;
+    while ((pos = escapedText.find('"', pos)) != std::string::npos) {
+      escapedText.replace(pos, 1, "&quot;");
+      pos += 6;
+    }
+
+    while ((pos = escapedType.find('"', pos)) != std::string::npos) {
+      escapedType.replace(pos, 1, "&quot;");
+      pos += 6;
+    }
+
+    html << "<div class='item' data-text='" << escapedText << "' data-type='"
+         << escapedType << "' data-original-order='" << orderIndex++ << "'>\n";
     html << "    <div class='item-header'>\n";
     html << "        <span class='text'>" << item.text << "</span>\n";
     html << "        <span class='type'>" << item.type << "</span>\n";
@@ -105,7 +131,16 @@ std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
     html << "    </div>\n";
 
     for (const auto &sentence : item.sentences) {
-      html << "    <div class='sentence'>" << sentence.second << "</div>\n";
+      std::string sentText = sentence.second;
+      // Экранируем для безопасного вставки
+      std::string escapedSent = sentText;
+      pos = 0;
+      while ((pos = escapedSent.find('"', pos)) != std::string::npos) {
+        escapedSent.replace(pos, 1, "&quot;");
+        pos += 6;
+      }
+      html << "    <div class='sentence' data-original=\"" << escapedSent
+           << "\">" << sentText << "</div>\n";
     }
     html << "</div>\n";
   }
@@ -146,8 +181,17 @@ std::string generateStatsSummaryHTML(const GlobalStats &stats) {
  * @param stats Глобальная статистика
  * @return std::string HTML-разметка популярных слов
  */
+/**
+ * @brief Генерирует HTML-контент для популярных слов
+ *
+ * @param stats Глобальная статистика
+ * @return std::string HTML-разметка популярных слов
+ */
 std::string generateTopItemsHTML(const GlobalStats &stats) {
   std::stringstream html;
+
+  html << "<h3>Самые популярные члены предложения</h3>\n";
+  html << "<div class='top-grid'>\n";
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Подлежащее</div>\n";
@@ -185,6 +229,16 @@ std::string generateTopItemsHTML(const GlobalStats &stats) {
        << " раз(а)</div>\n";
   html << "</div>\n";
 
+  // Добавляем категорию "Другое"
+  html << "<div class='top-item'>\n";
+  html << "    <div class='part'>Другое</div>\n";
+  html << "    <div class='word'>«" << stats.top_other.first << "»</div>\n";
+  html << "    <div class='count'>" << stats.top_other.second
+       << " раз(а)</div>\n";
+  html << "</div>\n";
+
+  html << "</div>\n";
+
   return html.str();
 }
 
@@ -194,59 +248,88 @@ std::string generateTopItemsHTML(const GlobalStats &stats) {
  * @param stats Глобальная статистика
  * @return std::string JavaScript-код для инициализации графика
  */
+/**
+ * @brief Генерирует JavaScript-код для графика статистики
+ *
+ * @param stats Глобальная статистика
+ * @return std::string JavaScript-код для инициализации графика
+ */
+/**
+ * @brief Генерирует JavaScript-код для графика статистики
+ *
+ * @param stats Глобальная статистика
+ * @return std::string JavaScript-код для инициализации графика
+ */
 std::string generateChartScript(const GlobalStats &stats) {
   std::stringstream script;
 
-  script << "    const membersCtx = "
+  script << "    document.addEventListener('DOMContentLoaded', function() {\n";
+  script << "        var membersCtx = "
             "document.getElementById('membersChart').getContext('2d');\n";
-  script << "    new Chart(membersCtx, {\n";
-  script << "        type: 'pie',\n";
-  script << "        data: {\n";
-  script << "            labels: [\n";
-  script << "                'Подлежащие (" << stats.subjects_total << ")',\n";
-  script << "                'Сказуемые (" << stats.predicates_total << ")',\n";
-  script << "                'Определения (" << stats.definitions_total
+  script << "        new Chart(membersCtx, {\n";
+  script << "            type: 'pie',\n";
+  script << "            data: {\n";
+  script << "                labels: [\n";
+  script << "                    'Подлежащие (" << stats.subjects_total
          << ")',\n";
-  script << "                'Дополнения (" << stats.additions_total << ")',\n";
-  script << "                'Обстоятельства (" << stats.adverbials_total
-         << ")'\n";
-  script << "            ],\n";
-  script << "            datasets: [{\n";
-  script << "                data: [" << stats.subjects_total << ", "
+  script << "                    'Сказуемые (" << stats.predicates_total
+         << ")',\n";
+  script << "                    'Определения (" << stats.definitions_total
+         << ")',\n";
+  script << "                    'Дополнения (" << stats.additions_total
+         << ")',\n";
+  script << "                    'Обстоятельства (" << stats.adverbials_total
+         << ")',\n";
+  script << "                    'Другое (" << stats.others_total << ")'\n";
+  script << "                ],\n";
+  script << "                datasets: [{\n";
+  script << "                    data: [" << stats.subjects_total << ", "
          << stats.predicates_total << ", " << stats.definitions_total << ", "
-         << stats.additions_total << ", " << stats.adverbials_total << "],\n";
-  script << "                backgroundColor: ['#4ECDC4', '#45B7D1', "
-            "'#96CEB4', '#FFEAA7', '#FF6B6B'],\n";
-  script << "                borderWidth: 1,\n";
-  script << "                borderColor: '#fff'\n";
-  script << "            }]\n";
-  script << "        },\n";
-  script << "        options: {\n";
-  script << "            responsive: true,\n";
-  script << "            maintainAspectRatio: true,\n";
-  script << "            plugins: {\n";
-  script << "                legend: { position: 'bottom' },\n";
-  script << "                tooltip: {\n";
-  script << "                    callbacks: {\n";
-  script << "                        label: function(context) {\n";
-  script << "                            const label = context.label || '';\n";
-  script << "                            const value = context.parsed || 0;\n";
-  script << "                            const total = "
-            "context.dataset.data.reduce((a, b) => a + b, 0);\n";
-  script << "                            const percent = ((value / total) * "
+         << stats.additions_total << ", " << stats.adverbials_total << ", "
+         << stats.others_total << "],\n";
+  script << "                    backgroundColor: ['#4ECDC4', '#45B7D1', "
+            "'#96CEB4', '#FFEAA7', '#FF6B6B', '#9B59B6'],\n";
+  script << "                    borderWidth: 1,\n";
+  script << "                    borderColor: '#fff'\n";
+  script << "                }]\n";
+  script << "            },\n";
+  script << "            options: {\n";
+  script << "                responsive: true,\n";
+  script << "                maintainAspectRatio: true,\n";
+  script << "                plugins: {\n";
+  script << "                    legend: { position: 'bottom' },\n";
+  script << "                    tooltip: {\n";
+  script << "                        callbacks: {\n";
+  script << "                            label: function(context) {\n";
+  script
+      << "                                var label = context.label || '';\n";
+  script
+      << "                                var value = context.parsed || 0;\n";
+  script
+      << "                                var total = "
+         "context.dataset.data.reduce(function(a, b) { return a + b; }, 0);\n";
+  script << "                                var percent = ((value / total) * "
             "100).toFixed(1);\n";
-  script << "                            return label + ': ' + value + ' (' + "
-            "percent + '%)';\n";
+  script
+      << "                                return label + ': ' + value + ' (' + "
+         "percent + '%)';\n";
+  script << "                            }\n";
   script << "                        }\n";
   script << "                    }\n";
   script << "                }\n";
   script << "            }\n";
-  script << "        }\n";
+  script << "        });\n";
   script << "    });\n";
 
   return script.str();
 }
 
+/**
+ * @brief Сохраняет HTML-страницу с расширенным поиском
+ *
+ * @param filename Имя выходного файла
+ * @param items Вектор элементов поиска
+ */
 /**
  * @brief Сохраняет HTML-страницу с расширенным поиском
  *
@@ -262,13 +345,32 @@ void saveHTMLWithAdvancedSearch(const std::string filename,
     return;
   }
 
+  // Загружаем CSS и JS
+  std::string cssContent = loadCSS(TEMPLATE_DIR + "search_styles.css");
+  std::string jsContent = loadJS(TEMPLATE_DIR + "search_script.js");
+
+  // Вставляем CSS в head
+  std::string styleTag = "<style>\n" + cssContent + "\n</style>";
+  size_t headPos = htmlTemplate.find("</head>");
+  if (headPos != std::string::npos) {
+    htmlTemplate.insert(headPos, styleTag + "\n    ");
+  }
+
+  // Вставляем JS перед закрывающим body
+  std::string scriptTag = "<script>\n" + jsContent + "\n</script>";
+  size_t bodyPos = htmlTemplate.find("</body>");
+  if (bodyPos != std::string::npos) {
+    htmlTemplate.insert(bodyPos, scriptTag + "\n    ");
+  }
+
   std::string itemsHTML = generateSearchItemsHTML(items);
 
   // Вставляем элементы в шаблон
   size_t resultsPos = htmlTemplate.find("<div id=\"results\">");
   if (resultsPos != std::string::npos) {
     resultsPos += strlen("<div id=\"results\">");
-    htmlTemplate.insert(resultsPos, itemsHTML + "\n        ");
+    htmlTemplate.insert(resultsPos,
+                        "\n            " + itemsHTML + "\n        ");
   }
 
   std::ofstream htmlFile(filename);
@@ -287,12 +389,28 @@ void saveHTMLWithAdvancedSearch(const std::string filename,
  * @param filename Имя выходного файла
  * @param stats Глобальная статистика
  */
+/**
+ * @brief Генерирует HTML-страницу со статистикой и графиками
+ *
+ * @param filename Имя выходного файла
+ * @param stats Глобальная статистика
+ */
 void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
   std::string htmlTemplate =
       loadTemplateFile(TEMPLATE_DIR + "stats_template.html");
   if (htmlTemplate.empty()) {
     std::cerr << "Ошибка: не удалось загрузить шаблон статистики" << std::endl;
     return;
+  }
+
+  // Загружаем CSS
+  std::string cssContent = loadCSS(TEMPLATE_DIR + "stats_styles.css");
+
+  // Вставляем CSS в head
+  std::string styleTag = "<style>\n" + cssContent + "\n</style>";
+  size_t headPos = htmlTemplate.find("</head>");
+  if (headPos != std::string::npos) {
+    htmlTemplate.insert(headPos, styleTag + "\n    ");
   }
 
   std::string summaryHTML = generateStatsSummaryHTML(stats);
@@ -318,10 +436,11 @@ void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
     }
   }
 
-  // Вставляем скрипт графика
-  size_t scriptPos = htmlTemplate.find("</script>");
-  if (scriptPos != std::string::npos) {
-    htmlTemplate.insert(scriptPos, chartScript);
+  // Вставляем скрипт графика перед закрывающим body
+  std::string scriptTag = "<script>\n" + chartScript + "\n</script>";
+  size_t bodyPos = htmlTemplate.find("</body>");
+  if (bodyPos != std::string::npos) {
+    htmlTemplate.insert(bodyPos, scriptTag + "\n    ");
   }
 
   std::ofstream htmlFile(filename);
@@ -343,10 +462,7 @@ void generateHTMLCharts(const std::string filename, const GlobalStats &stats) {
  */
 void saveAnalysis(const std::string path, std::vector<SearchItem> &items,
                   GlobalStats &stats) {
-  // Копируем ресурсы (CSS, JS)
-  copyResources(path);
-
-  // Генерируем HTML страницы
+  // Генерируем HTML страницы (все ресурсы встроены)
   saveHTMLWithAdvancedSearch(path + "/" + SEARCH_FILE, items);
-  generateHTMLCharts(path + "/" + REVIEW_FILE, stats);
+  generateHTMLCharts(path + "/" + STATS_FILE, stats);
 }

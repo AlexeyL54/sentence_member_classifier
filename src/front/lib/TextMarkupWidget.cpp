@@ -1,11 +1,9 @@
 #include "TextMarkupWidget.hpp"
-#include "FlowLayout.hpp"
-// Убедитесь, что этот заголовок подключен, так как мы используем Unistring
 #include "../../back/unistring.hpp"
+#include "FlowLayout.hpp"
 #include <QFontMetrics>
 #include <QRegularExpression>
 #include <QVBoxLayout>
-#include <iostream>
 
 /**
  * @brief Конструктор класса TextMarkupWidget.
@@ -41,13 +39,6 @@ TextMarkupWidget::TextMarkupWidget(QWidget *parent)
  * @param results Вектор с данными (текст предложения, слова и роли).
  */
 void TextMarkupWidget::setMarkupText(std::vector<SentenceResult> &results) {
-  std::cout << "=== setMarkupText received " << results.size()
-            << " sentences ===" << std::endl;
-  for (size_t i = 0; i < results.size(); ++i) {
-    std::cout << "Sentence " << i << ": " << results[i].text.substr(0, 50)
-              << "..." << std::endl;
-    std::cout << "  Entities: " << results[i].entities.size() << std::endl;
-  }
   m_results = results;
   rebuild();
 }

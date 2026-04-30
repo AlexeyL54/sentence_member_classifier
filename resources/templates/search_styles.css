@@ -119,3 +119,27 @@ h1 {
     color: #333;
     text-align: center
 }
+
+.item.exact-match {
+    background: #e8f5e9;
+    border-left: 4px solid #4CAF50;
+}
+
+.item.sentence-match {
+    background: #fff8e1;
+    border-left: 4px solid #FFC107;
+}
+
+.item.no-match {
+    background: #fff;
+    border-left: 4px solid #999;
+}
+
+.item.exact-match .text {
+    color: #2E7D32;
+    font-weight: bold;
+}
+
+.item.sentence-match .text {
+    color: #F57C00;
+}

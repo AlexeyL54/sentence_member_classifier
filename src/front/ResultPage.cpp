@@ -52,8 +52,7 @@ void ResultPage::initLeftPanel(QVBoxLayout *leftLayout) {
  * @param index Индекс чекбокса в массиве.
  * @return Указатель на созданный чекбокс.
  */
-QCheckBox *ResultPage::createPartCheckbox(QWidget *parent,
-                                          const QString &name,
+QCheckBox *ResultPage::createPartCheckbox(QWidget *parent, const QString &name,
                                           const QString &role, int index) {
   QWidget *rowWidget = new QWidget(parent);
   QHBoxLayout *hLayout = new QHBoxLayout(rowWidget);
@@ -88,8 +87,7 @@ QCheckBox *ResultPage::createPartCheckbox(QWidget *parent,
   hLayout->addWidget(bars[index]);
   hLayout->addStretch();
 
-  QVBoxLayout *rightLayout =
-      qobject_cast<QVBoxLayout *>(parent->layout());
+  QVBoxLayout *rightLayout = qobject_cast<QVBoxLayout *>(parent->layout());
   if (rightLayout) {
     rightLayout->addWidget(rowWidget);
   }
@@ -236,8 +234,12 @@ void ResultPage::countSentenceParts(const std::vector<SentenceResult> &results,
  * @return true, если путь содержит кириллицу, иначе false.
  */
 bool ResultPage::pathContainsCyrillic(const QString &path) {
-  QRegularExpression cyrillicPattern("[\\u0400-\\u04FF]");
-  return cyrillicPattern.isValid() && cyrillicPattern.match(path).hasMatch();
+  for (const QChar &ch : path) {
+    if (ch.unicode() >= 0x0400 && ch.unicode() <= 0x04FF) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -268,7 +270,8 @@ bool ResultPage::showCyrillicWarning(const QString &path) {
  * @param searchFile Имя файла поиска.
  * @param reviewFile Имя файла статистики.
  * @param searchFileExists Флаг существования файла поиска (выходной параметр).
- * @param reviewFileExists Флаг существования файла статистики (выходной параметр).
+ * @param reviewFileExists Флаг существования файла статистики (выходной
+ * параметр).
  */
 void ResultPage::checkExistingFiles(const QString &path,
                                     const std::string &searchFile,
@@ -320,28 +323,29 @@ bool ResultPage::showOverwriteWarning(bool searchFileExists,
  * @param reviewFileExists Флаг существования файла статистики после сохранения.
  * @return true, если сохранение успешно, иначе false.
  */
-bool ResultPage::showSaveResult(const QString &path,
-                                bool searchFileExists,
+bool ResultPage::showSaveResult(const QString &path, bool searchFileExists,
                                 bool reviewFileExists) {
   const std::string SEARCH_FILE = "list.html";
   const std::string REVIEW_FILE = "statistics.html";
 
   if (searchFileExists && reviewFileExists) {
-    QMessageBox::information(
-        this, "Сохранение",
-        "Результаты успешно сохранены в:\n" + path + "\n" + "- " +
-            QString::fromStdString(SEARCH_FILE) + "\n" + "- " +
-            QString::fromStdString(REVIEW_FILE) + "\n");
+    QMessageBox::information(this, "Сохранение",
+                             "Результаты успешно сохранены в:\n" + path + "\n" +
+                                 "- " + QString::fromStdString(SEARCH_FILE) +
+                                 "\n" + "- " +
+                                 QString::fromStdString(REVIEW_FILE) + "\n");
     return true;
   } else {
     QString errorMsg = "Ошибка сохранения!\n";
     if (!searchFileExists) {
-      errorMsg += "Не удалось сохранить файл: " +
-                  QString::fromStdString(SEARCH_FILE) + "\n";
+      errorMsg +=
+          "Не удалось сохранить файл: " + QString::fromStdString(SEARCH_FILE) +
+          "\n";
     }
     if (!reviewFileExists) {
-      errorMsg += "Не удалось сохранить файл: " +
-                  QString::fromStdString(REVIEW_FILE) + "\n";
+      errorMsg +=
+          "Не удалось сохранить файл: " + QString::fromStdString(REVIEW_FILE) +
+          "\n";
     }
     QMessageBox::critical(this, "Ошибка сохранения", errorMsg);
     return false;
@@ -480,13 +484,13 @@ void ResultPage::SaveClicked() {
     saveAnalysis(stdPath, search_items, stats);
 
     // Проверка, что файлы действительно сохранились
-    bool searchFileExistsAfter = QFile::exists(
-        path + "/" + QString::fromStdString(SEARCH_FILE));
-    bool reviewFileExistsAfter = QFile::exists(
-        path + "/" + QString::fromStdString(REVIEW_FILE));
+    bool searchFileExistsAfter =
+        QFile::exists(path + "/" + QString::fromStdString(SEARCH_FILE));
+    bool reviewFileExistsAfter =
+        QFile::exists(path + "/" + QString::fromStdString(REVIEW_FILE));
 
-    isSaved = showSaveResult(path, searchFileExistsAfter,
-                             reviewFileExistsAfter);
+    isSaved =
+        showSaveResult(path, searchFileExistsAfter, reviewFileExistsAfter);
   }
 }
 
