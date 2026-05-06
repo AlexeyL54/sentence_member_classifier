@@ -21,6 +21,7 @@
 #include "../back/bert_onnx_inference.hpp"
 #include "../back/statistics.hpp"
 #include "lib/TextMarkupWidget.hpp"
+#include "qobject.h"
 
 /**
  * @brief Главное окно для отображения результатов анализа предложений.
@@ -220,6 +221,11 @@ private:
                       bool reviewFileExists);
 
 private:
+  const std::string SEARCH_FILE = "list.html";
+  const std::string REVIEW_FILE = "statistics.html";
+
+  QString lastOpenedDir_;
+
   TextMarkupWidget *widgetText;
   QWidget *leftWidget;
   QTextEdit *textEdit;
