@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.16)  # Повысим версию для лучшей поддержки Windows
-project(TextAnalyzer VERSION 1.0.0)
+cmake_minimum_required(VERSION 3.16) 
+project(TextAnalyzer VERSION 1.0.5)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -75,11 +75,8 @@ else()
     find_package(onnxruntime REQUIRED)
 endif()
 
-# Создание исполняемого файла
 add_executable(TextAnalyzer WIN32 ${SOURCES} ${HEADERS})
-# WIN32 означает, что это GUI-приложение (не консольное)
 
-# Подключение Qt библиотек
 target_link_libraries(TextAnalyzer
     Qt6::Core
     Qt6::Widgets
