@@ -1,5 +1,7 @@
 #include "SearchFilterCore.hpp"
 
+#include <algorithm>
+
 const QStringList SearchFilterModel::kAllMembers = {
     QStringLiteral("подлежащее"),     QStringLiteral("сказуемое"),
     QStringLiteral("дополнение"),     QStringLiteral("определение"),
@@ -18,7 +20,6 @@ SearchFilterModel::applyFilters(const QString &searchText,
 
   const QString needle = searchText.trimmed();
 
-  // Двухэтапная фильтрация: текст + член предложения
   for (const auto &item : allItems_) {
     if (!matchesText(item, needle))
       continue;
@@ -27,23 +28,25 @@ SearchFilterModel::applyFilters(const QString &searchText,
     filtered.push_back(item);
   }
 
-  sortResults(filtered, sortMode);
+  sortResults(filtered, sortMode, needle);
   return filtered;
 }
 
 bool SearchFilterModel::matchesText(const SearchItem &item,
                                     const QString &needle) {
-  // Пустой запрос пропускает все элементы
   if (needle.isEmpty())
     return true;
 
-  return QString::fromStdString(item.text).contains(needle,
-                                                    Qt::CaseInsensitive);
+  const QString wordText = QString::fromStdString(item.text);
+
+  if (wordText.compare(needle, Qt::CaseInsensitive) == 0)
+    return true;
+
+  return wordText.startsWith(needle, Qt::CaseInsensitive);
 }
 
 bool SearchFilterModel::matchesMember(const SearchItem &item,
                                       const QStringList &selectedMembers) {
-  // Пустой список — ничего не показываем (пользователь снял все галки)
   if (selectedMembers.isEmpty())
     return false;
 
@@ -51,38 +54,64 @@ bool SearchFilterModel::matchesMember(const SearchItem &item,
 }
 
 void SearchFilterModel::sortResults(std::vector<SearchItem> &results,
-                                    SortMode sortMode) {
+                                    SortMode sortMode,
+                                    const QString &searchText) {
+  const QString needle = searchText.toLower();
+
   switch (sortMode) {
   case AlphabetAsc:
-    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) {
-      return wordKey(a) < wordKey(b);
-    });
+    std::sort(results.begin(), results.end(),
+              [&needle](const auto &a, const auto &b) {
+                return compareWithExactFirst(a, b, needle, true);
+              });
     break;
 
   case AlphabetDesc:
-    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) {
-      return wordKey(a) > wordKey(b);
-    });
+    std::sort(results.begin(), results.end(),
+              [&needle](const auto &a, const auto &b) {
+                return compareWithExactFirst(a, b, needle, false);
+              });
     break;
 
   case FrequencyDesc:
-    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) {
-      if (a.amount != b.amount)
-        return a.amount > b.amount;
-      // При равной частоте — алфавитный порядок
-      return wordKey(a) < wordKey(b);
-    });
+    std::sort(results.begin(), results.end(),
+              [&needle](const auto &a, const auto &b) {
+                if (a.amount != b.amount)
+                  return a.amount > b.amount;
+                return compareWithExactFirst(a, b, needle, true);
+              });
     break;
 
   case FrequencyAsc:
-    std::sort(results.begin(), results.end(), [](const auto &a, const auto &b) {
-      if (a.amount != b.amount)
-        return a.amount < b.amount;
-      // При равной частоте — алфавитный порядок
-      return wordKey(a) < wordKey(b);
-    });
+    std::sort(results.begin(), results.end(),
+              [&needle](const auto &a, const auto &b) {
+                if (a.amount != b.amount)
+                  return a.amount < b.amount;
+                return compareWithExactFirst(a, b, needle, true);
+              });
     break;
   }
+}
+
+bool SearchFilterModel::compareWithExactFirst(const SearchItem &a,
+                                              const SearchItem &b,
+                                              const QString &needle,
+                                              bool ascending) {
+  const QString keyA = wordKey(a);
+  const QString keyB = wordKey(b);
+
+  const bool aExact = (keyA == needle);
+  const bool bExact = (keyB == needle);
+
+  if (aExact && !bExact)
+    return true;
+  if (!aExact && bExact)
+    return false;
+
+  if (ascending)
+    return keyA < keyB;
+  else
+    return keyA > keyB;
 }
 
 QString SearchFilterModel::wordKey(const SearchItem &item) {
