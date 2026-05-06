@@ -100,7 +100,6 @@ QCheckBox *ResultPage::createPartCheckbox(QWidget *parent, const QString &name,
  * @param rightLayout Layout для размещения элементов.
  */
 void ResultPage::initRightPanel(QVBoxLayout *rightLayout) {
-  // Создаем чекбоксы с полными названиями
   QStringList partNames = {"Подлежащее",  "Сказуемое",      "Дополнение",
                            "Определение", "Обстоятельство", "Другое"};
   QStringList roles = {"подл.", "сказ.", "доп.", "опр.", "обст.", "др."};
@@ -127,7 +126,6 @@ QVBoxLayout *ResultPage::createGeneralStatsWidget(QWidget *parent) {
   statsTitle->setStyleSheet("font-weight: bold; font-size: 16px;");
   statsLayout->addWidget(statsTitle);
 
-  // --- ОБЩАЯ СТАТИСТИКА ---
   labelSentences = new QLabel("Предложений: 0", parent);
   labelWords = new QLabel("Слов: 0", parent);
   labelMembers = new QLabel("Членов предложения: 0", parent);
@@ -138,7 +136,6 @@ QVBoxLayout *ResultPage::createGeneralStatsWidget(QWidget *parent) {
   labelAdverbials = new QLabel("Обстоятельств: 0", parent);
   labelOthers = new QLabel("Других: 0", parent);
 
-  // Добавляем общую статистику в layout
   statsLayout->addWidget(labelSentences);
   statsLayout->addWidget(labelWords);
   statsLayout->addWidget(labelMembers);
@@ -257,8 +254,10 @@ bool ResultPage::showCyrillicWarning(const QString &path) {
   msgBox.setWindowTitle("Подтверждение");
   msgBox.setText("Вы действительно хотите продолжить сохранение?");
   msgBox.setIcon(QMessageBox::Question);
+
   QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
   QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+
   msgBox.exec();
 
   return msgBox.clickedButton() == yesButton;
@@ -293,24 +292,25 @@ void ResultPage::checkExistingFiles(const QString &path,
  */
 bool ResultPage::showOverwriteWarning(bool searchFileExists,
                                       bool reviewFileExists) {
-  const std::string SEARCH_FILE = "list.html";
-  const std::string REVIEW_FILE = "statistics.html";
-
   QMessageBox warningMsgBox(this);
   warningMsgBox.setWindowTitle("Предупреждение");
   QString warningText = "В выбранной директории уже существуют файлы:\n";
+
   if (searchFileExists) {
     warningText += "- " + QString::fromStdString(SEARCH_FILE) + "\n";
   }
   if (reviewFileExists) {
     warningText += "- " + QString::fromStdString(REVIEW_FILE) + "\n";
   }
+
   warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
   warningMsgBox.setText(warningText);
   warningMsgBox.setIcon(QMessageBox::Warning);
+
   QPushButton *overwriteButton =
       warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
   warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
+
   warningMsgBox.exec();
 
   return warningMsgBox.clickedButton() == overwriteButton;
@@ -453,34 +453,34 @@ void ResultPage::updateChart() {
 }
 
 void ResultPage::SaveClicked() {
+  const QString initialDir =
+      lastOpenedDir_.isEmpty() ? QDir::homePath() : lastOpenedDir_;
+
   QString path = QFileDialog::getExistingDirectory(
-      this, "Выберите директорию", QDir::homePath(),
+      this, "Выберите директорию", initialDir,
       QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
   if (!path.isEmpty()) {
-    // Проверка на наличие кириллицы в пути
     if (pathContainsCyrillic(path)) {
       if (!showCyrillicWarning(path)) {
         return;
       }
     }
 
+    lastOpenedDir_ = path;
     std::string stdPath = path.toStdString();
-
-    const std::string SEARCH_FILE = "list.html";
-    const std::string REVIEW_FILE = "statistics.html";
 
     bool searchFileExists, reviewFileExists;
     checkExistingFiles(path, SEARCH_FILE, REVIEW_FILE, searchFileExists,
                        reviewFileExists);
 
     if (searchFileExists || reviewFileExists) {
+      // Пользователь отменил сохранение
       if (!showOverwriteWarning(searchFileExists, reviewFileExists)) {
-        return; // Пользователь отменил сохранение
+        return;
       }
     }
 
-    // Используем уже готовые m_searchItems
     saveAnalysis(stdPath, search_items, stats);
 
     // Проверка, что файлы действительно сохранились
@@ -507,7 +507,6 @@ void ResultPage::refreshDisplay() {
   updateChart();
   if (widgetText) {
     widgetText->setMarkupText(m_results);
-    // widgetText->setMarkupText(fullText, members);
   }
 }
 
@@ -531,8 +530,6 @@ void ResultPage::onAnalyzeClicked() {
 
   if (msgBox.clickedButton() == yesButton) {
     m_results.clear();
-    // fullText.clear();
-    // members.clear();
 
     // Очищаем структуру частей предложения
     parts.subject = 0;
@@ -544,13 +541,6 @@ void ResultPage::onAnalyzeClicked() {
 
     // Сбрасываем флаг сохранения
     isSaved = false;
-
-    // Обновляем отображение (очищаем виджеты)
-    // refreshDisplay();
-
-    // Сбрасываем статистику
-    // stats = GlobalStats();
-    // updateStatsDisplay();
 
     // Снимаем выделение со всех чекбоксов и разблокируем их
     foreach (QCheckBox *box, m_checkBoxes) {
@@ -567,40 +557,32 @@ void ResultPage::onAnalyzeClicked() {
 }
 
 void ResultPage::onCheckboxStateChanged(int state, const QString &role) {
-  // Получаем указатель на чекбокс, который отправил сигнал
   QObject *senderObj = sender();
   QCheckBox *currentCheckbox = qobject_cast<QCheckBox *>(senderObj);
 
-  // Проверяем, что объект найден
   if (!currentCheckbox) {
     return;
   }
 
   // Если галочку установили
   if (state == Qt::Checked) {
-    // Блокируем все остальные
     foreach (QCheckBox *box, m_checkBoxes) {
       if (box != currentCheckbox) {
         box->setEnabled(false);
-        // Галочку с других снимаем на всякий случай
         box->setChecked(false);
       }
     }
-
-    // Вызываем функцию выделения текста
     if (widgetText) {
       widgetText->setHighlightedRole(role);
     }
   }
   // Если галочку сняли (отжали)
   else if (state == Qt::Unchecked) {
-    // Разблокируем все чекбоксы в списке
     foreach (QCheckBox *box, m_checkBoxes) {
       box->setEnabled(true);
     }
 
-    // Если галочка снята со всех (или мы просто хотим снять выделение),
-    // передаем пустую строку, чтобы убрать фон.
+    // Если галочка снята со всех (или мы просто хотим снять выделение)
     if (widgetText) {
       widgetText->setHighlightedRole("");
     }
@@ -610,7 +592,6 @@ void ResultPage::onCheckboxStateChanged(int state, const QString &role) {
 void ResultPage::setData(const std::vector<SentenceResult> &results) {
   m_results = results;
 
-  // 1. Очищаем старые данные о членах предложения
   parts.subject = 0;
   parts.predicate = 0;
   parts.object = 0;
@@ -623,11 +604,9 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
     return;
   }
 
-  // Проходим по каждому предложению для сбора статистики (parts)
   countSentenceParts(m_results, parts);
 
   if (widgetText) {
-    // Передаём заполненный вектор в виджет для разметки
     widgetText->setMarkupText(m_results);
   }
 }
@@ -645,7 +624,6 @@ void ResultPage::setGloabalStats(const GlobalStats statistics) {
  * @param stats Структура с готовыми данными для отображения.
  */
 void ResultPage::updateStatsDisplay() {
-  // Проверяем, что виджет был создан (чтобы избежать краша при старте)
   if (!statsWidget)
     return;
 
@@ -668,8 +646,6 @@ void ResultPage::updateStatsDisplay() {
   labelOthers->setText(QString("Других: %1").arg(stats.others_total));
 
   // Обновляем топ-слова (самые популярные)
-  // Используем QString::fromStdString для перевода std::string -> QString
-
   top_subject->setText(
       QString("Подлежащее: %1")
           .arg(QString::fromStdString(stats.top_subject.first)));

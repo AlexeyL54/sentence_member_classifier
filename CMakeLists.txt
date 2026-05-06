@@ -30,11 +30,13 @@ set(SOURCES
     gui.cpp
     src/front/InputPage.cpp
     src/front/ResultPage.cpp
+    src/front/SearchFilterCore.cpp
     src/front/SearchPage.cpp
     src/front/LoadingPage.cpp
     src/front/MainWindow.cpp
     src/front/lib/FlowLayout.cpp
     src/front/lib/TextMarkupWidget.cpp
+    src/front/lib/SearchResultsList.cpp
     src/back/statistics.cpp
     src/back/bert_onnx_inference.cpp
     src/back/onnx_model.cpp
@@ -48,11 +50,13 @@ set(SOURCES
 set(HEADERS
     src/front/InputPage.hpp
     src/front/ResultPage.hpp
+    src/front/SearchFilterCore.hpp
     src/front/SearchPage.hpp
     src/front/LoadingPage.hpp
     src/front/MainWindow.hpp
     src/front/lib/FlowLayout.hpp
     src/front/lib/TextMarkupWidget.hpp
+    src/front/lib/SearchResultsList.hpp
     src/back/statistics.hpp
     src/back/bert_onnx_inference.hpp
     src/back/onnx_model.hpp

@@ -7,7 +7,7 @@
 
 import torch
 import torch.nn as nn
-from transformers import AutoModel, PreTrainedModel
+from transformers import AutoModel, PreTrainedModel, BertConfig
 from config import Config
 
 
@@ -27,6 +27,8 @@ class CircumstanceBERT(PreTrainedModel):
         classifier: Линейный классификатор для токенов
         crf: CRF слой (опционально)
     """
+
+    config_class = BertConfig
 
     def __init__(self, config):
         """
@@ -120,6 +122,54 @@ class CircumstanceBERT(PreTrainedModel):
                 loss = loss_fct(active_logits, active_labels)
 
         return (loss, logits) if loss is not None else (logits,)
+
+    def forward_with_attentions(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        labels=None,
+    ):
+        """
+        Прямой проход с возвратом весов внимания.
+        Используется только для анализа/отладки, так как потребляет больше памяти.
+        """
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)  # type: ignore
+
+        # ВАЖНО: output_attentions=True заставляет BERT вернуть веса внимания
+        outputs = self.bert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            output_attentions=True,
+        )
+
+        sequence_output = outputs[0]  # [batch, seq_len, hidden_size]
+        attentions = outputs[
+            -1
+        ]  # Tuple of tensors: [layer][batch, head, seq_len, seq_len]
+
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        loss = None
+        if labels is not None:
+            if self.use_crf and hasattr(self, "crf"):
+                mask = attention_mask.bool()
+                loss = -self.crf(logits, labels, mask=mask, reduction="mean")
+            else:
+                loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
+                active_loss = attention_mask.view(-1) == 1
+                active_logits = logits.view(-1, self.num_labels)
+                active_labels = torch.where(
+                    active_loss,
+                    labels.view(-1),
+                    torch.tensor(loss_fct.ignore_index).type_as(labels),
+                )
+                loss = loss_fct(active_logits, active_labels)
+
+        return loss, logits, attentions
 
     def predict(self, logits, attention_mask):
         """
