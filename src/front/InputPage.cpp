@@ -37,6 +37,22 @@ bool containsCyrillic(const QString &text) {
   return false;
 }
 
+uint8_t bytes_to_encode_symbol(const std::string &str) {
+  const unsigned char ch = static_cast<const unsigned char>(str[0]);
+
+  if ((ch & 0b10000000) == 0) { // 0xxxxxxxx
+    return 1;
+  } else if ((ch & 0b11100000) == 0b11000000) { // 110xxxxx
+    return 2;
+  } else if ((ch & 0b11110000) == 0b11100000) { // 1110xxxx
+    return 3;
+  } else if ((ch & 0b11111000) == 0b11110000) { // 11110xxx
+    return 4;
+  } else {
+    return 0;
+  }
+}
+
 /**
  * @brief Форматирует размер файла в мегабайтах с двумя знаками после запятой.
  * @param bytes Размер в байтах.
@@ -247,13 +263,20 @@ bool InputPage::validateFile(const QString &path, QString *errorMessage) const {
  * @param path Путь к файлу.
  * @return Содержимое файла в виде строки (при ошибке возвращает пустую строку).
  */
-QString InputPage::readFileContent(const QString &path) const {
+QString InputPage::readFileContent(const QString &path) {
   std::ifstream file(path.toStdString(), std::ios::binary);
   if (!file) {
     return QString();
   }
   std::string content((std::istreambuf_iterator<char>(file)),
                       std::istreambuf_iterator<char>());
+
+  if (bytes_to_encode_symbol(content) == 0) {
+    QMessageBox::warning(this, "Ошибка кодировки",
+                         "Убедитесь, что файл сохранен в кодировке UTF-8.");
+    return QString();
+  }
+
   return QString::fromUtf8(content.c_str(), static_cast<int>(content.size()));
 }
 
@@ -311,11 +334,6 @@ void InputPage::onAnalyzeFromFile() {
 
   const QString content = readFileContent(path);
 
-  if (content.isNull()) {
-    QMessageBox::warning(this, "Ошибка кодировки",
-                         "Недопустимая кодировка. Убедитесь, что файл сохранен "
-                         "в кодировке UTF-8.");
-  }
   if (content.isEmpty()) {
     QMessageBox::warning(this, "Ошибка чтения",
                          "Не удалось прочитать содержимое файла.");

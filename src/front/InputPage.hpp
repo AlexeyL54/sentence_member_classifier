@@ -96,7 +96,7 @@ private:
    * @return Содержимое файла в виде строки (при ошибке возвращает пустую
    * строку).
    */
-  QString readFileContent(const QString &path) const;
+  QString readFileContent(const QString &path);
 
   /**
    * @brief Обновляет отображение пути к файлу и запоминает последнюю
