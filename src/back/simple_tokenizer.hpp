@@ -29,6 +29,7 @@ public:
         offsets; // Смещения в исходном тексте: (начало, конец) в байтах
     std::vector<std::string> tokens; // Строковые представления токенов
     std::vector<int> word_ids; // ID слов для группировки подслов (субтокенов)
+    uint16_t err = 0;          // код ошибки
   };
 
   /**
@@ -40,7 +41,8 @@ public:
     std::vector<int64_t> attention_mask; // Маска внимания
     std::vector<std::string> tokens;     // Строковые представления токенов
     std::vector<std::pair<size_t, size_t>>
-        offsets; // Смещения в исходном тексте
+        offsets;      // Смещения в исходном тексте
+    uint16_t err = 0; // код ошибки
   };
 
   /**
@@ -147,6 +149,7 @@ protected:
     std::vector<int> word_ids;
     size_t last_byte_pos; // Позиция в исходном тексте после последнего
                           // обработанного токена
+    uint16_t err = 0;     // код ошибки
   };
 
   /**
