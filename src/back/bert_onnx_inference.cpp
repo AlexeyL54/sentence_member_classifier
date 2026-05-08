@@ -132,7 +132,7 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
   std::vector<utf8::Unistring> uni_sentences =
       utf8::TextSplitter::splitIntoSentences(uni_text);
 
-  for (const auto &uni_sent : uni_sentences) {
+  for (const utf8::Unistring &uni_sent : uni_sentences) {
     sentences.push_back(uni_sent.to_string());
   }
 
@@ -148,10 +148,10 @@ BertOnnxInference::process_sentence(const std::string &sentence) {
   SimpleTokenizer::EncodingResult encoding =
       tokenizer_->encode(sentence, max_len_);
 
-  if (encoding.input_ids.empty()) {
-    std::cout << "input_ids пуст" << std::endl;
+  result.err = encoding.err;
+
+  if (result.err != 0)
     return result;
-  }
 
   // Получаем предсказания модели
   std::vector<int> predictions =

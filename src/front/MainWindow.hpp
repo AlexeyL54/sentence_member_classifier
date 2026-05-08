@@ -43,6 +43,7 @@ private:
   void setTokenizer();
   void setModel();
   void createSearchItems(); // Создаёт элементы для поиска из готовых файлов
+  void showParsingError();
 
   QStackedWidget *stackedWidget = nullptr;
   InputPage *inputPage = nullptr;

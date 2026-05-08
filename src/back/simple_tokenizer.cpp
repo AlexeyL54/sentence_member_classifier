@@ -3,6 +3,7 @@
 #include "text_splitter.hpp"
 #include "unistring.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -228,16 +229,15 @@ pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
     // начиная с начала текста или пропускаем его
     cerr << "Warning: Token '" << token << "' not found at byte " << start_pos
          << ". Skipping." << endl;
+    return {SIZE_MAX, SIZE_MAX};
 
-    // Возвращаем специальную метку - длина 0, но позиция продвигается
-    // Найдем следующий пробел или конец слова
-    size_t skip_pos = start_pos;
+    /*size_t skip_pos = start_pos;
     while (skip_pos < text.size() &&
            !std::isspace(static_cast<unsigned char>(text[skip_pos]))) {
       skip_pos++;
     }
     // Возвращаем диапазон до следующего пробела (пропускаем это слово)
-    return {start_pos, skip_pos};
+    return {start_pos, skip_pos};*/
   }
 
   size_t found_byte_start = offsets[found_char_idx];
@@ -309,6 +309,10 @@ SimpleTokenizer::build_encoding_core(const std::string &text,
 
     // Находим смещения токена в исходном тексте
     auto [start, end] = find_token_in_text(text, raw_token, current_pos);
+    if (start == SIZE_MAX and end == SIZE_MAX) {
+      core.err = 1;
+      return core;
+    }
 
     // Добавляем токен в результат
     core.input_ids.push_back(token_id);
@@ -372,6 +376,8 @@ void SimpleTokenizer::pad_encoding(CoreEncoding &core, size_t max_len) {
 */
 SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
                                                         size_t max_len) {
+  EncodingResult result;
+
   // 1. токенизация
   std::vector<std::string> raw_tokens = split_text_into_tokens(text);
 
@@ -379,11 +385,15 @@ SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
   SimpleTokenizer::CoreEncoding core =
       build_encoding_core(text, raw_tokens, max_len);
 
+  if (core.err != 0) {
+    result.err = core.err;
+    return result;
+  }
+
   // 3. паддинг и спец-токены
   pad_encoding(core, max_len);
 
   // 4. финальный результат с маской внимания
-  EncodingResult result;
   result.input_ids = std::move(core.input_ids);
   result.tokens = std::move(core.tokens);
   result.offsets = std::move(core.offsets);
@@ -395,6 +405,9 @@ SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
     result.attention_mask[i] =
         (result.input_ids[i] != get_pad_token_id()) ? 1 : 0;
   }
+
+  if (result.input_ids.empty())
+    result.err = 2;
 
   return result;
 }
@@ -442,7 +455,7 @@ string SimpleTokenizer::decode(const vector<int64_t> &ids) {
 SimpleTokenizer::TokenizationResult
 SimpleTokenizer::tokenize_with_offsets(const string &text, size_t max_len) {
   SimpleTokenizer::EncodingResult enc = encode(text, max_len);
-  return {enc.input_ids, enc.attention_mask, enc.tokens, enc.offsets};
+  return {enc.input_ids, enc.attention_mask, enc.tokens, enc.offsets, enc.err};
 }
 
 /**

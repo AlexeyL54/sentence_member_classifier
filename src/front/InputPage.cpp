@@ -37,6 +37,12 @@ bool containsCyrillic(const QString &text) {
   return false;
 }
 
+/**
+ * @brief Определить количество байт для кодирования первого символа строки в
+ * UTF-8
+ * @param str строка
+ * @return количество байт кодирования, если кодировка UTF-8, иначе - 0
+ */
 uint8_t bytes_to_encode_symbol(const std::string &str) {
   const unsigned char ch = static_cast<const unsigned char>(str[0]);
 

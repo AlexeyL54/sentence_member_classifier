@@ -232,6 +232,13 @@ void MainWindow::setupConnections() {
           &MainWindow::onBackToResultRequested);
 }
 
+void MainWindow::showParsingError() {
+  QMessageBox::warning(this, "Ошибка обработки текста",
+                       "Текст содержит неопределенные символы!");
+  stackedWidget->setCurrentWidget(inputPage);
+  results.clear();
+}
+
 void MainWindow::onAnalyzeRequested(const std::string &text) {
   // Показываем страницу загрузки и устанавливаем начальный прогресс
   stackedWidget->setCurrentWidget(loadingPage);
@@ -247,11 +254,13 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
   int processedCount = 0;
 
   for (const std::string &sentence : sentences) {
-    // if (sentence.length() < 3)
-    // continue; // Пропускаем слишком короткие
-
     SentenceResult result = inferer->process_sentence(sentence);
     results.push_back(result);
+
+    if (result.err == 1) {
+      showParsingError();
+      return;
+    }
 
     processedCount++;
     loadingPage->setProgress(processedCount);

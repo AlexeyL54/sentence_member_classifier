@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -29,6 +30,7 @@ struct SentenceResult {
   std::vector<Entity> entities;    // Найденные сущности
   std::vector<std::string> tokens; // Токены
   std::vector<int> token_labels;   // Метки для каждого токена
+  std::uint16_t err = 0;           // код ошибки обработки предложения
 };
 
 std::map<int, std::pair<std::string, std::string>>
