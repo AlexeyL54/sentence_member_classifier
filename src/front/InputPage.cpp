@@ -6,8 +6,6 @@
 #include <QFileInfo>
 #include <QMessageBox>
 
-#include <fstream>
-
 namespace {
 
 /**
@@ -35,28 +33,6 @@ bool containsCyrillic(const QString &text) {
     }
   }
   return false;
-}
-
-/**
- * @brief Определить количество байт для кодирования первого символа строки в
- * UTF-8
- * @param str строка
- * @return количество байт кодирования, если кодировка UTF-8, иначе - 0
- */
-uint8_t bytes_to_encode_symbol(const std::string &str) {
-  const unsigned char ch = static_cast<const unsigned char>(str[0]);
-
-  if ((ch & 0b10000000) == 0) { // 0xxxxxxxx
-    return 1;
-  } else if ((ch & 0b11100000) == 0b11000000) { // 110xxxxx
-    return 2;
-  } else if ((ch & 0b11110000) == 0b11100000) { // 1110xxxx
-    return 3;
-  } else if ((ch & 0b11111000) == 0b11110000) { // 11110xxx
-    return 4;
-  } else {
-    return 0;
-  }
 }
 
 /**
@@ -270,20 +246,32 @@ bool InputPage::validateFile(const QString &path, QString *errorMessage) const {
  * @return Содержимое файла в виде строки (при ошибке возвращает пустую строку).
  */
 QString InputPage::readFileContent(const QString &path) {
-  std::ifstream file(path.toStdString(), std::ios::binary);
-  if (!file) {
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly)) {
     return QString();
   }
-  std::string content((std::istreambuf_iterator<char>(file)),
-                      std::istreambuf_iterator<char>());
 
-  if (bytes_to_encode_symbol(content) == 0) {
+  QByteArray data = file.readAll();
+
+  // Пробуем декодировать как UTF-8
+  QString content = QString::fromUtf8(data);
+
+  // Проверяем, успешно ли декодировалось
+  if (content.isEmpty() && !data.isEmpty()) {
     QMessageBox::warning(this, "Ошибка кодировки",
-                         "Убедитесь, что файл сохранен в кодировке UTF-8.");
+                         "Файл не в кодировке UTF-8 или содержит ошибки.");
     return QString();
   }
 
-  return QString::fromUtf8(content.c_str(), static_cast<int>(content.size()));
+  // Дополнительная проверка: если были заменяющие символы
+  if (content.contains(QChar::ReplacementCharacter)) {
+    QMessageBox::warning(
+        this, "Ошибка кодировки",
+        "Файл содержит некорректные UTF-8 последовательности.");
+    return QString();
+  }
+
+  return content;
 }
 
 /**

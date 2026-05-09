@@ -11,6 +11,7 @@ find_package(GTest REQUIRED)
 # Добавляем исполняемый файл для тестов
 add_executable(test
   back/test_tokenizer.cpp
+  ../src/back/text_splitter.cpp
   ../src/back/simple_tokenizer.cpp
   ../src/back/unistring.cpp
 )
@@ -21,9 +22,5 @@ target_link_libraries(test
     GTest::Main
 )
 
-# Включаем директории для заголовков
-# target_include_directories(test_tokenizer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
 # Включаем тесты
 include(GoogleTest)
-# gtest_discover_tests(test_tokenizer)
