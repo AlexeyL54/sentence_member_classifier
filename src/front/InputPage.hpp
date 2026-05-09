@@ -81,6 +81,26 @@ private:
   void setupConnections();
 
   /**
+   * @brief Очищает текст от проблемных символов Юникода.
+   *
+   * Удаляет управляющие символы, мягкие переносы, невидимые символы,
+   * оставляя только читаемый текст с базовой пунктуацией.
+   *
+   * @param text Исходный текст
+   * @return Очищенный текст, пригодный для анализа
+   */
+  QString sanitizeText(const QString &text);
+
+  /**
+   * @brief Проверяет текст на наличие только допустимых символов после очистки.
+   *
+   * @param text Текст для проверки
+   * @param originalLength Исходная длина (для статистики)
+   * @return true если текст содержит достаточно символов для анализа
+   */
+  bool isTextValidForAnalysis(const QString &text, int originalLength) const;
+
+  /**
    * @brief Проверяет корректность выбранного файла.
    * @param path Путь к файлу.
    * @param errorMessage [out] Сообщение об ошибке (если указан и проверка не
@@ -111,8 +131,8 @@ private:
    */
   void switchToInputMethod(bool isKeyboard);
 
-  /** @brief Максимально допустимый размер файла для анализа (500 КБ). */
-  static constexpr qint64 MAX_FILE_SIZE_BYTES = 500 * 1024;
+  /** @brief Максимально допустимый размер файла для анализа (300 КБ). */
+  static constexpr qint64 MAX_FILE_SIZE_BYTES = 300 * 1024;
 
   /** @brief Разрешённое расширение файла. */
   static constexpr const char *ALLOWED_FILE_EXTENSION = "txt";

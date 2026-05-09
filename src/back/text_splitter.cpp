@@ -4,6 +4,9 @@
 #include <cstddef>
 #include <unicode/brkiter.h>
 
+#include <QRegularExpression>
+#include <QString>
+
 namespace utf8 {
 
 /**
@@ -286,80 +289,57 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
   return tokens;
 }
 
-/**
- * @brief Разбивает текст на предложения.
- * @param text Текст для разбиения.
- * @return Вектор предложений.
- */
 std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
   std::vector<Unistring> sentences;
-  Unistring sentence = "";
+  QString qstr = QString::fromStdString(text.to_string());
 
-  if (text.length() == 0) {
+  if (qstr.trimmed().isEmpty()) {
     return sentences;
   }
 
-  for (size_t i = 0; i < text.length(); i++) {
-    if (text[i] != "\n" and text[i] != "\t")
-      sentence += text[i];
+  // Регулярное выражение для предложений со знаками завершения
+  QRegularExpression sentenceRegex("("
+                                   "[^.!?…]*"
+                                   "(?:"
+                                   "[.!?]"
+                                   "(?:"
+                                   "[.]*"
+                                   "|…"
+                                   ")?"
+                                   "[»\"]*"
+                                   "|"
+                                   "…"
+                                   "|"
+                                   "[^.!?…]+»"
+                                   ")"
+                                   ")\\s*");
 
-    //  ». »... »…
-    if (text[i] == "»") {
-      for (size_t j = i + 1;
-           j < text.length() and (text[j] == "." or text[j] == "…"); j++, i++) {
-        sentence += text[j];
-      }
-      sentences.push_back(sentence);
-      sentence = "";
+  QRegularExpressionMatchIterator iterator = sentenceRegex.globalMatch(qstr);
 
-      // . .. ...
-    } else if (text[i] == ".") {
-      for (size_t j = i + 1; j < text.length() and text[j] == "."; j++, i++) {
-        sentence += text[j];
-      }
-      sentences.push_back(sentence);
-      sentence = "";
+  int lastPos = 0;
+  while (iterator.hasNext()) {
+    QRegularExpressionMatch match = iterator.next();
+    QString sentence = match.captured(1).trimmed();
 
-      // ! ? !.. ?.. !» ?»
-    } else if (text[i] == "!" or text[i] == "?") {
-      for (size_t j = i + 1;
-           j < text.length() and (text[j] == "." or text[j] == "»"); j++, i++) {
-        sentence += text[j];
-      }
-      sentences.push_back(sentence);
-      sentence = "";
-
-      // конец текста без знака завершения
-    } else if (i == text.length() - 1) {
-      sentences.push_back(sentence);
-      sentence = "";
-
-      // …
-    } else if (text[i] == "…") {
-      sentences.push_back(sentence);
-      sentence = "";
+    if (!sentence.isEmpty()) {
+      sentences.push_back(Unistring(sentence.toStdString()));
+      lastPos = match.capturedEnd();
     }
+  }
+
+  // Добавляем остаток текста после последнего найденного предложения
+  if (lastPos < qstr.length()) {
+    QString remaining = qstr.mid(lastPos).trimmed();
+    if (!remaining.isEmpty()) {
+      sentences.push_back(Unistring(remaining.toStdString()));
+    }
+  }
+
+  // Если совсем ничего не нашли, добавляем весь текст как одно предложение
+  if (sentences.empty() && !qstr.trimmed().isEmpty()) {
+    sentences.push_back(text);
   }
 
   return sentences;
 }
-
-/**
- * @brief Извлекает слова из вектора токенов.
- * @param tokens Вектор токенов.
- * @return Вектор словесных токенов.
- */
-std::vector<TextToken>
-TextSplitter::extractWords(const std::vector<TextToken> &tokens) {
-  std::vector<TextToken> words;
-
-  for (const TextToken &token : tokens) {
-    if (token.is_word && !token.is_space) {
-      words.push_back(token);
-    }
-  }
-
-  return words;
-}
-
 } // namespace utf8

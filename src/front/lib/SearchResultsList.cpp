@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 namespace {
@@ -27,7 +28,8 @@ SearchResultsList::SearchResultsList(QWidget *parent) : QWidget(parent) {
   layout_->setContentsMargins(kListMargins, kListMargins, kListMargins,
                               kListMargins);
   layout_->setSpacing(kListSpacing);
-  layout_->setAlignment(Qt::AlignTop);
+  // Убираем выравнивание по верху, чтобы карточки могли растягиваться
+  // layout_->setAlignment(Qt::AlignTop); - УДАЛЯЕМ ЭТУ СТРОКУ
 
   scrollArea_->setWidget(container_);
 
@@ -41,6 +43,8 @@ void SearchResultsList::setItems(const std::vector<SearchItem> &items) {
 
   for (const auto &item : items) {
     QFrame *card = createCard(item);
+    // Разрешаем карточке растягиваться по вертикали
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout_->addWidget(card);
   }
 
@@ -73,10 +77,15 @@ QFrame *SearchResultsList::createCard(const SearchItem &item) {
   card->setStyleSheet(
       "QFrame { background: palette(base); border-radius: 4px; }");
 
+  // Разрешаем карточке растягиваться по вертикали
+  card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
   auto *cardLayout = new QVBoxLayout(card);
   cardLayout->setContentsMargins(kCardMargins, kCardMargins, kCardMargins,
                                  kCardMargins);
   cardLayout->setSpacing(kCardSpacing);
+  // Убираем растягивание внутри карточки, чтобы она сжималась под содержимое
+  cardLayout->setAlignment(Qt::AlignTop);
 
   // 1. Слово (жирным шрифтом)
   auto *wordLabel = new QLabel(QString::fromStdString(item.text), card);
@@ -115,6 +124,7 @@ QWidget *SearchResultsList::createSentencesSection(
   auto *layout = new QVBoxLayout(container);
   layout->setContentsMargins(0, 4, 0, 0);
   layout->setSpacing(4);
+  layout->setAlignment(Qt::AlignTop);
 
   if (sentences.empty()) {
     auto *emptyLabel =
