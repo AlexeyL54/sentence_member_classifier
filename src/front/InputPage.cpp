@@ -1,10 +1,13 @@
 #include "InputPage.hpp"
+#include "qlogging.h"
 #include "qmessagebox.h"
 
+#include <QDebug>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QRegularExpression>
 
 namespace {
 
@@ -293,23 +296,127 @@ void InputPage::switchToInputMethod(bool isKeyboard) {
   stack_->setCurrentIndex(isKeyboard ? 0 : 1);
 }
 
-/**
- * @brief Обработчик нажатия кнопки «Анализировать» для текста с клавиатуры.
- */
+QString InputPage::sanitizeText(const QString &text) {
+  if (text.isEmpty()) {
+    return QString();
+  }
+
+  QString cleaned = text;
+
+  // Удаляем все, что находится между [ и ], включая сами скобки
+  // Используем нежадный захват (.*?) чтобы не захватывать больше, чем нужно
+  static const QRegularExpression bracketsContent("\\[.*?\\]");
+  cleaned.remove(bracketsContent);
+
+  // Удаляем мягкий перенос (U+00AD)
+  cleaned.remove(QChar(0x00AD));
+
+  // Заменяем неразрывный пробел (U+00A0) на обычный пробел
+  cleaned.replace(QChar(0x00A0), QChar(' '));
+
+  // Удаляем символы нулевой ширины:
+  // U+200B (zero-width space)
+  // U+200C (zero-width non-joiner)
+  // U+200D (zero-width joiner)
+  cleaned.remove(QChar(0x200B));
+  cleaned.remove(QChar(0x200C));
+  cleaned.remove(QChar(0x200D));
+
+  // Удаляем символы направления текста (U+202A, U+202B, U+202C, U+202D, U+202E)
+  for (ushort c = 0x202A; c <= 0x202E; ++c) {
+    cleaned.remove(QChar(c));
+  }
+
+  // Категории символов, которые МЫ ОСТАВЛЯЕМ:
+  // \\p{L}  - любая буква (русские, английские, любые алфавитные)
+  // \\p{N}  - любая цифра
+  // \\s     - любой пробельный символ (пробел, табуляция, перевод строки)
+  // \\p{P}  - любой знак пунктуации
+  static const QRegularExpression invalidChars("[^\\p{L}\\p{N}\\s\\p{P}]");
+  cleaned.remove(invalidChars);
+
+  // Заменяем множественные пробелы на один
+  cleaned.replace(QRegularExpression("\\s+"), " ");
+
+  // Удаляем пробелы перед знаками пунктуации (опционально)
+  cleaned.replace(QRegularExpression("\\s+([.,!?;:])"), "\\1");
+
+  // Добавляем пробел после знаков пунктуации, если его нет (опционально)
+  cleaned.replace(QRegularExpression("([.,!?;:])(\\S)"), "\\1 \\2");
+
+  cleaned = cleaned.trimmed();
+
+  return cleaned;
+}
+
+bool InputPage::isTextValidForAnalysis(const QString &text,
+                                       int originalLength) const {
+  if (text.isEmpty()) {
+    QMessageBox::warning(
+        const_cast<InputPage *>(this), "Текст пуст после очистки",
+        QString(
+            "Исходный текст содержал %1 символов, но после удаления "
+            "недопустимых символов\n"
+            "результат оказался пуст. Возможно, файл содержит только "
+            "специальные символы.\n\n"
+            "Пожалуйста, проверьте исходный текст или используйте другой файл.")
+            .arg(originalLength));
+    return false;
+  }
+
+  // Предупреждаем, если очистка удалила много символов
+  if (originalLength > 0 && text.length() < originalLength / 2) {
+    QMessageBox::StandardButton reply = QMessageBox::warning(
+        const_cast<InputPage *>(this), "Много символов удалено",
+        QString(
+            "После очистки текста было удалено %1 символов (%.1f%% от "
+            "исходного объема).\n"
+            "Возможно, исходный текст содержит много недопустимых символов.\n\n"
+            "Продолжить анализ с очищенным текстом?")
+            .arg(originalLength - text.length())
+            .arg(100.0 * (originalLength - text.length()) / originalLength),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply != QMessageBox::Yes) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Измените onAnalyzeFromKeyboard:
 void InputPage::onAnalyzeFromKeyboard() {
-  if (textInput_->toPlainText().trimmed().isEmpty()) {
+  QString rawText = textInput_->toPlainText();
+
+  if (rawText.trimmed().isEmpty()) {
     QMessageBox::warning(this, "Пустой текст",
                          "Введите текст перед запуском анализа.");
     return;
   }
 
-  const std::string text = textInput_->toPlainText().toUtf8().toStdString();
-  emit analysisRequested(text);
+  // Очищаем текст от проблемных символов
+  QString cleanedText = sanitizeText(rawText);
+
+  // Проверяем валидность очищенного текста
+  if (!isTextValidForAnalysis(cleanedText, rawText.length())) {
+    return;
+  }
+
+  // Если очистка изменила текст, показываем предупреждение (опционально)
+  if (rawText != cleanedText) {
+    qDebug() << "Text was sanitized. Original length:" << rawText.length()
+             << "Cleaned length:" << cleanedText.length();
+    // Можно показать информационное сообщение:
+    // QMessageBox::information(this, "Текст очищен",
+    //    "Из текста были удалены недопустимые символы.\nАнализ будет продолжен
+    //    с очищенным текстом.");
+  }
+
+  emit analysisRequested(cleanedText.toStdString());
 }
 
-/**
- * @brief Обработчик нажатия кнопки «Анализировать» для выбранного файла.
- */
+// Измените onAnalyzeFromFile:
 void InputPage::onAnalyzeFromFile() {
   const QString path = filePathEdit_->text();
 
@@ -326,7 +433,7 @@ void InputPage::onAnalyzeFromFile() {
     return;
   }
 
-  const QString content = readFileContent(path);
+  QString content = readFileContent(path);
 
   if (content.isEmpty()) {
     QMessageBox::warning(this, "Ошибка чтения",
@@ -334,7 +441,21 @@ void InputPage::onAnalyzeFromFile() {
     return;
   }
 
-  emit analysisRequested(content.toStdString());
+  // Очищаем текст от проблемных символов
+  QString cleanedContent = sanitizeText(content);
+
+  // Проверяем валидность очищенного текста
+  if (!isTextValidForAnalysis(cleanedContent, content.length())) {
+    return;
+  }
+
+  // Логируем очистку
+  if (content != cleanedContent) {
+    qDebug() << "File content was sanitized. Removed:"
+             << (content.length() - cleanedContent.length()) << "chars";
+  }
+
+  emit analysisRequested(cleanedContent.toStdString());
 }
 
 /**
