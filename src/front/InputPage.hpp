@@ -131,8 +131,8 @@ private:
    */
   void switchToInputMethod(bool isKeyboard);
 
-  /** @brief Максимально допустимый размер файла для анализа (500 КБ). */
-  static constexpr qint64 MAX_FILE_SIZE_BYTES = 500 * 1024;
+  /** @brief Максимально допустимый размер файла для анализа (300 КБ). */
+  static constexpr qint64 MAX_FILE_SIZE_BYTES = 300 * 1024;
 
   /** @brief Разрешённое расширение файла. */
   static constexpr const char *ALLOWED_FILE_EXTENSION = "txt";
