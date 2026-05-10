@@ -325,9 +325,6 @@ bool ResultPage::showOverwriteWarning(bool searchFileExists,
  */
 bool ResultPage::showSaveResult(const QString &path, bool searchFileExists,
                                 bool reviewFileExists) {
-  const std::string SEARCH_FILE = "list.html";
-  const std::string REVIEW_FILE = "statistics.html";
-
   if (searchFileExists && reviewFileExists) {
     QMessageBox::information(this, "Сохранение",
                              "Результаты успешно сохранены в:\n" + path + "\n" +

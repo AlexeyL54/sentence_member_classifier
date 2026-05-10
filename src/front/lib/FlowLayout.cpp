@@ -155,15 +155,18 @@ int FlowLayout::doLayout(const QRect &rect, bool testOnly) const {
   for (QLayoutItem *item : m_itemList) {
     QWidget *wid = item->widget();
     int spaceX = horizontalSpacing();
+
     if (spaceX == -1)
       spaceX = wid->style()->layoutSpacing(
           QSizePolicy::PushButton, QSizePolicy::PushButton, Qt::Horizontal);
     int spaceY = verticalSpacing();
+
     if (spaceY == -1)
       spaceY = wid->style()->layoutSpacing(
           QSizePolicy::PushButton, QSizePolicy::PushButton, Qt::Vertical);
 
     int nextX = x + item->sizeHint().width() + spaceX;
+
     if (nextX - spaceX > effectiveRect.right() && lineHeight > 0) {
       x = effectiveRect.x();
       y = y + lineHeight + spaceY;

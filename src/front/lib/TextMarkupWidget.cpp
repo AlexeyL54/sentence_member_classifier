@@ -105,9 +105,6 @@ QString TextMarkupWidget::highlightedRole() const { return m_highlightedRole; }
  * @brief Подсвечивает выбранные члены предложения.
  */
 void TextMarkupWidget::updateHighlighting() {
-  /*if (m_text.isEmpty()) {
-    return;
-  }*/
   for (int i = 0; i < m_flowLayout->count(); ++i) {
     QWidget *container = m_flowLayout->itemAt(i)->widget();
     if (!container)
@@ -332,7 +329,7 @@ void TextMarkupWidget::processSentence(const SentenceResult &sentence,
   std::vector<size_t> byteOffsets = uniText.get_char_offsets();
   size_t currentCharPos = 0;
 
-  for (const auto &entity : sentence.entities) {
+  for (const Entity &entity : sentence.entities) {
     size_t entityStartChar = byteToCharIndex(entity.start, byteOffsets);
     size_t entityEndChar = byteToCharIndex(entity.end, byteOffsets);
 
