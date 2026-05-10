@@ -1,250 +1,459 @@
+/**
+ * @fileoverview Модуль поиска членов предложения
+ * @description Обеспечивает функциональность поиска и фильтрации элементов по тексту и типу
+ */
+
+/**
+ * Экранирует специальные символы для использования в регулярном выражении
+ * @param {string} str - Исходная строка
+ * @returns {string} Строка с экранированными спецсимволами
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Подсвечивает вхождения поискового слова в тексте
+ * @param {string} text - Исходный текст
+ * @param {string} searchWord - Слово для поиска
+ * @returns {string} Текст с обёрнутыми в <mark> теги совпадениями
+ */
 function highlightText(text, searchWord) {
-  if (!searchWord) return text;
-  var searchLower = searchWord.toLowerCase();
-  var textLower = text.toLowerCase();
-  var result = '';
-  var lastIndex = 0;
-  var index = textLower.indexOf(searchLower);
+  if (!searchWord || !text) return text || '';
 
-  while (index !== -1) {
-    result += text.substring(lastIndex, index);
-    result += '<mark>' + text.substring(index, index + searchWord.length) + '</mark>';
-    lastIndex = index + searchWord.length;
-    index = textLower.indexOf(searchLower, lastIndex);
-  }
-  result += text.substring(lastIndex);
-  return result;
+  const escaped = escapeRegex(searchWord);
+  const regex = new RegExp(`(${escaped})`, 'gi');
+
+  return text.replace(regex, '<mark>$1</mark>');
 }
 
-function searchWord() {
-  var searchText = document.getElementById('searchText').value.trim();
-  var searchType = document.getElementById('searchType').value;
-  var container = document.getElementById('results');
-  var items = Array.from(document.querySelectorAll('.item'));
-  var searchLower = searchText.toLowerCase();
+/**
+ * Класс для управления состоянием поиска
+ * @typedef {Object} SearchState
+ * @property {string} text - Поисковый текст
+ * @property {string} type - Тип члена предложения
+ */
 
-  // Категории элементов:
-  var exactMatches = [];      // Точное совпадение члена предложения
-  var partialMatches = [];    // Частичное совпадение члена предложения
-  var sentenceMatches = [];   // Совпадение только в предложениях
-  var typeOnlyMatches = [];   // Только по типу (без текста поиска)
-  var nonMatches = [];        // Не подходят под фильтр
+/**
+ * Получает текущее состояние поиска из формы
+ * @returns {SearchState} Объект с текстом поиска и типом
+ */
+function getSearchState() {
+  const searchText = document.getElementById('searchText')?.value.trim() || '';
+  const searchType = document.getElementById('searchType')?.value || '';
 
-  var totalFound = 0;
-  var exactCount = 0;
-  var partialCount = 0;
-  var sentenceCount = 0;
+  return { text: searchText, type: searchType };
+}
 
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
-    var text = item.getAttribute('data-text');
-    var textLower = text.toLowerCase();
-    var type = item.getAttribute('data-type');
+/**
+ * Классифицирует элемент по типу совпадения
+ * @param {HTMLElement} item - DOM элемент
+ * @param {string} searchText - Поисковый текст (нижний регистр)
+ * @param {string} originalText - Оригинальный текст элемента
+ * @returns {string} Тип совпадения: 'exact' | 'partial' | 'sentence' | 'typeOnly' | 'none'
+ */
+function classifyMatch(item, searchText, originalText) {
+  if (!searchText) return 'typeOnly';
 
-    // Проверяем соответствие типу
-    var typeMatches = (!searchType || type === searchType);
+  // Точное совпадение
+  if (originalText === searchText) return 'exact';
 
-    if (!typeMatches) {
-      nonMatches.push(item);
-      item.classList.add('hidden');
-      item.classList.remove('highlight', 'exact-match', 'partial-match', 'sentence-match');
-      continue;
-    }
+  // Частичное совпадение
+  if (originalText.includes(searchText)) return 'partial';
 
-    // Определяем тип совпадения
-    var isExactMatch = false;
-    var isPartialMatch = false;
-    var isSentenceMatch = false;
-
-    if (searchText) {
-      // Проверяем точное совпадение (полное равенство строк)
-      if (textLower === searchLower) {
-        isExactMatch = true;
-        totalFound++;
-        exactCount++;
-      }
-      // Проверяем частичное совпадение (слово содержится в члене предложения, но не точно)
-      else if (textLower.indexOf(searchLower) !== -1) {
-        isPartialMatch = true;
-        totalFound++;
-        partialCount++;
-      }
-      // Проверяем совпадение в предложениях
-      else {
-        var sentences = item.querySelectorAll('.sentence');
-        for (var j = 0; j < sentences.length; j++) {
-          var sentText = sentences[j].textContent; // innerText
-          if (sentText.toLowerCase().indexOf(searchLower) !== -1) {
-            isSentenceMatch = true;
-            totalFound++;
-            sentenceCount++;
-            break;
-          }
-        }
-      }
-    }
-
-    // Если нет поискового текста, показываем все подходящие по типу
-    var showByTypeOnly = (!searchText && typeMatches);
-
-    if (isExactMatch || isPartialMatch || isSentenceMatch || showByTypeOnly) {
-      item.classList.remove('hidden');
-      item.classList.add('highlight');
-
-      // Добавляем соответствующий класс
-      if (isExactMatch) {
-        item.classList.add('exact-match');
-        item.classList.remove('partial-match', 'sentence-match');
-        exactMatches.push(item);
-      } else if (isPartialMatch) {
-        item.classList.add('partial-match');
-        item.classList.remove('exact-match', 'sentence-match');
-        partialMatches.push(item);
-      } else if (isSentenceMatch) {
-        item.classList.add('sentence-match');
-        item.classList.remove('exact-match', 'partial-match');
-        sentenceMatches.push(item);
-      } else {
-        item.classList.add('type-only');
-        item.classList.remove('exact-match', 'partial-match', 'sentence-match');
-        typeOnlyMatches.push(item);
-      }
-
-      // Обновляем подсветку в заголовке
-      var textSpan = item.querySelector('.text');
-      if (isExactMatch || isPartialMatch) {
-        textSpan.innerHTML = highlightText(text, searchText);
-      } else {
-        textSpan.innerHTML = text;
-      }
-
-      // Обновляем подсветку в предложениях
-      var sentences = item.querySelectorAll('.sentence');
-      for (var j = 0; j < sentences.length; j++) {
-        var sent = sentences[j];
-        var originalText = sent.getAttribute('data-original');
-        if (!originalText) {
-          sent.setAttribute('data-original', sent.innerHTML);
-          originalText = sent.innerHTML;
-        }
-        if (searchText && originalText.toLowerCase().indexOf(searchLower) !== -1) {
-          sent.innerHTML = highlightText(originalText, searchText);
-        } else {
-          sent.innerHTML = originalText;
-        }
-      }
-    } else {
-      item.classList.add('hidden');
-      item.classList.remove('highlight', 'exact-match', 'partial-match', 'sentence-match', 'type-only');
-      nonMatches.push(item);
+  // Совпадение в предложениях
+  const sentences = item.querySelectorAll('.sentence');
+  for (const sentence of sentences) {
+    if (sentence.textContent.toLowerCase().includes(searchText)) {
+      return 'sentence';
     }
   }
 
-  // Переупорядочиваем: сначала точные совпадения, затем частичные, затем совпадения в предложениях, затем только по типу
-  if (searchText || searchType) {
-    // Очищаем контейнер
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
+  return 'none';
+}
 
-    // Добавляем точные совпадения (наверх)
-    for (var i = 0; i < exactMatches.length; i++) {
-      container.appendChild(exactMatches[i]);
-    }
+/**
+ * Применяет CSS классы к элементу в зависимости от типа совпадения
+ * @param {HTMLElement} item - DOM элемент
+ * @param {string} matchType - Тип совпадения
+ */
+function applyMatchClasses(item, matchType) {
+  // Удаляем все классы состояния
+  item.classList.remove('exact-match', 'partial-match', 'sentence-match', 'type-only');
 
-    // Добавляем частичные совпадения
-    for (var i = 0; i < partialMatches.length; i++) {
-      container.appendChild(partialMatches[i]);
-    }
+  switch (matchType) {
+    case 'exact':
+      item.classList.add('exact-match');
+      break;
+    case 'partial':
+      item.classList.add('partial-match');
+      break;
+    case 'sentence':
+      item.classList.add('sentence-match');
+      break;
+    case 'typeOnly':
+      item.classList.add('type-only');
+      break;
+  }
+}
 
-    // Добавляем совпадения в предложениях
-    for (var i = 0; i < sentenceMatches.length; i++) {
-      container.appendChild(sentenceMatches[i]);
-    }
+/**
+ * Обновляет подсветку в заголовке элемента
+ * @param {HTMLElement} item - DOM элемент
+ * @param {string} searchText - Поисковый текст
+ * @param {string} originalText - Оригинальный текст
+ * @param {string} matchType - Тип совпадения
+ */
+function updateHeaderHighlight(item, searchText, originalText, matchType) {
+  const textSpan = item.querySelector('.text');
+  const shouldHighlight = matchType === 'exact' || matchType === 'partial';
 
-    // Добавляем только по типу
-    for (var i = 0; i < typeOnlyMatches.length; i++) {
-      container.appendChild(typeOnlyMatches[i]);
-    }
+  textSpan.innerHTML = shouldHighlight && searchText
+    ? highlightText(originalText, searchText)
+    : originalText;
+}
 
-    // Добавляем скрытые (неподходящие)
-    for (var i = 0; i < nonMatches.length; i++) {
-      container.appendChild(nonMatches[i]);
-    }
+/**
+ * Сохраняет оригинальный текст предложения и обновляет подсветку
+ * @param {HTMLElement} sentence - DOM элемент предложения
+ * @param {string} searchText - Поисковый текст (нижний регистр)
+ * @returns {boolean} Было ли обновление
+ */
+function updateSentenceHighlight(sentence, searchText) {
+  let original = sentence.getAttribute('data-original');
+
+  if (!original) {
+    original = sentence.innerHTML;
+    sentence.setAttribute('data-original', original);
   }
 
-  // Обновляем статистику
-  var stats = document.getElementById('stats');
-  if (searchText || searchType) {
-    if (totalFound === 0 && exactCount === 0 && partialCount === 0 && sentenceCount === 0) {
-      stats.innerHTML = '❌ Ничего не найдено';
-    } else {
-      var queryText = searchText ? '"' + searchText + '"' : 'выбранному типу';
-      var statsParts = [];
+  if (searchText && original.toLowerCase().includes(searchText)) {
+    sentence.innerHTML = highlightText(original, searchText);
+    return true;
+  }
 
-      if (exactCount > 0) {
-        statsParts.push(exactCount + ' точных совпадений');
-      }
-      if (partialCount > 0) {
-        statsParts.push(partialCount + ' частичных совпадений');
-      }
-      if (sentenceCount > 0) {
-        statsParts.push(sentenceCount + ' совпадений в предложениях');
-      }
-      if (typeOnlyMatches.length > 0 && !searchText) {
-        statsParts.push(typeOnlyMatches.length + ' по типу');
-      }
+  sentence.innerHTML = original;
+  return false;
+}
 
-      stats.innerHTML = '✅ Найдено: ' + statsParts.join(', ');
-    }
+/**
+ * Обновляет подсветку во всех предложениях элемента
+ * @param {HTMLElement} item - DOM элемент
+ * @param {string} searchText - Поисковый текст (нижний регистр)
+ */
+function updateSentencesHighlight(item, searchText) {
+  const sentences = item.querySelectorAll('.sentence');
+
+  for (const sentence of sentences) {
+    updateSentenceHighlight(sentence, searchText);
+  }
+}
+
+/**
+ * Проверяет, соответствует ли элемент выбранному типу
+ * @param {HTMLElement} item - DOM элемент
+ * @param {string} searchType - Тип для фильтрации
+ * @returns {boolean}
+ */
+function matchesType(item, searchType) {
+  if (!searchType) return true;
+  const itemType = item.getAttribute('data-type');
+  return itemType === searchType;
+}
+
+/**
+ * Обновляет видимость элемента на основе результатов поиска
+ * @param {HTMLElement} item - DOM элемент
+ * @param {boolean} isVisible - Флаг видимости
+ */
+function setItemVisibility(item, isVisible) {
+  if (isVisible) {
+    item.classList.remove('hidden');
+    item.classList.add('highlight');
   } else {
-    stats.innerHTML = '';
+    item.classList.add('hidden');
+    item.classList.remove('highlight');
   }
 }
 
-function clearSearch() {
-  document.getElementById('searchText').value = '';
-  document.getElementById('searchType').value = '';
-  var container = document.getElementById('results');
-  var items = Array.from(document.querySelectorAll('.item'));
+/**
+ * Собирает статистику по найденным элементам
+ * @param {Array<{matchType: string}>} itemsData - Массив данных о совпадениях
+ * @returns {Object} Статистика поиска
+ */
+function collectStatistics(itemsData) {
+  const stats = {
+    exact: 0,
+    partial: 0,
+    sentence: 0,
+    typeOnly: 0
+  };
 
-  // Восстанавливаем исходный порядок
-  items.sort(function (a, b) {
-    var orderA = parseInt(a.getAttribute('data-original-order') || '0');
-    var orderB = parseInt(b.getAttribute('data-original-order') || '0');
+  for (const data of itemsData) {
+    if (stats[data.matchType] !== undefined) {
+      stats[data.matchType]++;
+    }
+  }
+
+  return stats;
+}
+
+/**
+ * Формирует текст статистики для отображения
+ * @param {Object} stats - Статистика поиска
+ * @param {string} searchText - Поисковый текст
+ * @param {string} searchType - Тип фильтрации
+ * @returns {string} HTML строка со статистикой
+ */
+function formatStatistics(stats, searchText, searchType) {
+  const hasSearch = searchText || searchType;
+  if (!hasSearch) return '';
+
+  const totalFound = stats.exact + stats.partial + stats.sentence;
+
+  if (totalFound === 0 && stats.typeOnly === 0) {
+    return '❌ Ничего не найдено';
+  }
+
+  const parts = [];
+  if (stats.exact > 0) parts.push(`${stats.exact} точных совпадений`);
+  if (stats.partial > 0) parts.push(`${stats.partial} частичных совпадений`);
+  if (stats.sentence > 0) parts.push(`${stats.sentence} совпадений в предложениях`);
+  if (stats.typeOnly > 0 && !searchText) parts.push(`${stats.typeOnly} по типу`);
+
+  return `✅ Найдено: ${parts.join(', ')}`;
+}
+
+/**
+ * Сортирует элементы результат поиска
+ * @param {HTMLElement} container - Контейнер результатов
+ * @param {HTMLElement[]} items - Массив элементов в нужном порядке
+ */
+function reorderResults(container, items) {
+  // Сохраняем порядок, перемещая элементы в контейнере
+  for (const item of items) {
+    container.appendChild(item);
+  }
+}
+
+/**
+ * Получает приоритет сортировки для типа совпадения
+ * @param {string} matchType - Тип совпадения
+ * @returns {number} Приоритет (меньше = выше)
+ */
+function getSortPriority(matchType) {
+  const priorities = {
+    'exact': 0,
+    'partial': 1,
+    'sentence': 2,
+    'typeOnly': 3,
+    'none': 4
+  };
+  return priorities[matchType] ?? 4;
+}
+
+/**
+ * Сортирует элементы по релевантности
+ * @param {HTMLElement[]} visibleItems - Массив видимых элементов
+ * @param {Array<{matchType: string}>} itemsData - Данные о совпадениях
+ * @returns {HTMLElement[]} Отсортированный массив
+ */
+function sortByRelevance(visibleItems, itemsData) {
+  return [...visibleItems].sort((a, b) => {
+    const dataA = itemsData.find(d => d.item === a);
+    const dataB = itemsData.find(d => d.item === b);
+
+    const priorityA = getSortPriority(dataA?.matchType);
+    const priorityB = getSortPriority(dataB?.matchType);
+
+    return priorityA - priorityB;
+  });
+}
+
+/**
+ * Обновляет отображение статистики поиска
+ * @param {Object} stats - Статистика поиска
+ * @param {string} searchText - Поисковый текст
+ * @param {string} searchType - Тип фильтрации
+ */
+function updateStatsDisplay(stats, searchText, searchType) {
+  const statsElement = document.getElementById('stats');
+  if (statsElement) {
+    statsElement.innerHTML = formatStatistics(stats, searchText, searchType);
+  }
+}
+
+/**
+ * Обрабатывает один элемент: проверяет тип, классифицирует, применяет стили и подсветку
+ * @param {HTMLElement} item - Обрабатываемый элемент
+ * @param {string} searchText - Поисковый текст (нижний регистр)
+ * @param {string} searchType - Тип для фильтрации
+ * @returns {{item: HTMLElement, matchType: string, isVisible: boolean}} Результат обработки
+ */
+function processSingleItem(item, searchText, searchType) {
+  const originalText = item.getAttribute('data-text')?.toLowerCase() || '';
+  const typeMatches = matchesType(item, searchType);
+
+  if (!typeMatches) {
+    setItemVisibility(item, false);
+    return { item, matchType: 'none', isVisible: false };
+  }
+
+  const matchType = classifyMatch(item, searchText, originalText);
+  const isVisible = matchType !== 'none';
+
+  setItemVisibility(item, isVisible);
+  applyMatchClasses(item, matchType);
+  updateHeaderHighlight(item, searchText, originalText, matchType);
+  updateSentencesHighlight(item, searchText);
+
+  return { item, matchType, isVisible };
+}
+
+/**
+ * Собирает данные и обрабатывает все элементы
+ * @param {HTMLElement[]} items - Все элементы поиска
+ * @param {string} searchText - Поисковый текст (нижний регистр)
+ * @param {string} searchType - Тип для фильтрации
+ * @returns {{itemsData: Array, visibleItems: HTMLElement[]}} Результаты обработки
+ */
+function processAllItems(items, searchText, searchType) {
+  const itemsData = [];
+  const visibleItems = [];
+
+  for (const item of items) {
+    const result = processSingleItem(item, searchText, searchType);
+    itemsData.push({ item: result.item, matchType: result.matchType });
+
+    if (result.isVisible) {
+      visibleItems.push(result.item);
+    }
+  }
+
+  return { itemsData, visibleItems };
+}
+
+/**
+ * Формирует финальный порядок элементов после сортировки
+ * @param {HTMLElement[]} visibleItems - Видимые элементы
+ * @param {Array} itemsData - Данные о совпадениях
+ * @param {HTMLElement[]} allItems - Все элементы
+ * @returns {HTMLElement[]} Элементы в правильном порядке
+ */
+function buildFinalOrder(visibleItems, itemsData, allItems) {
+  const sortedVisible = sortByRelevance(visibleItems, itemsData);
+  const hiddenItems = allItems.filter(item => item.classList.contains('hidden'));
+  return [...sortedVisible, ...hiddenItems];
+}
+
+/**
+ * Основная функция поиска
+ */
+function searchWord() {
+  const { text: searchTextRaw, type: searchType } = getSearchState();
+  const searchText = searchTextRaw.toLowerCase();
+
+  const container = document.getElementById('results');
+  if (!container) return;
+
+  const items = Array.from(document.querySelectorAll('.item'));
+
+  // Обработка всех элементов
+  const { itemsData, visibleItems } = processAllItems(items, searchText, searchType);
+
+  // Сортировка и применение порядка
+  const finalOrder = buildFinalOrder(visibleItems, itemsData, items);
+  reorderResults(container, finalOrder);
+
+  // Обновление статистики
+  const stats = collectStatistics(itemsData);
+  updateStatsDisplay(stats, searchTextRaw, searchType);
+}
+
+/**
+ * Восстанавливает оригинальный порядок элементов
+ * @param {HTMLElement} container - Контейнер результатов
+ * @param {HTMLElement[]} items - Элементы для сортировки
+ */
+function restoreOriginalOrder(container, items) {
+  const sorted = [...items].sort((a, b) => {
+    const orderA = parseInt(a.getAttribute('data-original-order') || '0', 10);
+    const orderB = parseInt(b.getAttribute('data-original-order') || '0', 10);
     return orderA - orderB;
   });
 
-  // Очищаем контейнер и вставляем в правильном порядке
-  while (container.firstChild) {
-    container.removeChild(container.firstChild);
-  }
+  reorderResults(container, sorted);
+}
 
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
-    container.appendChild(item);
+/**
+ * Сбрасывает подсветку всех элементов
+ * @param {HTMLElement[]} items - Элементы для сброса
+ */
+function resetHighlighting(items) {
+  for (const item of items) {
     item.classList.remove('hidden', 'highlight', 'exact-match', 'partial-match', 'sentence-match', 'type-only');
-    var textSpan = item.querySelector('.text');
-    textSpan.innerHTML = item.getAttribute('data-text');
-    var sentences = item.querySelectorAll('.sentence');
-    for (var j = 0; j < sentences.length; j++) {
-      var sent = sentences[j];
-      if (sent.getAttribute('data-original')) {
-        sent.innerHTML = sent.getAttribute('data-original');
+
+    // Восстанавливаем оригинальный текст заголовка
+    const textSpan = item.querySelector('.text');
+    const originalText = item.getAttribute('data-text');
+    if (textSpan && originalText) {
+      textSpan.innerHTML = originalText;
+    }
+
+    // Восстанавливаем оригинальный текст предложений
+    const sentences = item.querySelectorAll('.sentence');
+    for (const sentence of sentences) {
+      const original = sentence.getAttribute('data-original');
+      if (original) {
+        sentence.innerHTML = original;
       }
     }
   }
-  document.getElementById('stats').innerHTML = '';
 }
 
-// Функция для инициализации обработчиков событий
-// Её нужно вызывать после того, как DOM полностью загружен
+/**
+ * Очищает поиск и восстанавливает исходное состояние
+ */
+function clearSearch() {
+  const searchTextInput = document.getElementById('searchText');
+  const searchTypeSelect = document.getElementById('searchType');
+  const container = document.getElementById('results');
+  const statsElement = document.getElementById('stats');
+
+  // Очищаем поля ввода
+  if (searchTextInput) searchTextInput.value = '';
+  if (searchTypeSelect) searchTypeSelect.value = '';
+  if (statsElement) statsElement.innerHTML = '';
+
+  if (!container) return;
+
+  const items = Array.from(document.querySelectorAll('.item'));
+
+  // Сбрасываем подсветку
+  resetHighlighting(items);
+
+  // Восстанавливаем порядок
+  restoreOriginalOrder(container, items);
+}
+
+/**
+ * Обработчик нажатия клавиши Enter
+ * @param {KeyboardEvent} e - Событие клавиатуры
+ */
+function handleKeyPress(e) {
+  if (e.key === 'Enter') {
+    searchWord();
+  }
+}
+
+/**
+ * Инициализирует обработчики событий
+ */
 function initEventListeners() {
-  var searchTextEl = document.getElementById('searchText');
-  var searchTypeEl = document.getElementById('searchType');
+  const searchTextEl = document.getElementById('searchText');
+  const searchTypeEl = document.getElementById('searchType');
 
   if (searchTextEl) {
-    // Удаляем старый обработчик, чтобы не навешивать несколько раз
     searchTextEl.removeEventListener('keypress', handleKeyPress);
     searchTextEl.addEventListener('keypress', handleKeyPress);
   }
@@ -255,27 +464,41 @@ function initEventListeners() {
   }
 }
 
-// Обработчик нажатия клавиши
-function handleKeyPress(e) {
-  if (e.key === 'Enter') searchWord();
-}
-
-// Автоматическая инициализация при загрузке в браузере
-// Проверяем, что мы не в среде Node.js/Jest
+// Инициализация в браузере
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const init = () => initEventListeners();
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initEventListeners);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initEventListeners();
+    init();
   }
 }
 
+// Экспорт для тестирования
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    escapeRegex,
     highlightText,
+    getSearchState,
+    classifyMatch,
+    applyMatchClasses,
+    updateHeaderHighlight,
+    updateSentenceHighlight,
+    updateSentencesHighlight,
+    matchesType,
+    setItemVisibility,
+    collectStatistics,
+    formatStatistics,
+    reorderResults,
+    getSortPriority,
+    sortByRelevance,
+    updateStatsDisplay,
     searchWord,
+    restoreOriginalOrder,
+    resetHighlighting,
     clearSearch,
-    initEventListeners,
-    handleKeyPress
+    handleKeyPress,
+    initEventListeners
   };
 }
