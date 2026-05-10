@@ -73,7 +73,7 @@ function searchWord() {
       else {
         var sentences = item.querySelectorAll('.sentence');
         for (var j = 0; j < sentences.length; j++) {
-          var sentText = sentences[j].innerText;
+          var sentText = sentences[j].textContent; // innerText
           if (sentText.toLowerCase().indexOf(searchLower) !== -1) {
             isSentenceMatch = true;
             totalFound++;
@@ -237,10 +237,45 @@ function clearSearch() {
   document.getElementById('stats').innerHTML = '';
 }
 
-document.getElementById('searchText').addEventListener('keypress', function (e) {
-  if (e.key === 'Enter') searchWord();
-});
+// Функция для инициализации обработчиков событий
+// Её нужно вызывать после того, как DOM полностью загружен
+function initEventListeners() {
+  var searchTextEl = document.getElementById('searchText');
+  var searchTypeEl = document.getElementById('searchType');
 
-document.getElementById('searchType').addEventListener('change', function () {
-  searchWord();
-});
+  if (searchTextEl) {
+    // Удаляем старый обработчик, чтобы не навешивать несколько раз
+    searchTextEl.removeEventListener('keypress', handleKeyPress);
+    searchTextEl.addEventListener('keypress', handleKeyPress);
+  }
+
+  if (searchTypeEl) {
+    searchTypeEl.removeEventListener('change', searchWord);
+    searchTypeEl.addEventListener('change', searchWord);
+  }
+}
+
+// Обработчик нажатия клавиши
+function handleKeyPress(e) {
+  if (e.key === 'Enter') searchWord();
+}
+
+// Автоматическая инициализация при загрузке в браузере
+// Проверяем, что мы не в среде Node.js/Jest
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEventListeners);
+  } else {
+    initEventListeners();
+  }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    highlightText,
+    searchWord,
+    clearSearch,
+    initEventListeners,
+    handleKeyPress
+  };
+}

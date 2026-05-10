@@ -13,6 +13,8 @@ modelling/metrics_results/
 src/back/onnxruntime-win-x64
 src/front/compile_flags.txt
 
+resources/templates/node_modules/
+
 # Python-generated files
 modelling/__pycache__/
 modelling/*.py[oc]
