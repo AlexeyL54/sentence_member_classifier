@@ -72,6 +72,9 @@ signals:
    */
   void searchRequested();
 
+  /**
+   * @brief Сигнал, испускаемый при запросе нового анализа.
+   */
   void newAnalysisRequested();
 
 private slots:
@@ -109,7 +112,6 @@ public:
    * @param items Вектор элементов для сохранения в файл.
    */
   void setSearchItems(const std::vector<SearchItem> &items);
-  // std::vector<SentenceResult> makeData();
 
   /**
    * @brief Обновляет данные в разделе статистики
@@ -120,7 +122,7 @@ public:
    * @brief Устанавливает данные статистики.
    * @param statistics Структура с данными статистики.
    */
-  void setGloabalStats(const GlobalStats stats);
+  void setGlobalStats(const GlobalStats stats);
 
 private:
   /**
@@ -146,9 +148,10 @@ private:
    */
   void initRightPanel(QVBoxLayout *rightLayout);
 
-  /** brief Создает и инициализи
-   *param parent Родительский виджет
-   *return Указатель на созданный layout статистики.
+  /**
+   * @brief Создает и инициализирует виджет общей статистики.
+   * @param parent Родительский виджет.
+   * @return Указатель на созданный layout статистики.
    */
   QVBoxLayout *createGeneralStatsWidget(QWidget *parent);
 
@@ -219,6 +222,37 @@ private:
    */
   bool showSaveResult(const QString &path, bool searchFileExists,
                       bool reviewFileExists);
+
+  /**
+   * @brief Создает и настраивает центральный виджет.
+   * @return Указатель на центральный виджет.
+   */
+  QWidget *setupCentralWidget();
+
+  /**
+   * @brief Настраивает левую панель интерфейса.
+   * @param centralWidget Центральный виджет.
+   * @param mainLayout Главный layout.
+   */
+  void setupLeftPanel(QWidget *centralWidget, QHBoxLayout *mainLayout);
+
+  /**
+   * @brief Настраивает правую панель интерфейса.
+   * @param centralWidget Центральный виджет.
+   * @param mainLayout Главный layout.
+   */
+  void setupRightPanel(QWidget *centralWidget, QHBoxLayout *mainLayout);
+
+  /**
+   * @brief Создает инструкцию на правой панели.
+   * @param rightLayout Layout правой панели.
+   */
+  void setupInstructionLabel(QVBoxLayout *rightLayout);
+
+  /**
+   * @brief Настраивает соединения сигналов и слотов.
+   */
+  void setupConnections();
 
 private:
   const std::string SEARCH_FILE = "list.html";

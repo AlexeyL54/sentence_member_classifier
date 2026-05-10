@@ -228,7 +228,7 @@ void MainWindow::updatePagesWithResults() {
 
   searchPage->setSearchItems(items);
   resultPage->setSearchItems(items);
-  resultPage->setGloabalStats(statistics);
+  resultPage->setGlobalStats(statistics);
   resultPage->setData(results);
   resultPage->updateCounts();
   resultPage->updateChart();
