@@ -1,7 +1,4 @@
 #include "InputPage.hpp"
-#include "qlogging.h"
-#include "qmessagebox.h"
-
 #include <QDebug>
 #include <QDir>
 #include <QFileDialog>
@@ -256,10 +253,8 @@ QString InputPage::readFileContent(const QString &path) {
 
   QByteArray data = file.readAll();
 
-  // Пробуем декодировать как UTF-8
   QString content = QString::fromUtf8(data);
 
-  // Проверяем, успешно ли декодировалось
   if (content.isEmpty() && !data.isEmpty()) {
     QMessageBox::warning(this, "Ошибка кодировки",
                          "Файл не в кодировке UTF-8 или содержит ошибки.");
@@ -296,6 +291,32 @@ void InputPage::switchToInputMethod(bool isKeyboard) {
   stack_->setCurrentIndex(isKeyboard ? 0 : 1);
 }
 
+/**
+ * @brief Очищает строку от нежелательных символов
+ *
+ * Удаляем все, что находится между [ и ], включая сами скобки
+ * Удаляем мягкий перенос (U+00AD)
+ * Заменяем неразрывный пробел (U+00A0) на обычный пробел
+ *
+ * Удаляем символы нулевой ширины:
+ * U+200B (zero-width space)
+ * U+200C (zero-width non-joiner)
+ * U+200D (zero-width joiner)
+ *
+ * Удаляем символы направления текста (U+202A, U+202B, U+202C, U+202D, U+202E)
+ *
+ * Категории символов, которые МЫ ОСТАВЛЯЕМ:
+ * p{L}  - любая буква (русские, английские, любые алфавитные)
+ * p{N}  - любая цифра
+ * s     - любой пробельный символ (пробел, табуляция, перевод строки)
+ * p{P}  - любой знак пунктуации
+ *
+ * Заменяем множественные пробелы на один
+ * Удаляем пробелы перед знаками пунктуации (опционально)
+ * Добавляем пробел после знаков пунктуации, если его нет (опционально)
+ *
+ * @param text строка, содержащая текст
+ */
 QString InputPage::sanitizeText(const QString &text) {
   if (text.isEmpty()) {
     return QString();
@@ -303,45 +324,26 @@ QString InputPage::sanitizeText(const QString &text) {
 
   QString cleaned = text;
 
-  // Удаляем все, что находится между [ и ], включая сами скобки
-  // Используем нежадный захват (.*?) чтобы не захватывать больше, чем нужно
   static const QRegularExpression bracketsContent("\\[.*?\\]");
   cleaned.remove(bracketsContent);
-
-  // Удаляем мягкий перенос (U+00AD)
   cleaned.remove(QChar(0x00AD));
 
-  // Заменяем неразрывный пробел (U+00A0) на обычный пробел
   cleaned.replace(QChar(0x00A0), QChar(' '));
 
   // Удаляем символы нулевой ширины:
-  // U+200B (zero-width space)
-  // U+200C (zero-width non-joiner)
-  // U+200D (zero-width joiner)
   cleaned.remove(QChar(0x200B));
   cleaned.remove(QChar(0x200C));
   cleaned.remove(QChar(0x200D));
 
-  // Удаляем символы направления текста (U+202A, U+202B, U+202C, U+202D, U+202E)
   for (ushort c = 0x202A; c <= 0x202E; ++c) {
     cleaned.remove(QChar(c));
   }
 
-  // Категории символов, которые МЫ ОСТАВЛЯЕМ:
-  // \\p{L}  - любая буква (русские, английские, любые алфавитные)
-  // \\p{N}  - любая цифра
-  // \\s     - любой пробельный символ (пробел, табуляция, перевод строки)
-  // \\p{P}  - любой знак пунктуации
   static const QRegularExpression invalidChars("[^\\p{L}\\p{N}\\s\\p{P}]");
   cleaned.remove(invalidChars);
 
-  // Заменяем множественные пробелы на один
   cleaned.replace(QRegularExpression("\\s+"), " ");
-
-  // Удаляем пробелы перед знаками пунктуации (опционально)
   cleaned.replace(QRegularExpression("\\s+([.,!?;:])"), "\\1");
-
-  // Добавляем пробел после знаков пунктуации, если его нет (опционально)
   cleaned.replace(QRegularExpression("([.,!?;:])(\\S)"), "\\1 \\2");
 
   cleaned = cleaned.trimmed();
@@ -349,6 +351,17 @@ QString InputPage::sanitizeText(const QString &text) {
   return cleaned;
 }
 
+/**
+ * @brief Проверяет, содержит ли текст достаточно символов для анализа после
+ * очистки.
+ *
+ * Выполняет валидацию очищенного текста и показывает предупреждения,
+ * если текст пуст или было удалено слишком много символов.
+ *
+ * @param text Очищенный текст для проверки
+ * @param originalLength Длина исходного текста до очистки
+ * @return true, если текст валиден для анализа, иначе false
+ */
 bool InputPage::isTextValidForAnalysis(const QString &text,
                                        int originalLength) const {
   if (text.isEmpty()) {
@@ -385,7 +398,13 @@ bool InputPage::isTextValidForAnalysis(const QString &text,
   return true;
 }
 
-// Измените onAnalyzeFromKeyboard:
+/**
+ * @brief Обрабатывает нажатие кнопки анализа текста с клавиатуры.
+ *
+ * Считывает текст из поля ввода, очищает его от недопустимых символов,
+ * проверяет валидность и отправляет сигнал analysisRequested().
+ * При пустом тексте или невалидных данных показывает предупреждение.
+ */
 void InputPage::onAnalyzeFromKeyboard() {
   QString rawText = textInput_->toPlainText();
 
@@ -395,28 +414,28 @@ void InputPage::onAnalyzeFromKeyboard() {
     return;
   }
 
-  // Очищаем текст от проблемных символов
   QString cleanedText = sanitizeText(rawText);
-
-  // Проверяем валидность очищенного текста
   if (!isTextValidForAnalysis(cleanedText, rawText.length())) {
     return;
   }
 
-  // Если очистка изменила текст, показываем предупреждение (опционально)
   if (rawText != cleanedText) {
-    qDebug() << "Text was sanitized. Original length:" << rawText.length()
-             << "Cleaned length:" << cleanedText.length();
-    // Можно показать информационное сообщение:
-    // QMessageBox::information(this, "Текст очищен",
-    //    "Из текста были удалены недопустимые символы.\nАнализ будет продолжен
-    //    с очищенным текстом.");
+    QMessageBox::information(
+        this, "Текст очищен",
+        "Из текста были удалены недопустимые символы.\nАнализ будет продолжен "
+        "с очищенным текстом.");
   }
 
   emit analysisRequested(cleanedText.toStdString());
 }
 
-// Измените onAnalyzeFromFile:
+/**
+ * @brief Обрабатывает нажатие кнопки анализа выбранного файла.
+ *
+ * Проверяет выбранный путь, валидирует файл (существование, расширение,
+ * размер), читает содержимое, очищает от недопустимых символов и отправляет
+ * сигнал analysisRequested(). При ошибках показывает соответствующие сообщения.
+ */
 void InputPage::onAnalyzeFromFile() {
   const QString path = filePathEdit_->text();
 
@@ -434,25 +453,15 @@ void InputPage::onAnalyzeFromFile() {
   }
 
   QString content = readFileContent(path);
-
   if (content.isEmpty()) {
     QMessageBox::warning(this, "Ошибка чтения",
                          "Не удалось прочитать содержимое файла.");
     return;
   }
 
-  // Очищаем текст от проблемных символов
   QString cleanedContent = sanitizeText(content);
-
-  // Проверяем валидность очищенного текста
   if (!isTextValidForAnalysis(cleanedContent, content.length())) {
     return;
-  }
-
-  // Логируем очистку
-  if (content != cleanedContent) {
-    qDebug() << "File content was sanitized. Removed:"
-             << (content.length() - cleanedContent.length()) << "chars";
   }
 
   emit analysisRequested(cleanedContent.toStdString());
