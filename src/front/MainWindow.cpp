@@ -18,13 +18,135 @@
 #include "../back/simple_tokenizer.hpp"
 #include "LoadingPage.hpp"
 
+/**
+ * @brief Конструктор главного окна
+ * @param parent Родительский виджет
+ * @details Инициализирует пользовательский интерфейс, настраивает
+ * сигнально-слотовые соединения и загружает необходимые модели
+ */
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   setWindowTitle("Анализатор текста");
   resize(1200, 700);
 
   setupUI();
   setupConnections();
+  initializeModels();
+}
 
+/**
+ * @brief Деструктор главного окна
+ */
+MainWindow::~MainWindow() {}
+
+/**
+ * @brief Обработчик события закрытия окна
+ * @param event Событие закрытия
+ * @details Проверяет наличие несохранённых результатов и предлагает их
+ * сохранить
+ */
+void MainWindow::closeEvent(QCloseEvent *event) {
+  if (results.empty() || !hasUnsavedResults) {
+    event->accept();
+    return;
+  }
+
+  if (saveResultsOnClose()) {
+    event->accept();
+  } else {
+    event->ignore();
+  }
+}
+
+/**
+ * @brief Слот для обработки запроса на анализ текста
+ * @param text Текст для анализа
+ * @details Выполняет проверку наличия модели и запускает процесс анализа
+ */
+void MainWindow::onAnalyzeRequested(const std::string &text) {
+  if (!inferer) {
+    showParsingError();
+    return;
+  }
+  processAnalysis(text);
+}
+
+/**
+ * @brief Слот для обработки запроса на поиск
+ * @details Переключает стековый виджет на страницу поиска
+ */
+void MainWindow::onSearchRequested() {
+  stackedWidget->setCurrentWidget(searchPage);
+}
+
+/**
+ * @brief Слот для запроса нового анализа
+ * @details Очищает результаты анализа и переключается на страницу ввода текста
+ */
+void MainWindow::onNewAnalysisRequested() {
+  results.clear();
+  hasUnsavedResults = false;
+  stackedWidget->setCurrentWidget(inputPage);
+}
+
+/**
+ * @brief Слот для возврата к странице результатов
+ * @details Обновляет отображение счетчиков и диаграммы, переключается на
+ * страницу результатов
+ */
+void MainWindow::onBackToResultRequested() {
+  resultPage->updateCounts();
+  resultPage->updateChart();
+  stackedWidget->setCurrentWidget(resultPage);
+}
+
+/**
+ * @brief Настройка пользовательского интерфейса
+ * @details Создает и настраивает все страницы, добавляет их в стековый виджет
+ */
+void MainWindow::setupUI() {
+  stackedWidget = new QStackedWidget(this);
+
+  inputPage = new InputPage(this);
+  resultPage = new ResultPage(this);
+  searchPage = new SearchPage(this);
+  loadingPage = new LoadingPage(this);
+
+  stackedWidget->addWidget(inputPage);   // индекс 0
+  stackedWidget->addWidget(resultPage);  // индекс 1
+  stackedWidget->addWidget(searchPage);  // индекс 2
+  stackedWidget->addWidget(loadingPage); // индекс 3
+
+  QVBoxLayout *mainLayout = new QVBoxLayout(this);
+  mainLayout->setContentsMargins(0, 0, 0, 0);
+  mainLayout->addWidget(stackedWidget);
+
+  stackedWidget->setCurrentWidget(inputPage);
+}
+
+/**
+ * @brief Настройка сигнально-слотовых соединений
+ * @details Устанавливает соединения между сигналами страниц и слотами главного
+ * окна
+ */
+void MainWindow::setupConnections() {
+  connect(inputPage, &InputPage::analysisRequested, this,
+          &MainWindow::onAnalyzeRequested);
+
+  connect(resultPage, &ResultPage::searchRequested, this,
+          &MainWindow::onSearchRequested);
+
+  connect(resultPage, &ResultPage::newAnalysisRequested, this,
+          &MainWindow::onNewAnalysisRequested);
+
+  connect(searchPage, &SearchPage::backRequested, this,
+          &MainWindow::onBackToResultRequested);
+}
+
+/**
+ * @brief Инициализация всех моделей (обёртка)
+ * @details Вызывает методы загрузки меток, токенизатора и модели
+ */
+void MainWindow::initializeModels() {
   setLabels();
   setTokenizer();
   setModel();
@@ -32,206 +154,63 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
                                                 labels, 128);
 }
 
-MainWindow::~MainWindow() {}
-
-void MainWindow::closeEvent(QCloseEvent *event) {
-  // Проверяем, есть ли несохраненные результаты анализа
-  if (!results.empty() && !hasUnsavedResults) {
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Подтверждение");
-    msgBox.setText(
-        "Результаты анализа не сохранены. Хотите сохранить их перед выходом?");
-    msgBox.setIcon(QMessageBox::Question);
-    QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
-    QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
-    QPushButton *cancelButton =
-        msgBox.addButton("Отмена", QMessageBox::RejectRole);
-
-    msgBox.exec();
-
-    if (msgBox.clickedButton() == cancelButton) {
-      event->ignore(); // Отменяем закрытие
-      return;
-    }
-
-    if (msgBox.clickedButton() == yesButton) {
-      // Пользователь хочет сохранить - открываем диалог сохранения
-      QString path = QFileDialog::getExistingDirectory(
-          this, "Выберите директорию для сохранения", QDir::homePath(),
-          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-
-      if (path.isEmpty()) {
-        // Пользователь отменил выбор директории - отменяем закрытие
-        event->ignore();
-        return;
-      }
-
-      // Проверка на наличие кириллицы в пути
-      bool hasCyrillic = false;
-      for (const QChar &ch : path) {
-        if (ch.unicode() >= 0x0400 && ch.unicode() <= 0x04FF) {
-          hasCyrillic = true;
-          break;
-        }
-      }
-      if (hasCyrillic) {
-        QMessageBox::warning(
-            this, "Предупреждение",
-            "Путь к директории содержит кириллические символы:\n" + path +
-                "\n\nЭто может вызвать проблемы с сохранением файлов.");
-
-        QMessageBox confirmMsgBox(this);
-        confirmMsgBox.setWindowTitle("Подтверждение");
-        confirmMsgBox.setText("Вы действительно хотите продолжить сохранение?");
-        confirmMsgBox.setIcon(QMessageBox::Question);
-        QPushButton *confirmYesButton =
-            confirmMsgBox.addButton("Да", QMessageBox::YesRole);
-        QPushButton *confirmNoButton =
-            confirmMsgBox.addButton("Нет", QMessageBox::NoRole);
-        confirmMsgBox.exec();
-
-        if (confirmMsgBox.clickedButton() != confirmYesButton) {
-          event->ignore(); // Отменяем закрытие
-          return;
-        }
-      }
-
-      std::string stdPath = path.toStdString();
-
-      const std::string SEARCH_FILE = "list.html";
-      const std::string REVIEW_FILE = "statistics.html";
-
-      QString searchFilePath = path + "/" + QString::fromStdString(SEARCH_FILE);
-      QString reviewFilePath = path + "/" + QString::fromStdString(REVIEW_FILE);
-
-      // Проверяем, существуют ли уже файлы с таким именем
-      bool searchFileExists = QFile::exists(searchFilePath);
-      bool reviewFileExists = QFile::exists(reviewFilePath);
-
-      if (searchFileExists || reviewFileExists) {
-        QMessageBox warningMsgBox(this);
-        warningMsgBox.setWindowTitle("Предупреждение");
-        QString warningText = "В выбранной директории уже существуют файлы:\n";
-        if (searchFileExists) {
-          warningText += "- " + SEARCH_FILE + "\n";
-        }
-        if (reviewFileExists) {
-          warningText += "- " + REVIEW_FILE + "\n";
-        }
-        warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
-        warningMsgBox.setText(warningText);
-        warningMsgBox.setIcon(QMessageBox::Warning);
-        QPushButton *overwriteButton =
-            warningMsgBox.addButton("Продолжить", QMessageBox::YesRole);
-        QPushButton *cancelOverwriteButton =
-            warningMsgBox.addButton("Отмена", QMessageBox::RejectRole);
-        warningMsgBox.exec();
-
-        if (warningMsgBox.clickedButton() != overwriteButton) {
-          event->ignore(); // Отменяем закрытие
-          return;
-        }
-      }
-
-      // Сохраняем результаты
-      std::vector<SearchItem> items = build_search_items(results);
-      GlobalStats statistics = build_global_stats(results);
-      saveAnalysis(stdPath, items, statistics);
-
-      // Проверяем, что файлы сохранились
-      if (QFile::exists(searchFilePath) && QFile::exists(reviewFilePath)) {
-        QMessageBox::information(this, "Сохранение",
-                                 "Результаты успешно сохранены в:\n" + path);
-      } else {
-        QMessageBox::critical(
-            this, "Ошибка сохранения",
-            "Не удалось сохранить файлы результатов анализа.");
-      }
-    }
-  }
-
-  event->accept(); // Разрешаем закрытие
-}
-
-void MainWindow::setupUI() {
-
-  // Создаём стековый виджет для переключения страниц
-  stackedWidget = new QStackedWidget(this);
-
-  // Создаём страницы
-  inputPage = new InputPage(this);
-  resultPage = new ResultPage(this);
-  searchPage = new SearchPage(this);
-  loadingPage = new LoadingPage(this);
-
-  // Добавляем страницы в стек
-  stackedWidget->addWidget(inputPage);   // индекс 0
-  stackedWidget->addWidget(resultPage);  // индекс 1
-  stackedWidget->addWidget(searchPage);  // индекс 2
-  stackedWidget->addWidget(loadingPage); // индекс 3
-
-  // Главный layout
-  QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(0, 0, 0, 0);
-  mainLayout->addWidget(stackedWidget);
-
-  // Показываем страницу ввода
-  stackedWidget->setCurrentWidget(inputPage);
-}
-
-void MainWindow::ckeckAppDirs() {
+/**
+ * @brief Проверка наличия необходимых директорий
+ * @details Проверяет существование директории ../model, при отсутствии
+ * показывает ошибку
+ */
+void MainWindow::checkAppDirs() {
   if (!std::filesystem::exists("../model")) {
     QMessageBox::warning(this, "Ошибка", "Директория ../model не существует!");
-    this->close();
+    close();
   }
 }
 
+/**
+ * @brief Инициализация токенизатора
+ * @details Создает токенизатор на основе файла словаря
+ */
 void MainWindow::setTokenizer() {
   try {
-    tokenizer = std::make_shared<SimpleTokenizer>(("../model/vocab.txt"));
+    tokenizer = std::make_shared<SimpleTokenizer>("../model/vocab.txt");
   } catch (std::exception &e) {
     QMessageBox::warning(this, "Ошибка", "Не удалось загрузить словарь!");
-    this->close();
+    close();
   }
 }
 
+/**
+ * @brief Загрузка меток из конфигурации
+ * @details Загружает метки сущностей из файла конфигурации модели
+ */
 void MainWindow::setLabels() {
   try {
-    labels = load_labels(("../model/config.json"));
+    labels = load_labels("../model/config.json");
   } catch (const std::exception &) {
     QMessageBox::warning(this, "Ошибка",
                          "Не удалось загрузить конфигурацию модели!");
-    this->close();
+    close();
   }
 }
 
+/**
+ * @brief Загрузка ONNX модели
+ * @details Загружает модель BERT NER из файла
+ */
 void MainWindow::setModel() {
   try {
     model = std::make_unique<onnx_infer::BertNerModel>(
-        ("../model/bert_ner_model.onnx"));
+        "../model/bert_ner_model.onnx");
   } catch (std::exception &e) {
     QMessageBox::warning(this, "Ошибка", "Не удалось загрузить модель!");
-    this->close();
+    close();
   }
 }
 
-void MainWindow::setupConnections() {
-  // Связываем сигналы InputPage
-  connect(inputPage, &InputPage::analysisRequested, this,
-          &MainWindow::onAnalyzeRequested);
-
-  // Связываем сигналы ResultPage
-  connect(resultPage, &ResultPage::searchRequested, this,
-          &MainWindow::onSearchRequested);
-
-  connect(resultPage, &ResultPage::newAnalysisRequested, this,
-          &MainWindow::onNewAnalysisRequested);
-
-  // Связываем сигналы SearchPage
-  connect(searchPage, &SearchPage::backRequested, this,
-          &MainWindow::onBackToResultRequested);
-}
-
+/**
+ * @brief Отображение ошибки парсинга
+ * @details Показывает сообщение об ошибке и возвращается на страницу ввода
+ */
 void MainWindow::showParsingError() {
   QMessageBox::warning(this, "Ошибка обработки текста",
                        "Текст содержит неопределенные символы!");
@@ -239,17 +218,40 @@ void MainWindow::showParsingError() {
   results.clear();
 }
 
-void MainWindow::onAnalyzeRequested(const std::string &text) {
-  // Показываем страницу загрузки и устанавливаем начальный прогресс
+/**
+ * @brief Обновить вывод результатов анализа текста
+ * @details Строит элементы поиска и статистику, обновляет страницы результатов
+ */
+void MainWindow::updatePagesWithResults() {
+  std::vector<SearchItem> items = build_search_items(results);
+  GlobalStats statistics = build_global_stats(results);
+
+  searchPage->setSearchItems(items);
+  resultPage->setSearchItems(items);
+  resultPage->setGloabalStats(statistics);
+  resultPage->setData(results);
+  resultPage->updateCounts();
+  resultPage->updateChart();
+  resultPage->updateStatsDisplay();
+
+  hasUnsavedResults = true;
+  stackedWidget->setCurrentWidget(resultPage);
+}
+
+/**
+ * @brief Запуск процесса анализа текста
+ * @param text Текст для анализа
+ * @details Разбивает текст на предложения и обрабатывает каждое с обновлением
+ * прогресса
+ */
+void MainWindow::processAnalysis(const std::string &text) {
   stackedWidget->setCurrentWidget(loadingPage);
 
-  // Разбиваем текст на предложения для подсчёта общего количества
   std::vector<std::string> sentences = inferer->split_into_sentences(text);
   int totalSentences = static_cast<int>(sentences.size());
   loadingPage->setTotal(totalSentences);
   loadingPage->reset();
 
-  // Обрабатываем текст с обновлением прогресса
   results.clear();
   int processedCount = 0;
 
@@ -264,43 +266,159 @@ void MainWindow::onAnalyzeRequested(const std::string &text) {
 
     processedCount++;
     loadingPage->setProgress(processedCount);
-
-    // Даём интерфейсу время обновиться
     QCoreApplication::processEvents();
+  }
+  updatePagesWithResults();
+}
+
+/**
+ * @brief Проверка пути на наличие кириллицы
+ * @param path Путь для проверки
+ * @return true если путь содержит кириллические символы
+ */
+bool MainWindow::hasCyrillicPath(const QString &path) const {
+  for (const QChar &ch : path) {
+    if (ch.unicode() >= 0x0400 && ch.unicode() <= 0x04FF) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @brief Запрос подтверждения перезаписи существующих файлов
+ * @param searchFilePath Путь к файлу поиска
+ * @param reviewFilePath Путь к файлу обзора
+ * @return true если пользователь подтвердил перезапись
+ */
+bool MainWindow::confirmFileOverwrite(const QString &searchFilePath,
+                                      const QString &reviewFilePath) {
+  bool searchExists = QFile::exists(searchFilePath);
+  bool reviewExists = QFile::exists(reviewFilePath);
+
+  if (!searchExists && !reviewExists) {
+    return true;
+  }
+
+  QMessageBox msgBox(this);
+  msgBox.setWindowTitle("Предупреждение");
+  QString warningText = "В выбранной директории уже существуют файлы:\n";
+
+  if (searchExists) {
+    warningText += "- list.html\n";
+  }
+  if (reviewExists) {
+    warningText += "- statistics.html\n";
+  }
+  warningText += "\nЕсли вы продолжите, эти файлы будут перезаписаны.";
+
+  msgBox.setText(warningText);
+  msgBox.setIcon(QMessageBox::Warning);
+
+  QPushButton *overwriteButton =
+      msgBox.addButton("Продолжить", QMessageBox::YesRole);
+  msgBox.addButton("Отмена", QMessageBox::RejectRole);
+  msgBox.exec();
+
+  return msgBox.clickedButton() == overwriteButton;
+}
+
+/**
+ * @brief Сохранение файлов результатов
+ * @param directoryPath Путь для сохранения
+ * @return true если сохранение успешно
+ */
+bool MainWindow::saveResultFiles(const QString &directoryPath) {
+  const std::string SEARCH_FILE = "list.html";
+  const std::string REVIEW_FILE = "statistics.html";
+
+  QString searchFilePath =
+      directoryPath + "/" + QString::fromStdString(SEARCH_FILE);
+  QString reviewFilePath =
+      directoryPath + "/" + QString::fromStdString(REVIEW_FILE);
+
+  if (!confirmFileOverwrite(searchFilePath, reviewFilePath)) {
+    return false;
   }
 
   std::vector<SearchItem> items = build_search_items(results);
   GlobalStats statistics = build_global_stats(results);
 
-  searchPage->setSearchItems(items);
-  resultPage->setSearchItems(items);
-  resultPage->setGloabalStats(statistics);
-  resultPage->setData(results);
-  resultPage->updateCounts();
-  resultPage->updateChart();
-  resultPage->updateStatsDisplay();
+  saveAnalysis(directoryPath.toStdString(), items, statistics);
 
-  // Устанавливаем флаг, что есть результаты, но они ещё не сохранены
-  hasUnsavedResults = true;
-
-  stackedWidget->setCurrentWidget(resultPage);
+  if (QFile::exists(searchFilePath) && QFile::exists(reviewFilePath)) {
+    QMessageBox::information(this, "Сохранение",
+                             "Результаты успешно сохранены в:\n" +
+                                 directoryPath);
+    return true;
+  } else {
+    QMessageBox::critical(this, "Ошибка сохранения",
+                          "Не удалось сохранить файлы результатов анализа.");
+    return false;
+  }
 }
 
-void MainWindow::onSearchRequested() {
-  stackedWidget->setCurrentWidget(searchPage);
+/**
+ * @brief Запрос подтверждения при обнаружении кириллицы в пути
+ * @param path Путь, содержащий кириллицу
+ * @return true если пользователь подтвердил продолжение, false если отменил
+ */
+bool MainWindow::confirmCyrillicPath(const QString &path) {
+  QMessageBox::warning(
+      this, "Предупреждение",
+      "Путь к директории содержит кириллические символы:\n" + path +
+          "\n\nЭто может вызвать проблемы с сохранением файлов.");
+
+  QMessageBox confirmMsgBox(this);
+  confirmMsgBox.setWindowTitle("Подтверждение");
+  confirmMsgBox.setText("Вы действительно хотите продолжить сохранение?");
+  confirmMsgBox.setIcon(QMessageBox::Question);
+
+  QPushButton *confirmYes = confirmMsgBox.addButton("Да", QMessageBox::YesRole);
+  confirmMsgBox.addButton("Нет", QMessageBox::NoRole);
+  confirmMsgBox.exec();
+
+  return confirmMsgBox.clickedButton() == confirmYes;
 }
 
-void MainWindow::onNewAnalysisRequested() {
-  results.clear();
-  hasUnsavedResults = false; // Сбрасываем флаг при начале нового анализа
-  stackedWidget->setCurrentWidget(inputPage);
-}
+/**
+ * @brief Сохранение результатов анализа при закрытии окна
+ * @return true если сохранение прошло успешно или не требуется, false если
+ * отменено
+ */
+bool MainWindow::saveResultsOnClose() {
+  QMessageBox msgBox(this);
+  msgBox.setWindowTitle("Подтверждение");
+  msgBox.setText(
+      "Результаты анализа не сохранены. Хотите сохранить их перед выходом?");
+  msgBox.setIcon(QMessageBox::Question);
 
-void MainWindow::onBackToResultRequested() {
-  // Обновляем данные перед возвратом
-  // resultPage->buildWordRoleMap();
-  resultPage->updateCounts();
-  resultPage->updateChart();
+  QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+  QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+  QPushButton *cancelButton =
+      msgBox.addButton("Отмена", QMessageBox::RejectRole);
+  msgBox.exec();
 
-  stackedWidget->setCurrentWidget(resultPage);
+  if (msgBox.clickedButton() == cancelButton) {
+    return false;
+  }
+
+  if (msgBox.clickedButton() == noButton) {
+    return true;
+  }
+
+  // Обработка сохранения
+  QString path = QFileDialog::getExistingDirectory(
+      this, "Выберите директорию для сохранения", QDir::homePath(),
+      QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+  if (path.isEmpty()) {
+    return false;
+  }
+
+  if (hasCyrillicPath(path) && !confirmCyrillicPath(path)) {
+    return false;
+  }
+
+  return saveResultFiles(path);
 }
