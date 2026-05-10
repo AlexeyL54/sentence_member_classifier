@@ -316,6 +316,7 @@ void InputPage::switchToInputMethod(bool isKeyboard) {
  * Добавляем пробел после знаков пунктуации, если его нет (опционально)
  *
  * @param text строка, содержащая текст
+ * @return Очищенный текст, пригодный для анализа
  */
 QString InputPage::sanitizeText(const QString &text) {
   if (text.isEmpty()) {

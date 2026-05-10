@@ -155,13 +155,19 @@ private:
    */
   void switchToInputMethod(bool isKeyboard);
 
-  /** @brief Максимально допустимый размер файла для анализа (300 КБ). */
+  /**
+   * @brief Максимально допустимый размер файла для анализа (300 КБ).
+   */
   static constexpr qint64 MAX_FILE_SIZE_BYTES = 300 * 1024;
 
-  /** @brief Разрешённое расширение файла. */
+  /**
+   * @brief Разрешённое расширение файла.
+   */
   static constexpr const char *ALLOWED_FILE_EXTENSION = "txt";
 
-  /** @brief Текст предупреждения о кириллице в пути к файлу. */
+  /**
+   * @brief Текст предупреждения о кириллице в пути к файлу.
+   */
   static constexpr const char *CYRILLIC_WARNING =
       "Путь к файлу содержит кириллические символы:\n%1\n\n"
       "Это может вызвать проблемы с чтением файла.";
