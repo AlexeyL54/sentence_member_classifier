@@ -38,7 +38,7 @@ bool TextSplitter::isPunctuation(const Unistring &ch) {
     return false;
 
   // Стандартные знаки препинания ASCII
-  static const std::string ascii_punct = ",.!?;:()-";
+  static const std::string ascii_punct = ",.!?;:()-*";
   if (s.size() == 1 && ascii_punct.find(s[0]) != std::string::npos) {
     return true;
   }
