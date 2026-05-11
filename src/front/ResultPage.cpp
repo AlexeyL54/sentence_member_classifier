@@ -325,9 +325,6 @@ bool ResultPage::showOverwriteWarning(bool searchFileExists,
  */
 bool ResultPage::showSaveResult(const QString &path, bool searchFileExists,
                                 bool reviewFileExists) {
-  const std::string SEARCH_FILE = "list.html";
-  const std::string REVIEW_FILE = "statistics.html";
-
   if (searchFileExists && reviewFileExists) {
     QMessageBox::information(this, "Сохранение",
                              "Результаты успешно сохранены в:\n" + path + "\n" +
@@ -353,29 +350,41 @@ bool ResultPage::showSaveResult(const QString &path, bool searchFileExists,
 }
 
 /**
- * @brief Конструктор класса ResultPage.
- * @param parent Указатель на родительский виджет.
+ * @brief Создает и настраивает центральный виджет.
+ * @return Указатель на центральный виджет.
  */
-ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
-  setWindowTitle("Анализ предложения");
-  resize(1200, 400);
-
-  // Создаем центральный виджет и главный layout
+QWidget *ResultPage::setupCentralWidget() {
   QWidget *centralWidget = new QWidget(this);
   QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
   mainLayout->setContentsMargins(0, 0, 0, 0);
   mainLayout->setSpacing(10);
   setCentralWidget(centralWidget);
+  return centralWidget;
+}
 
-  // Левая часть: текстовое поле с разметкой
+/**
+ * @brief Настраивает левую панель интерфейса.
+ * @param centralWidget Центральный виджет.
+ * @param mainLayout Главный layout.
+ */
+void ResultPage::setupLeftPanel(QWidget *centralWidget,
+                                QHBoxLayout *mainLayout) {
   leftWidget = new QWidget(centralWidget);
   leftWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
   leftLayout->setContentsMargins(10, 10, 10, 10);
   leftLayout->setSpacing(10);
   initLeftPanel(leftLayout);
+  mainLayout->addWidget(leftWidget, 1);
+}
 
-  // Правая часть: чекбоксы и лейблы с количеством
+/**
+ * @brief Настраивает правую панель интерфейса.
+ * @param centralWidget Центральный виджет.
+ * @param mainLayout Главный layout.
+ */
+void ResultPage::setupRightPanel(QWidget *centralWidget,
+                                 QHBoxLayout *mainLayout) {
   rightWidget = new QWidget(centralWidget);
   rightWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
   rightWidget->setFixedWidth(410);
@@ -387,29 +396,58 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 
   initRightPanel(rightLayout);
   initStatsPanel(rightLayout);
+  setupInstructionLabel(rightLayout);
+  rightLayout->addStretch();
 
-  // Создаем инструкцию
+  mainLayout->addWidget(rightWidget, 0);
+}
+
+/**
+ * @brief Создает инструкцию на правой панели.
+ * @param rightLayout Layout правой панели.
+ */
+void ResultPage::setupInstructionLabel(QVBoxLayout *rightLayout) {
   QLabel *instructionLabel =
       new QLabel("Нажмите кнопку Поиск для получения подробной информации");
   instructionLabel->setStyleSheet("font-style: italic; font-weight: bold;");
   instructionLabel->setAlignment(Qt::AlignLeft);
   instructionLabel->setWordWrap(true);
-
   rightLayout->addWidget(instructionLabel);
-  rightLayout->addStretch();
+}
 
-  mainLayout->addWidget(leftWidget, 1);
-  mainLayout->addWidget(rightWidget, 0);
-
+/**
+ * @brief Настраивает соединения сигналов и слотов.
+ */
+void ResultPage::setupConnections() {
   connect(btnSearch, &QPushButton::clicked, this, &ResultPage::searchRequested);
   connect(btnAnalize, &QPushButton::clicked, this,
           &ResultPage::onAnalyzeClicked);
-
   connect(btnSave, &QPushButton::clicked, this, &ResultPage::SaveClicked);
+}
+
+/**
+ * @brief Конструктор класса ResultPage.
+ * @param parent Указатель на родительский виджет.
+ */
+ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
+  setWindowTitle("Анализ предложения");
+  resize(1200, 400);
+
+  QWidget *centralWidget = setupCentralWidget();
+  QHBoxLayout *mainLayout =
+      qobject_cast<QHBoxLayout *>(centralWidget->layout());
+
+  setupLeftPanel(centralWidget, mainLayout);
+  setupRightPanel(centralWidget, mainLayout);
+  setupConnections();
 
   updateStatsDisplay();
 }
 
+/**
+ * @brief Устанавливает данные для поиска.
+ * @param items Вектор элементов для сохранения в файл.
+ */
 void ResultPage::setSearchItems(const std::vector<SearchItem> &items) {
   search_items = items;
 }
@@ -452,6 +490,11 @@ void ResultPage::updateChart() {
   }
 }
 
+/**
+ * @brief Обрабатывает сохранение результатов в файлы.
+ * @details Открывает диалог выбора директории, проверяет путь на наличие
+ *          кириллицы, проверяет существование файлов и сохраняет результаты.
+ */
 void ResultPage::SaveClicked() {
   const QString initialDir =
       lastOpenedDir_.isEmpty() ? QDir::homePath() : lastOpenedDir_;
@@ -475,7 +518,6 @@ void ResultPage::SaveClicked() {
                        reviewFileExists);
 
     if (searchFileExists || reviewFileExists) {
-      // Пользователь отменил сохранение
       if (!showOverwriteWarning(searchFileExists, reviewFileExists)) {
         return;
       }
@@ -483,7 +525,6 @@ void ResultPage::SaveClicked() {
 
     saveAnalysis(stdPath, search_items, stats);
 
-    // Проверка, что файлы действительно сохранились
     bool searchFileExistsAfter =
         QFile::exists(path + "/" + QString::fromStdString(SEARCH_FILE));
     bool reviewFileExistsAfter =
@@ -496,11 +537,13 @@ void ResultPage::SaveClicked() {
 
 /**
  * @brief Слот, обрабатывающий нажатие кнопки поиска.
+ * @details Испускает сигнал searchRequested для выполнения поиска.
  */
 void ResultPage::onSearchClicked() { emit searchRequested(); }
 
 /**
  * @brief Обновляет все отображения на интерфейсе.
+ * @details Обновляет счетчики, графики и текст с разметкой.
  */
 void ResultPage::refreshDisplay() {
   updateCounts();
@@ -510,6 +553,10 @@ void ResultPage::refreshDisplay() {
   }
 }
 
+/**
+ * @brief Слот, обрабатывающий запрос нового анализа.
+ * @details Показывает диалог подтверждения, очищает данные и испускает сигнал.
+ */
 void ResultPage::onAnalyzeClicked() {
   QString str = "";
   if (isSaved) {
@@ -551,11 +598,18 @@ void ResultPage::onAnalyzeClicked() {
     emit newAnalysisRequested();
 
   } else {
-    // Пользователь выбрал "Нет" или закрыл окно
     QMessageBox::information(this, "Отмена", "Анализ отменён.");
   }
 }
 
+/**
+ * @brief Обрабатывает изменение состояния чекбокса.
+ * @param state Новое состояние чекбокса (Qt::Checked или Qt::Unchecked).
+ * @param role Роль члена предложения для подсветки.
+ * @details При установке галочки блокируются остальные чекбоксы и включается
+ *          подсветка выбранной роли. При снятии - разблокируются все чекбоксы
+ *          и отключается подсветка.
+ */
 void ResultPage::onCheckboxStateChanged(int state, const QString &role) {
   QObject *senderObj = sender();
   QCheckBox *currentCheckbox = qobject_cast<QCheckBox *>(senderObj);
@@ -564,7 +618,6 @@ void ResultPage::onCheckboxStateChanged(int state, const QString &role) {
     return;
   }
 
-  // Если галочку установили
   if (state == Qt::Checked) {
     foreach (QCheckBox *box, m_checkBoxes) {
       if (box != currentCheckbox) {
@@ -575,20 +628,21 @@ void ResultPage::onCheckboxStateChanged(int state, const QString &role) {
     if (widgetText) {
       widgetText->setHighlightedRole(role);
     }
-  }
-  // Если галочку сняли (отжали)
-  else if (state == Qt::Unchecked) {
+  } else if (state == Qt::Unchecked) {
     foreach (QCheckBox *box, m_checkBoxes) {
       box->setEnabled(true);
     }
-
-    // Если галочка снята со всех (или мы просто хотим снять выделение)
     if (widgetText) {
       widgetText->setHighlightedRole("");
     }
   }
 }
 
+/**
+ * @brief Устанавливает данные для отображения.
+ * @param results Вектор результатов анализа предложений.
+ * @details Подсчитывает части предложения и обновляет отображение текста.
+ */
 void ResultPage::setData(const std::vector<SentenceResult> &results) {
   m_results = results;
 
@@ -612,22 +666,22 @@ void ResultPage::setData(const std::vector<SentenceResult> &results) {
 }
 
 /**
- * @brief Устанавливает данные статистики.
+ * @brief Устанавливает глобальные данные статистики.
  * @param statistics Структура с данными статистики.
  */
-void ResultPage::setGloabalStats(const GlobalStats statistics) {
+void ResultPage::setGlobalStats(const GlobalStats statistics) {
   stats = statistics;
 }
 
 /**
  * @brief Обновляет отображение статистики на интерфейсе.
- * @param stats Структура с готовыми данными для отображения.
+ * @details Обновляет все лейблы статистики и отображает самые популярные слова
+ *          для каждой части предложения.
  */
 void ResultPage::updateStatsDisplay() {
   if (!statsWidget)
     return;
 
-  // Обновляем текст каждого лейбла, используя данные из структуры
   labelSentences->setText(
       QString("Предложений: %1").arg(stats.sentences_total));
   labelWords->setText(QString("Слов: %1").arg(stats.words_total));
@@ -645,22 +699,14 @@ void ResultPage::updateStatsDisplay() {
       QString("Обстоятельств: %1").arg(stats.adverbials_total));
   labelOthers->setText(QString("Других: %1").arg(stats.others_total));
 
-  // Обновляем топ-слова (самые популярные)
-  top_subject->setText(
-      QString("Подлежащее: %1")
-          .arg(QString::fromStdString(stats.top_subject.first)));
+  top_subject->setText(QString("Подлежащее: %1").arg(stats.top_subject.first));
   top_predicate->setText(
-      QString("Сказуемое: %1")
-          .arg(QString::fromStdString(stats.top_predicate.first)));
+      QString("Сказуемое: %1").arg(stats.top_predicate.first));
   top_definition->setText(
-      QString("Определение: %1")
-          .arg(QString::fromStdString(stats.top_definition.first)));
+      QString("Определение: %1").arg(stats.top_definition.first));
   top_addition->setText(
-      QString("Дополнение: %1")
-          .arg(QString::fromStdString(stats.top_addition.first)));
+      QString("Дополнение: %1").arg(stats.top_addition.first));
   top_adverbial->setText(
-      QString("Обстоятельство: %1")
-          .arg(QString::fromStdString(stats.top_adverbial.first)));
-  top_other->setText(
-      QString("Другое: %1").arg(QString::fromStdString(stats.top_other.first)));
+      QString("Обстоятельство: %1").arg(stats.top_adverbial.first));
+  top_other->setText(QString("Другое: %1").arg(stats.top_other.first));
 }

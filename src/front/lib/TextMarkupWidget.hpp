@@ -120,11 +120,49 @@ private:
   void processGap(const utf8::Unistring &uniGap, int containerHeight);
 
   /**
+   * @brief Обрабатывает промежуток текста до сущности.
+   * @param currentCharPos Текущая позиция в символах (вход/выход).
+   * @param entityStartChar Начало сущности в символах.
+   * @param uniText Текст предложения.
+   * @param containerHeight Высота контейнера.
+   */
+  void processGapBeforeEntity(size_t &currentCharPos, size_t entityStartChar,
+                              const utf8::Unistring &uniText,
+                              int containerHeight);
+
+  /**
+   * @brief Обрабатывает одну сущность (слово с ролью).
+   * @param entity Сущность для обработки.
+   * @param entityStartChar Начало сущности в символах.
+   * @param entityEndChar Конец сущности в символах.
+   * @param uniText Текст предложения.
+   * @param roleMap Мапа ролей.
+   * @param containerHeight Высота контейнера.
+   * @param currentCharPos Текущая позиция в символах (вход/выход).
+   * @return true если сущность была обработана, false если пропущена.
+   */
+  bool processEntity(const Entity &entity, size_t entityStartChar,
+                     size_t entityEndChar, const utf8::Unistring &uniText,
+                     const QMap<QString, QString> &roleMap, int containerHeight,
+                     size_t &currentCharPos);
+
+  /**
    * @brief Обрабатывает хвост строки после последней сущности.
    * @param uniTail Подстрока Unistring с текстом хвоста.
    * @param containerHeight Высота контейнера.
    */
   void processTail(const utf8::Unistring &uniTail, int containerHeight);
+
+  /**
+   * @brief Обрабатывает хвост текста после всех сущностей.
+   * @param currentCharPos Текущая позиция в символах.
+   * @param textLenChars Общая длина текста в символах.
+   * @param uniText Текст предложения.
+   * @param containerHeight Высота контейнера.
+   */
+  void processRemainingTail(size_t currentCharPos, size_t textLenChars,
+                            const utf8::Unistring &uniText,
+                            int containerHeight);
 
   /**
    * @brief Очищает текущий layout виджета.

@@ -1,4 +1,3 @@
-// src/back/simple_tokenizer.cpp
 #include "simple_tokenizer.hpp"
 #include "text_splitter.hpp"
 #include "unistring.hpp"
@@ -192,6 +191,7 @@ vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
 диапазон), чтобы не ломать поток.
 */
 pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
+
                                                          const string &token,
                                                          size_t start_pos) {
   if (token.empty())

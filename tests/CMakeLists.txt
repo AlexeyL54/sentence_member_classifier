@@ -5,22 +5,50 @@ project(Tests)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Находим Google Test
-find_package(GTest REQUIRED)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
-# Добавляем исполняемый файл для тестов
-add_executable(test
-  back/test_tokenizer.cpp
+find_package(GTest REQUIRED)
+# find_package(Threads REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Test)
+
+set(PROJECT_SOURCES
   ../src/back/text_splitter.cpp
   ../src/back/simple_tokenizer.cpp
   ../src/back/unistring.cpp
+  ../src/back/statistics.cpp
 )
 
-# Линкуем с Google Test
-target_link_libraries(test
-    GTest::GTest
-    GTest::Main
+set(PROJECT_HEADERS 
+  ../src/back/text_splitter.hpp
+  ../src/back/simple_tokenizer.hpp
+  ../src/back/unistring.hpp
+  ../src/back/statistics.hpp
 )
 
-# Включаем тесты
-include(GoogleTest)
+function(add_spellchecker_test TEST_NAME TEST_FILE)
+  add_executable(${TEST_NAME} 
+    ${TEST_FILE}
+    ${PROJECT_SOURCES}
+    ${PROJECT_HEADERS}
+  )
+  
+  target_link_libraries(${TEST_NAME}
+    GTest::gtest
+    GTest::gtest_main
+    # Threads::Threads
+    Qt6::Core 
+    # Qt6::Widgets
+    # Qt6::Test
+  )
+  
+  target_include_directories(${TEST_NAME} PRIVATE ${GTEST_INCLUDE_DIRS})
+  
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+endfunction()
+
+add_spellchecker_test(tokenizer_test test_tokenizer.cpp)
+add_spellchecker_test(statistics_test test_statistics.cpp)
+
+enable_testing()

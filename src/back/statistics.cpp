@@ -1,24 +1,22 @@
 #include "statistics.hpp"
 #include "bert_onnx_inference.hpp"
-#include "unistring.hpp"
-
-#include <cctype>
-#include <map>
-#include <unordered_map>
+#include <QDebug>
+#include <QHash>
+#include <QMap>
+#include <QString>
 
 /**
  * @brief Подсчитывает количество слов в строке предложения.
  * @param text Исходный текст предложения.
  * @return Количество непрерывных последовательностей непробельных символов.
  */
-static int countWordsInText(const std::string &text) {
+static int countWordsInText(const QString &text) {
   int wordCount = 0;
   bool insideWord = false;
-  for (unsigned char c : text) {
-    if (std::isspace(c)) {
+  for (int i = 0; i < text.length(); ++i) {
+    if (text[i].isSpace()) {
       insideWord = false;
     } else if (!insideWord) {
-      // Начало нового «слова»: не пробел после пробела/начала строки.
       ++wordCount;
       insideWord = true;
     }
@@ -28,15 +26,15 @@ static int countWordsInText(const std::string &text) {
 
 /**
  * @brief Возвращает наиболее частое слово для категории.
- * @param freq Частотный словарь слово -> количество.
- * @return Пара (слово, количество); при равенстве частоты выбирается
+ * @param freq Частотный словарь (слово -> количество вхождений).
+ * @return Пара (слово, количество). При равенстве частоты выбирается
  *         лексикографически меньшее слово.
  */
-static std::pair<std::string, int>
-pickTopWord(const std::unordered_map<std::string, int> &freq) {
-  std::pair<std::string, int> best{"", 0};
-  for (const auto &[word, count] : freq) {
-    // Сначала по частоте; при равенстве — лексикографически меньшее слово.
+static std::pair<QString, int> pickTopWord(const QHash<QString, int> &freq) {
+  std::pair<QString, int> best{"", 0};
+  for (auto it = freq.constBegin(); it != freq.constEnd(); ++it) {
+    const QString &word = it.key();
+    int count = it.value();
     if (count > best.second || (count == best.second && word < best.first)) {
       best = {word, count};
     }
@@ -45,85 +43,105 @@ pickTopWord(const std::unordered_map<std::string, int> &freq) {
 }
 
 /**
- * @brief Самый частый фрагмент по категории или «нет», если выделить нельзя.
- *
- * Если категория пуста или максимальная частота равна 1 (все члены этой
- * категории встречаются по одному разу — нет «самого популярного»),
- * возвращается пара ("-", 0).
+ * @brief Возвращает самый частый фрагмент по категории или значение «нет», если
+ * выделить нельзя.
+ * @param freq Частотный словарь (слово -> количество вхождений).
+ * @return Если категория пуста или максимальная частота равна 1 (все члены этой
+ * категории встречаются по одному разу) — возвращает пару ("-", 0). Иначе —
+ * самую частую пару.
  */
-static std::pair<std::string, int>
-pickTopWordOrNone(const std::unordered_map<std::string, int> &freq) {
-  const std::pair<std::string, int> best = pickTopWord(freq);
-  if (freq.empty() || best.second <= 1)
+static std::pair<QString, int>
+pickTopWordOrNone(const QHash<QString, int> &freq) {
+  const std::pair<QString, int> best = pickTopWord(freq);
+  if (freq.isEmpty() || best.second <= 1)
     return {"-", 0};
   return best;
 }
 
 /**
- * @brief Добавляет контекст предложения, если для этого номера записи ещё нет.
+ * @brief Добавляет контекст предложения, если для этого номера ещё нет.
+ * @param[in,out] contexts Вектор пар (номер предложения, текст предложения).
+ * @param sentence_number Номер предложения (1-based).
+ * @param text Текст предложения.
  */
 static void
-pushSentenceContextIfMissing(std::vector<std::pair<int, std::string>> &contexts,
-                             int sentence_number, const std::string &text) {
-  for (const auto &c : contexts) {
+pushSentenceContextIfMissing(std::vector<std::pair<int, QString>> &contexts,
+                             int sentence_number, const QString &text) {
+  for (const std::pair<int, QString> &c : contexts) {
     if (c.first == sentence_number)
       return;
   }
   contexts.push_back({sentence_number, text});
 }
 
+namespace CategoryRu {
+const QString SUBJECT = "подлежащее";
+const QString PREDICATE = "сказуемое";
+const QString DEFINITION = "определение";
+const QString ADDITION = "дополнение";
+const QString ADVERBIAL = "обстоятельство";
+const QString OTHER = "другое";
+} // namespace CategoryRu
+
 /**
- * @brief Частоты слов по категориям (для топов на экране статистики).
+ * @brief Увеличивает соответствующий счётчик в глобальной статистике в
+ * зависимости от категории.
+ * @param[in,out] stats Глобальная статистика.
+ * @param categoryRu Название категории на русском языке.
+ */
+static void incrementCategoryTotal(GlobalStats &stats,
+                                   const QString &categoryRu) {
+  if (categoryRu == CategoryRu::SUBJECT)
+    stats.subjects_total += 1;
+  else if (categoryRu == CategoryRu::PREDICATE)
+    stats.predicates_total += 1;
+  else if (categoryRu == CategoryRu::DEFINITION)
+    stats.definitions_total += 1;
+  else if (categoryRu == CategoryRu::ADDITION)
+    stats.additions_total += 1;
+  else if (categoryRu == CategoryRu::ADVERBIAL)
+    stats.adverbials_total += 1;
+  else if (categoryRu == CategoryRu::OTHER)
+    stats.others_total += 1;
+}
+
+/**
+ * @brief Структура для хранения частот слов по категориям.
+ *        Используется для вычисления самых частых членов предложения.
  */
 struct CategoryWordFreqs {
-  std::unordered_map<std::string, int> subject;
-  std::unordered_map<std::string, int> predicate;
-  std::unordered_map<std::string, int> definition;
-  std::unordered_map<std::string, int> addition;
-  std::unordered_map<std::string, int> adverbial;
-  std::unordered_map<std::string, int> other;
+  QHash<QString, int> subject;    // Частоты подлежащих
+  QHash<QString, int> predicate;  // Частоты сказуемых
+  QHash<QString, int> definition; // Частоты определений
+  QHash<QString, int> addition;   // Частоты дополнений
+  QHash<QString, int> adverbial;  // Частоты обстоятельств
+  QHash<QString, int> other;      // Частоты других членов предложения
 
-  void increment(const std::string &categoryRu, const std::string &word) {
-    if (categoryRu == "подлежащее") {
+  /**
+   * @brief Увеличивает счётчик для указанной категории.
+   * @param categoryRu Название категории на русском языке.
+   * @param word Слово (член предложения) в нижнем регистре.
+   */
+  void increment(const QString &categoryRu, const QString &word) {
+    if (categoryRu == CategoryRu::SUBJECT)
       subject[word] += 1;
-    } else if (categoryRu == "сказуемое") {
+    else if (categoryRu == CategoryRu::PREDICATE)
       predicate[word] += 1;
-    } else if (categoryRu == "определение") {
+    else if (categoryRu == CategoryRu::DEFINITION)
       definition[word] += 1;
-    } else if (categoryRu == "дополнение") {
+    else if (categoryRu == CategoryRu::ADDITION)
       addition[word] += 1;
-    } else if (categoryRu == "обстоятельство") {
+    else if (categoryRu == CategoryRu::ADVERBIAL)
       adverbial[word] += 1;
-    } else if (categoryRu == "другое") {
+    else if (categoryRu == CategoryRu::OTHER)
       other[word] += 1;
-    }
   }
 };
 
 /**
- * @brief Увеличивает счётчик общей статистики для указанной категории.
- * @param stats Глобальная статистика.
- * @param categoryRu Название категории на русском.
- */
-static void incrementCategoryTotal(GlobalStats &stats,
-                                   const std::string &categoryRu) {
-  if (categoryRu == "подлежащее") {
-    stats.subjects_total += 1;
-  } else if (categoryRu == "сказуемое") {
-    stats.predicates_total += 1;
-  } else if (categoryRu == "определение") {
-    stats.definitions_total += 1;
-  } else if (categoryRu == "дополнение") {
-    stats.additions_total += 1;
-  } else if (categoryRu == "обстоятельство") {
-    stats.adverbials_total += 1;
-  } else if (categoryRu == "другое") {
-    stats.others_total += 1;
-  }
-}
-
-/**
- * @brief Заполняет поля top_* из накопленных частот.
+ * @brief Заполняет поля top_* в глобальной статистике из накопленных частот.
+ * @param[out] stats Глобальная статистика.
+ * @param freqs Накопленные частоты слов по категориям.
  */
 static void fillTopStats(GlobalStats &stats, const CategoryWordFreqs &freqs) {
   stats.top_subject = pickTopWordOrNone(freqs.subject);
@@ -135,22 +153,23 @@ static void fillTopStats(GlobalStats &stats, const CategoryWordFreqs &freqs) {
 }
 
 /**
- * @brief Учёт одной сущности в глобальной статистике и частотах по категориям.
+ * @brief Учитывает одну сущность (член предложения) в глобальной статистике и
+ * частотах по категориям.
+ * @param[in,out] stats Глобальная статистика.
+ * @param[in,out] freqs Частоты слов по категориям.
+ * @param entity Обрабатываемая сущность (член предложения).
  */
 static void accumulateEntityForGlobalStats(GlobalStats &stats,
                                            CategoryWordFreqs &freqs,
                                            const Entity &entity) {
-  std::string word = entity.text;
-  const std::string categoryRu = entity.type_ru;
-  if (word.empty() || categoryRu.empty()) {
+  QString word = QString::fromStdString(entity.text);
+  QString categoryRu = QString::fromStdString(entity.type_ru);
+  if (word.isEmpty() || categoryRu.isEmpty()) {
     return;
   }
 
-  // Приводим к нижнему регистру для группировки
-  utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
-  const std::string wordKey = wordLower.to_string();
+  QString wordKey = word.toLower();
 
-  // Одна сущность = один член предложения в общей статистике.
   stats.members_total += 1;
   incrementCategoryTotal(stats, categoryRu);
   freqs.increment(categoryRu, wordKey);
@@ -158,96 +177,100 @@ static void accumulateEntityForGlobalStats(GlobalStats &stats,
 
 /**
  * @brief Строит глобальную статистику по результатам анализа предложений.
- * @param analysis_results Результат extract_sentence_parts().
+ * @param analysis_results Вектор результатов анализа предложений.
  * @return Заполненная структура GlobalStats.
  */
 GlobalStats
 build_global_stats(const std::vector<SentenceResult> &analysis_results) {
   GlobalStats stats{};
-
   stats.sentences_total = static_cast<int>(analysis_results.size());
 
   CategoryWordFreqs freqs;
 
-  for (const auto &sentenceResult : analysis_results) {
-    stats.words_total += countWordsInText(sentenceResult.text);
+  for (const SentenceResult &sentenceResult : analysis_results) {
+    stats.words_total +=
+        countWordsInText(QString::fromStdString(sentenceResult.text));
 
-    for (const auto &entity : sentenceResult.entities) {
+    for (const Entity &entity : sentenceResult.entities) {
       accumulateEntityForGlobalStats(stats, freqs, entity);
     }
   }
 
-  // Для каждой категории — самый частый фрагмент; если все по разу (max==1) —
-  // «нет».
   fillTopStats(stats, freqs);
-
   return stats;
 }
 
 /**
- * @brief Ключ слова в нижнем регистре для агрегации SearchItem.
+ * @brief Приводит слово к нижнему регистру для использования в качестве ключа
+ *        группировки.
+ * @param word Исходное слово.
+ * @return Слово в нижнем регистре.
  */
-static std::string normalizedWordKey(const std::string &word) {
-  utf8::Unistring wordLower = utf8::Unistring(word).to_lower();
-  return wordLower.to_string();
-}
+static QString normalizedWordKey(const QString &word) { return word.toLower(); }
 
 /**
- * @brief Добавляет вхождение сущности в агрегат по ключу (категория, слово).
+ * @brief Добавляет вхождение сущности в агрегат по ключу (категория, слово в
+ * нижнем регистре).
+ * @param[in,out] itemsByKey Карта, где ключ — пара (категория, слово в нижнем
+ * регистре), значение — агрегированный SearchItem.
+ * @param sentence_number Номер предложения (1-based).
+ * @param sentenceText Текст предложения.
+ * @param entity Обрабатываемая сущность.
  */
 static void mergeEntityIntoSearchItems(
-    std::map<std::pair<std::string, std::string>, SearchItem> &itemsByKey,
-    int sentence_number, const std::string &sentenceText,
-    const Entity &entity) {
-  std::string word = entity.text;
-  const std::string categoryRu = entity.type_ru;
-  if (word.empty() || categoryRu.empty()) {
+    std::map<std::pair<QString, QString>, SearchItem> &itemsByKey,
+    int sentence_number, const QString &sentenceText, const Entity &entity) {
+
+  QString word = QString::fromStdString(entity.text);
+  QString categoryRu = QString::fromStdString(entity.type_ru);
+  if (word.isEmpty() || categoryRu.isEmpty()) {
     return;
   }
 
-  const std::string wordKey = normalizedWordKey(word);
+  // Приведение слова к нижнему регистру для группировки (регистронезависимость)
+  QString wordKey = normalizedWordKey(word);
+  auto key = std::make_pair(categoryRu, wordKey);
+  SearchItem &item = itemsByKey[key];
 
-  // operator[] создаёт SearchItem при первом появлении ключа.
-  SearchItem &item = itemsByKey[{categoryRu, wordKey}];
-
-  // Сохраняем оригинальный текст при первом вхождении
   if (item.amount == 0) {
-    item.text = word;
+    // Сохраняем слово в нижнем регистре
+    item.text = wordKey;
     item.type = categoryRu;
   }
 
   item.amount += 1;
-  // Одно предложение на номер: без дубликатов при нескольких сущностях
-  // в одном предложении.
   pushSentenceContextIfMissing(item.sentences, sentence_number, sentenceText);
 }
 
 /**
  * @brief Строит агрегированный список элементов для страницы поиска.
- * @param analysis_results
- * @return Вектор SearchItem
+ *
+ * Группировка выполняется по паре (категория, слово в нижнем регистре),
+ * что обеспечивает регистронезависимость. В результирующих SearchItem
+ * поле text содержит слово в нижнем регистре.
+ *
+ * @param analysis_results Вектор результатов анализа предложений.
+ * @return Вектор структур SearchItem.
  */
 std::vector<SearchItem>
 build_search_items(const std::vector<SentenceResult> &analysis_results) {
-  // Ключ: (type_ru, текст фрагмента в нижнем регистре) — одна запись на
-  // уникальную пару по всему тексту.
-  std::map<std::pair<std::string, std::string>, SearchItem> itemsByKey;
+  std::map<std::pair<QString, QString>, SearchItem> itemsByKey;
 
   for (size_t si = 0; si < analysis_results.size(); ++si) {
-    const auto &sentenceResult = analysis_results[si];
-    const int sentence_number = static_cast<int>(si) + 1;
+    const SentenceResult &sentenceResult = analysis_results[si];
+    int sentence_number = static_cast<int>(si) + 1;
+    QString sentenceText = QString::fromStdString(sentenceResult.text);
 
-    for (const auto &entity : sentenceResult.entities) {
-      mergeEntityIntoSearchItems(itemsByKey, sentence_number,
-                                 sentenceResult.text, entity);
+    for (const Entity &entity : sentenceResult.entities) {
+      mergeEntityIntoSearchItems(itemsByKey, sentence_number, sentenceText,
+                                 entity);
     }
   }
 
-  // map -> vector: порядок следует сравнению ключей (type, затем text).
   std::vector<SearchItem> items;
   items.reserve(itemsByKey.size());
   for (auto &[key, item] : itemsByKey) {
-    (void)key; // ключ уже отражён в полях item; нужен только для обхода map
+    Q_UNUSED(key);
     items.push_back(std::move(item));
   }
   return items;

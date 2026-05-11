@@ -105,9 +105,6 @@ QString TextMarkupWidget::highlightedRole() const { return m_highlightedRole; }
  * @brief Подсвечивает выбранные члены предложения.
  */
 void TextMarkupWidget::updateHighlighting() {
-  /*if (m_text.isEmpty()) {
-    return;
-  }*/
   for (int i = 0; i < m_flowLayout->count(); ++i) {
     QWidget *container = m_flowLayout->itemAt(i)->widget();
     if (!container)
@@ -318,10 +315,77 @@ TextMarkupWidget::byteToCharIndex(size_t bytePos,
 }
 
 /**
- * @brief Обрабатывает одно предложение с сущностями.
- * @param sentence Предложение с сущностями.
+ * @brief Обрабатывает промежуток текста до сущности.
+ * @param currentCharPos Текущая позиция в символах (вход/выход).
+ * @param entityStartChar Начало сущности в символах.
+ * @param uniText Текст предложения.
  * @param containerHeight Высота контейнера.
+ */
+void TextMarkupWidget::processGapBeforeEntity(size_t &currentCharPos,
+                                              size_t entityStartChar,
+                                              const utf8::Unistring &uniText,
+                                              int containerHeight) {
+  if (entityStartChar > currentCharPos) {
+    utf8::Unistring uniGap =
+        uniText.substr(currentCharPos, entityStartChar - 1);
+    processGap(uniGap, containerHeight);
+  }
+}
+
+/**
+ * @brief Обрабатывает одну сущность (слово с ролью).
+ * @param entity Сущность для обработки.
+ * @param entityStartChar Начало сущности в символах.
+ * @param entityEndChar Конец сущности в символах.
+ * @param uniText Текст предложения.
  * @param roleMap Мапа ролей.
+ * @param containerHeight Высота контейнера.
+ * @param currentCharPos Текущая позиция в символах (вход/выход).
+ * @return true если сущность была обработана, false если пропущена.
+ */
+bool TextMarkupWidget::processEntity(
+    const Entity &entity, size_t entityStartChar, size_t entityEndChar,
+    const utf8::Unistring &uniText, const QMap<QString, QString> &roleMap,
+    int containerHeight, size_t &currentCharPos) {
+  size_t textLenChars = uniText.length();
+
+  if (entityEndChar <= currentCharPos || entityEndChar > textLenChars) {
+    return false;
+  }
+
+  utf8::Unistring uniEntity =
+      uniText.substr(entityStartChar, entityEndChar - 1);
+  QString entityText = QString::fromUtf8(uniEntity.to_string().c_str());
+  QString fullRole = QString::fromStdString(entity.type_ru);
+  QString shortRole = roleMap.value(fullRole, fullRole);
+
+  QWidget *wordContainer =
+      createWordWidget(entityText, shortRole, fullRole, containerHeight);
+  m_flowLayout->addWidget(wordContainer);
+  currentCharPos = entityEndChar;
+
+  return true;
+}
+
+/**
+ * @brief Обрабатывает хвост текста после всех сущностей.
+ * @param currentCharPos Текущая позиция в символах.
+ * @param textLenChars Общая длина текста в символах.
+ * @param uniText Текст предложения.
+ * @param containerHeight Высота контейнера.
+ */
+void TextMarkupWidget::processRemainingTail(size_t currentCharPos,
+                                            size_t textLenChars,
+                                            const utf8::Unistring &uniText,
+                                            int containerHeight) {
+  if (currentCharPos < textLenChars) {
+    utf8::Unistring uniTail = uniText.substr(currentCharPos, textLenChars - 1);
+    processTail(uniTail, containerHeight);
+  }
+}
+
+/**
+ * @brief Обрабатывает одно предложение с сущностями.
  */
 void TextMarkupWidget::processSentence(const SentenceResult &sentence,
                                        int containerHeight,
@@ -332,34 +396,15 @@ void TextMarkupWidget::processSentence(const SentenceResult &sentence,
   std::vector<size_t> byteOffsets = uniText.get_char_offsets();
   size_t currentCharPos = 0;
 
-  for (const auto &entity : sentence.entities) {
+  for (const Entity &entity : sentence.entities) {
     size_t entityStartChar = byteToCharIndex(entity.start, byteOffsets);
     size_t entityEndChar = byteToCharIndex(entity.end, byteOffsets);
 
-    if (entityStartChar > currentCharPos) {
-      utf8::Unistring uniGap =
-          uniText.substr(currentCharPos, entityStartChar - 1);
-      processGap(uniGap, containerHeight);
-    }
-
-    if (entityEndChar <= currentCharPos || entityEndChar > textLenChars) {
-      continue;
-    }
-
-    utf8::Unistring uniEntity =
-        uniText.substr(entityStartChar, entityEndChar - 1);
-    QString entityText = QString::fromUtf8(uniEntity.to_string().c_str());
-    QString fullRole = QString::fromStdString(entity.type_ru);
-    QString shortRole = roleMap.value(fullRole, fullRole);
-
-    QWidget *wordContainer =
-        createWordWidget(entityText, shortRole, fullRole, containerHeight);
-    m_flowLayout->addWidget(wordContainer);
-    currentCharPos = entityEndChar;
+    processGapBeforeEntity(currentCharPos, entityStartChar, uniText,
+                           containerHeight);
+    processEntity(entity, entityStartChar, entityEndChar, uniText, roleMap,
+                  containerHeight, currentCharPos);
   }
 
-  if (currentCharPos < textLenChars) {
-    utf8::Unistring uniTail = uniText.substr(currentCharPos, textLenChars - 1);
-    processTail(uniTail, containerHeight);
-  }
+  processRemainingTail(currentCharPos, textLenChars, uniText, containerHeight);
 }
