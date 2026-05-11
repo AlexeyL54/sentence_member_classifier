@@ -389,7 +389,7 @@ bool MainWindow::confirmCyrillicPath(const QString &path) {
  * отменено
  */
 bool MainWindow::saveResultsOnClose() {
-  if (resultPage->getSaveStatus()) {
+  if (!resultPage->getSaveStatus()) {
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Подтверждение");
     msgBox.setText(
