@@ -8,13 +8,13 @@
 #include <QVBoxLayout>
 
 namespace {
-constexpr int kControlHeight = 38;     /** Единая высота элементов управления */
-constexpr int kSearchWidth = 640;      /** Ширина поискового блока */
-constexpr int kFilterSpacing = 12;     /** Расстояние между фильтрами */
-constexpr int kPageMarginsH = 24;      /** Горизонтальные отступы страницы */
-constexpr int kPageMarginsTop = 20;    /** Верхний отступ страницы */
-constexpr int kPageMarginsBottom = 24; /** Нижний отступ страницы */
-constexpr int kPageSpacing = 14;       /** Межэлементный интервал на странице */
+constexpr int kControlHeight = 38;     // Единая высота элементов управления
+constexpr int kSearchWidth = 640;      // Ширина поискового блока
+constexpr int kFilterSpacing = 12;     // Расстояние между фильтрами
+constexpr int kPageMarginsH = 24;      // Горизонтальные отступы страницы
+constexpr int kPageMarginsTop = 20;    // Верхний отступ страницы
+constexpr int kPageMarginsBottom = 24; // Нижний отступ страницы
+constexpr int kPageSpacing = 14;       // Межэлементный интервал на странице
 } // namespace
 
 /**

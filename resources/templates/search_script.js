@@ -49,16 +49,27 @@ function getSearchState() {
  * Классифицирует элемент по типу совпадения
  * @param {HTMLElement} item - DOM элемент
  * @param {string} searchText - Поисковый текст (нижний регистр)
- * @param {string} originalText - Оригинальный текст элемента
+ * @param {string} originalText - Оригинальный текст элемента (нижний регистр)
  * @returns {string} Тип совпадения: 'exact' | 'partial' | 'sentence' | 'typeOnly' | 'none'
  */
 function classifyMatch(item, searchText, originalText) {
   if (!searchText) return 'typeOnly';
 
-  // Точное совпадение
+  // Точное совпадение (полное соответствие слова)
+  // Для однобуквенных слов это также будет работать корректно
   if (originalText === searchText) return 'exact';
 
-  // Частичное совпадение
+  // Проверка на точное совпадение по границам слова
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegex(searchText)}\\b`, 'i');
+  if (wordBoundaryRegex.test(originalText)) {
+    // Если слово полностью совпадает с искомым (по границам)
+    if (originalText.toLowerCase() === searchText.toLowerCase()) {
+      return 'exact';
+    }
+    return 'partial';
+  }
+
+  // Частичное совпадение (внутри слова)
   if (originalText.includes(searchText)) return 'partial';
 
   // Совпадение в предложениях

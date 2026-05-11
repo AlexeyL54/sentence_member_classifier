@@ -15,8 +15,7 @@ constexpr int kCardSpacing = 8;       // Расстояние между эле�
 constexpr int kListMargins = 20;      // Отступы списка от краёв
 constexpr int kListSpacing = 12;      // Расстояние между карточками
 constexpr int kSnippetMaxLength = 90; // Максимальная длина контекста
-constexpr qreal kFontSizeMultiplier =
-    1.05; ///< Множитель размера шрифта для заголовка
+constexpr qreal kFontSizeMultiplier = 1.05; // Множитель шрифта
 } // namespace
 
 /**
@@ -32,18 +31,22 @@ SearchResultsList::SearchResultsList(QWidget *parent) : QWidget(parent) {
  *
  * Создаёт область прокрутки, контейнер для карточек и корневой layout.
  * Устанавливает политики отображения и размеров.
+ * Добавляет stretch в конец layout_ для прижатия карточек к верху.
  */
 void SearchResultsList::setupUi() {
   scrollArea_ = new QScrollArea(this);
   scrollArea_->setWidgetResizable(true);
   scrollArea_->setFrameShape(QFrame::NoFrame);
   scrollArea_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  scrollArea_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
   container_ = new QWidget(scrollArea_);
+  container_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
   layout_ = new QVBoxLayout(container_);
   layout_->setContentsMargins(kListMargins, kListMargins, kListMargins,
                               kListMargins);
   layout_->setSpacing(kListSpacing);
+  layout_->setAlignment(Qt::AlignTop);
 
   scrollArea_->setWidget(container_);
 
@@ -61,23 +64,37 @@ void SearchResultsList::setupUi() {
  * @param items Новый набор элементов для отображения.
  */
 void SearchResultsList::setItems(const std::vector<SearchItem> &items) {
-  clearLayout();
+  // Блокируем обновления для плавной перерисовки
+  setUpdatesEnabled(false);
 
-  for (const SearchItem &item : items) {
-    QFrame *card = createCard(item);
-    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    layout_->addWidget(card);
+  while (layout_->count() > 0) {
+    QLayoutItem *item = layout_->takeAt(0);
+    if (QWidget *widget = item->widget()) {
+      widget->deleteLater();
+    }
+    delete item;
   }
 
-  layout_->addStretch(1);
+  // Добавляем новые карточки
+  for (const SearchItem &item : items) {
+    QFrame *card = createCard(item);
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    card->setMinimumHeight(0);
+    layout_->addWidget(card);
+  }
+  container_->adjustSize();
+  scrollArea_->updateGeometry();
+
+  setUpdatesEnabled(true);
 }
 
 /**
  * @brief Удаляет все карточки из layout'а.
  *
  * Безопасно очищает layout, планируя удаление виджетов
- * через очередь событий Qt. Перед очисткой отключает обновления
- * scrollArea для повышения производительности.
+ * через очередь событий Qt.
+ * Перед очисткой отключает обновления scrollArea для повышения
+ * производительности.
  */
 void SearchResultsList::clearLayout() {
   if (!layout_)
@@ -85,8 +102,9 @@ void SearchResultsList::clearLayout() {
 
   scrollArea_->setUpdatesEnabled(false);
 
-  QLayoutItem *item;
-  while ((item = layout_->takeAt(0)) != nullptr) {
+  // Удаляем все виджеты
+  while (layout_->count() > 0) {
+    QLayoutItem *item = layout_->takeAt(0);
     if (QWidget *widget = item->widget()) {
       widget->deleteLater();
     }
@@ -231,6 +249,7 @@ QWidget *SearchResultsList::createSentencesSection(
   layout->setContentsMargins(0, 4, 0, 0);
   layout->setSpacing(4);
   layout->setAlignment(Qt::AlignTop);
+  layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
 
   if (sentences.empty()) {
     QLabel *emptyLabel =
@@ -274,7 +293,7 @@ QWidget *SearchResultsList::createSentencesSection(
 QFrame *SearchResultsList::createCard(const SearchItem &item) {
   QFrame *card = new QFrame(container_);
   setupCardStyle(card);
-  card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
   QVBoxLayout *cardLayout = new QVBoxLayout(card);
   cardLayout->setContentsMargins(kCardMargins, kCardMargins, kCardMargins,

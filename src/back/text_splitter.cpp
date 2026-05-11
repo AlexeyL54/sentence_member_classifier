@@ -59,6 +59,12 @@ bool TextSplitter::isPunctuation(const Unistring &ch) {
   if (s == "...")
     return true;
 
+  if (s == "“" || s == "„")
+    return true;
+
+  if (s == "\"")
+    return true;
+
   return false;
 }
 
