@@ -88,14 +88,21 @@ target_link_libraries(TextAnalyzer
 # Подключение заголовочных файлов ICU
 target_include_directories(TextAnalyzer PRIVATE ${ICU_INCLUDE_DIRS})
 
-# if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/resources/app.svg")
-#     set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
-#     file(WRITE ${RESOURCE_FILE}
-#     "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/resources/app.ico\"
-#     ")
-#     target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
-# endif()
-# ----------------------------------
+# Добавление иконки для Windows (требуется app.ico)
+if(WIN32)
+    set(ICON_PATH "${CMAKE_SOURCE_DIR}/resources/app.ico")
+    if(EXISTS ${ICON_PATH})
+        set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/app_icon.rc")
+        file(WRITE ${RESOURCE_FILE}
+            "#define IDI_APP_ICON 101\n"
+            "IDI_APP_ICON ICON \"${ICON_PATH}\"\n"
+        )
+        target_sources(TextAnalyzer PRIVATE ${RESOURCE_FILE})
+        message(STATUS "Windows icon embedded from ${ICON_PATH}")
+    else()
+        message(WARNING "Icon file not found: ${ICON_PATH}. The executable will use default icon.")
+    endif()
+endif()
 
 # Установка правил для сборки
 install(TARGETS TextAnalyzer
