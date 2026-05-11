@@ -699,21 +699,14 @@ void ResultPage::updateStatsDisplay() {
       QString("Обстоятельств: %1").arg(stats.adverbials_total));
   labelOthers->setText(QString("Других: %1").arg(stats.others_total));
 
-  top_subject->setText(
-      QString("Подлежащее: %1")
-          .arg(QString::fromStdString(stats.top_subject.first)));
+  top_subject->setText(QString("Подлежащее: %1").arg(stats.top_subject.first));
   top_predicate->setText(
-      QString("Сказуемое: %1")
-          .arg(QString::fromStdString(stats.top_predicate.first)));
+      QString("Сказуемое: %1").arg(stats.top_predicate.first));
   top_definition->setText(
-      QString("Определение: %1")
-          .arg(QString::fromStdString(stats.top_definition.first)));
+      QString("Определение: %1").arg(stats.top_definition.first));
   top_addition->setText(
-      QString("Дополнение: %1")
-          .arg(QString::fromStdString(stats.top_addition.first)));
+      QString("Дополнение: %1").arg(stats.top_addition.first));
   top_adverbial->setText(
-      QString("Обстоятельство: %1")
-          .arg(QString::fromStdString(stats.top_adverbial.first)));
-  top_other->setText(
-      QString("Другое: %1").arg(QString::fromStdString(stats.top_other.first)));
+      QString("Обстоятельство: %1").arg(stats.top_adverbial.first));
+  top_other->setText(QString("Другое: %1").arg(stats.top_other.first));
 }

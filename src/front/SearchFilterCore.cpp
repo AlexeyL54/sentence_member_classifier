@@ -37,7 +37,7 @@ bool SearchFilterModel::matchesText(const SearchItem &item,
   if (needle.isEmpty())
     return true;
 
-  const QString wordText = QString::fromStdString(item.text);
+  const QString wordText = item.text;
 
   if (wordText.compare(needle, Qt::CaseInsensitive) == 0)
     return true;
@@ -50,7 +50,7 @@ bool SearchFilterModel::matchesMember(const SearchItem &item,
   if (selectedMembers.isEmpty())
     return false;
 
-  return selectedMembers.contains(QString::fromStdString(item.type));
+  return selectedMembers.contains(item.type);
 }
 
 void SearchFilterModel::sortResults(std::vector<SearchItem> &results,
@@ -115,5 +115,5 @@ bool SearchFilterModel::compareWithExactFirst(const SearchItem &a,
 }
 
 QString SearchFilterModel::wordKey(const SearchItem &item) {
-  return QString::fromStdString(item.text).toLower();
+  return item.text.toLower();
 }

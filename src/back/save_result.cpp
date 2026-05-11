@@ -106,10 +106,10 @@ std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
   std::stringstream html;
   int orderIndex = 0;
 
-  for (const auto &item : items) {
+  for (const SearchItem &item : items) {
     // Экранируем кавычки для безопасного вставки в атрибуты
-    std::string escapedText = item.text;
-    std::string escapedType = item.type;
+    std::string escapedText = item.text.toUtf8().toStdString();
+    std::string escapedType = item.type.toUtf8().toStdString();
 
     size_t pos = 0;
     while ((pos = escapedText.find('"', pos)) != std::string::npos) {
@@ -125,13 +125,15 @@ std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
     html << "<div class='item' data-text='" << escapedText << "' data-type='"
          << escapedType << "' data-original-order='" << orderIndex++ << "'>\n";
     html << "    <div class='item-header'>\n";
-    html << "        <span class='text'>" << item.text << "</span>\n";
-    html << "        <span class='type'>" << item.type << "</span>\n";
+    html << "        <span class='text'>" << item.text.toUtf8().toStdString()
+         << "</span>\n";
+    html << "        <span class='type'>" << item.text.toUtf8().toStdString()
+         << "</span>\n";
     html << "        <div>Появлений: " << item.amount << "</div>\n";
     html << "    </div>\n";
 
-    for (const auto &sentence : item.sentences) {
-      std::string sentText = sentence.second;
+    for (std::pair<int, QString> const &sentence : item.sentences) {
+      std::string sentText = sentence.second.toUtf8().toStdString();
       // Экранируем для безопасного вставки
       std::string escapedSent = sentText;
       pos = 0;
@@ -195,36 +197,40 @@ std::string generateTopItemsHTML(const GlobalStats &stats) {
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Подлежащее</div>\n";
-  html << "    <div class='word'>«" << stats.top_subject.first << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_subject.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_subject.second
        << " раз(а)</div>\n";
   html << "</div>\n";
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Сказуемое</div>\n";
-  html << "    <div class='word'>«" << stats.top_predicate.first << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_predicate.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_predicate.second
        << " раз(а)</div>\n";
   html << "</div>\n";
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Определение</div>\n";
-  html << "    <div class='word'>«" << stats.top_definition.first
-       << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_definition.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_definition.second
        << " раз(а)</div>\n";
   html << "</div>\n";
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Дополнение</div>\n";
-  html << "    <div class='word'>«" << stats.top_addition.first << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_addition.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_addition.second
        << " раз(а)</div>\n";
   html << "</div>\n";
 
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Обстоятельство</div>\n";
-  html << "    <div class='word'>«" << stats.top_adverbial.first << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_adverbial.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_adverbial.second
        << " раз(а)</div>\n";
   html << "</div>\n";
@@ -232,7 +238,8 @@ std::string generateTopItemsHTML(const GlobalStats &stats) {
   // Добавляем категорию "Другое"
   html << "<div class='top-item'>\n";
   html << "    <div class='part'>Другое</div>\n";
-  html << "    <div class='word'>«" << stats.top_other.first << "»</div>\n";
+  html << "    <div class='word'>«"
+       << stats.top_other.first.toUtf8().toStdString() << "»</div>\n";
   html << "    <div class='count'>" << stats.top_other.second
        << " раз(а)</div>\n";
   html << "</div>\n";

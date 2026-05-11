@@ -62,17 +62,23 @@ private:
    * @param parent Родительский виджет для создаваемых элементов.
    * @return Указатель на созданный виджет с контекстами.
    */
-  QWidget *createSentencesSection(
-      const std::vector<std::pair<int, std::string>> &sentences,
-      QWidget *parent);
+  QWidget *
+  createSentencesSection(const std::vector<std::pair<int, QString>> &sentences,
+                         QWidget *parent);
 
-  /** @brief Контейнер для карточек внутри scroll area */
+  /**
+   * @brief Контейнер для карточек внутри scroll area
+   */
   QWidget *container_ = nullptr;
 
-  /** @brief Layout для размещения карточек */
+  /**
+   * @brief Layout для размещения карточек
+   * */
   QVBoxLayout *layout_ = nullptr;
 
-  /** @brief Область прокрутки */
+  /**
+   * @brief Область прокрутки
+   * */
   QScrollArea *scrollArea_ = nullptr;
 };
 
