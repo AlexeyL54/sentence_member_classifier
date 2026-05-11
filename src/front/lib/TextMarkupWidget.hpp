@@ -120,39 +120,6 @@ private:
   void processGap(const utf8::Unistring &uniGap, int containerHeight);
 
   /**
-   * @brief Обрабатывает хвост строки после последней сущности.
-   * @param uniTail Подстрока Unistring с текстом хвоста.
-   * @param containerHeight Высота контейнера.
-   */
-  void processTail(const utf8::Unistring &uniTail, int containerHeight);
-
-  /**
-   * @brief Очищает текущий layout виджета.
-   */
-  void clearLayout();
-
-  /**
-   * @brief Вычисляет высоту контейнера для слов и подписей.
-   * @return Высота контейнера в пикселях.
-   */
-  int calculateContainerHeight();
-
-  /**
-   * @brief Создает мапу соответствия полных и кратких ролей.
-   * @return Мапа ролей.
-   */
-  QMap<QString, QString> createRoleMap();
-
-  /**
-   * @brief Преобразует байтовое смещение в символьный индекс.
-   * @param bytePos Байтовое смещение.
-   * @param byteOffsets Вектор смещений байтов.
-   * @return Символьный индекс.
-   */
-  size_t byteToCharIndex(size_t bytePos,
-                         const std::vector<size_t> &byteOffsets);
-
-  /**
    * @brief Обрабатывает промежуток текста до сущности.
    * @param currentCharPos Текущая позиция в символах (вход/выход).
    * @param entityStartChar Начало сущности в символах.
@@ -180,6 +147,13 @@ private:
                      size_t &currentCharPos);
 
   /**
+   * @brief Обрабатывает хвост строки после последней сущности.
+   * @param uniTail Подстрока Unistring с текстом хвоста.
+   * @param containerHeight Высота контейнера.
+   */
+  void processTail(const utf8::Unistring &uniTail, int containerHeight);
+
+  /**
    * @brief Обрабатывает хвост текста после всех сущностей.
    * @param currentCharPos Текущая позиция в символах.
    * @param textLenChars Общая длина текста в символах.
@@ -189,6 +163,32 @@ private:
   void processRemainingTail(size_t currentCharPos, size_t textLenChars,
                             const utf8::Unistring &uniText,
                             int containerHeight);
+
+  /**
+   * @brief Очищает текущий layout виджета.
+   */
+  void clearLayout();
+
+  /**
+   * @brief Вычисляет высоту контейнера для слов и подписей.
+   * @return Высота контейнера в пикселях.
+   */
+  int calculateContainerHeight();
+
+  /**
+   * @brief Создает мапу соответствия полных и кратких ролей.
+   * @return Мапа ролей.
+   */
+  QMap<QString, QString> createRoleMap();
+
+  /**
+   * @brief Преобразует байтовое смещение в символьный индекс.
+   * @param bytePos Байтовое смещение.
+   * @param byteOffsets Вектор смещений байтов.
+   * @return Символьный индекс.
+   */
+  size_t byteToCharIndex(size_t bytePos,
+                         const std::vector<size_t> &byteOffsets);
 
   /**
    * @brief Обрабатывает одно предложение с сущностями.

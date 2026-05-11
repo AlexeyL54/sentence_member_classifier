@@ -255,18 +255,6 @@ std::string generateTopItemsHTML(const GlobalStats &stats) {
  * @param stats Глобальная статистика
  * @return std::string JavaScript-код для инициализации графика
  */
-/**
- * @brief Генерирует JavaScript-код для графика статистики
- *
- * @param stats Глобальная статистика
- * @return std::string JavaScript-код для инициализации графика
- */
-/**
- * @brief Генерирует JavaScript-код для графика статистики
- *
- * @param stats Глобальная статистика
- * @return std::string JavaScript-код для инициализации графика
- */
 std::string generateChartScript(const GlobalStats &stats) {
   std::stringstream script;
 

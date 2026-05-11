@@ -67,7 +67,7 @@ pickTopWordOrNone(const QHash<QString, int> &freq) {
 static void
 pushSentenceContextIfMissing(std::vector<std::pair<int, QString>> &contexts,
                              int sentence_number, const QString &text) {
-  for (const auto &c : contexts) {
+  for (const std::pair<int, QString> &c : contexts) {
     if (c.first == sentence_number)
       return;
   }
