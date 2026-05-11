@@ -349,7 +349,7 @@ bool MainWindow::saveResultFiles(const QString &directoryPath) {
   if (QFile::exists(searchFilePath) && QFile::exists(reviewFilePath)) {
     QMessageBox::information(
         this, "Сохранение",
-        "Результаты успешно сохранены в:\n" + searchFilePath + "\n" + "- " +
+        "Результаты успешно сохранены в:\n" + directoryPath + "\n" + "- " +
             QString::fromStdString(SEARCH_FILE) + "\n" + "- " +
             QString::fromStdString(REVIEW_FILE) + "\n");
     return true;
