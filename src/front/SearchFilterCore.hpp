@@ -17,7 +17,7 @@
  *
  * Класс не зависит от Qt-виджетов и может быть протестирован изолированно.
  */
-class SearchFilterModel {
+class SearchFilterCore {
 public:
   /**
    * @brief Режимы сортировки результатов поиска.
@@ -34,7 +34,7 @@ public:
    */
   static const QStringList kAllMembers;
 
-  SearchFilterModel() = default;
+  SearchFilterCore() = default;
 
   /**
    * @brief Установить исходный набор элементов для поиска.
