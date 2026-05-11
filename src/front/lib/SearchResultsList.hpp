@@ -2,6 +2,7 @@
 #define SEARCHRESULTSLIST_HPP
 
 #include <QFrame>
+#include <QLabel>
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -57,6 +58,41 @@ private:
   QFrame *createCard(const SearchItem &item);
 
   /**
+   * @brief Настроить основную компоновку виджета.
+   */
+  void setupUi();
+
+  /**
+   * @brief Настроить внешний вид карточки.
+   * @param card Карточка для настройки.
+   */
+  void setupCardStyle(QFrame *card);
+
+  /**
+   * @brief Создать виджет с основным словом.
+   * @param text Текст слова.
+   * @param parent Родительский виджет.
+   * @return Указатель на созданную метку.
+   */
+  QLabel *createWordLabel(const QString &text, QWidget *parent);
+
+  /**
+   * @brief Создать метку с типом члена предложения.
+   * @param type Тип члена предложения.
+   * @param parent Родительский виджет.
+   * @return Указатель на созданную метку.
+   */
+  QLabel *createMemberTypeLabel(const QString &type, QWidget *parent);
+
+  /**
+   * @brief Создать метку с количеством вхождений.
+   * @param amount Количество вхождений.
+   * @param parent Родительский виджет.
+   * @return Указатель на созданную метку.
+   */
+  QLabel *createCountLabel(int amount, QWidget *parent);
+
+  /**
    * @brief Создать секцию с информацией о контекстах использования.
    * @param sentences Вектор пар (номер предложения, текст контекста).
    * @param parent Родительский виджет для создаваемых элементов.
@@ -67,19 +103,24 @@ private:
                          QWidget *parent);
 
   /**
-   * @brief Контейнер для карточек внутри scroll area
+   * @brief Создать виджет для одного контекста.
+   * @param sentencePair Пара (номер предложения, текст).
+   * @param parent Родительский виджет.
+   * @return Указатель на созданную метку или nullptr.
    */
-  QWidget *container_ = nullptr;
+  QLabel *createSentenceWidget(const std::pair<int, QString> &sentencePair,
+                               QWidget *parent);
 
   /**
-   * @brief Layout для размещения карточек
-   * */
-  QVBoxLayout *layout_ = nullptr;
+   * @brief Обрезать текст до максимальной длины.
+   * @param text Исходный текст.
+   * @return Обрезанный текст с многоточием при необходимости.
+   */
+  QString truncateSnippet(const QString &text) const;
 
-  /**
-   * @brief Область прокрутки
-   * */
-  QScrollArea *scrollArea_ = nullptr;
+  QWidget *container_ = nullptr;  // Контейнер для карточек внутри scroll area
+  QVBoxLayout *layout_ = nullptr; // Layout для размещения карточек
+  QScrollArea *scrollArea_ = nullptr; // Область прокрутки
 };
 
 #endif // SEARCHRESULTSLIST_HPP

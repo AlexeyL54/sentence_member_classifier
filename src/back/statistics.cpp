@@ -110,12 +110,12 @@ static void incrementCategoryTotal(GlobalStats &stats,
  *        Используется для вычисления самых частых членов предложения.
  */
 struct CategoryWordFreqs {
-  QHash<QString, int> subject;    ///< Частоты подлежащих
-  QHash<QString, int> predicate;  ///< Частоты сказуемых
-  QHash<QString, int> definition; ///< Частоты определений
-  QHash<QString, int> addition;   ///< Частоты дополнений
-  QHash<QString, int> adverbial;  ///< Частоты обстоятельств
-  QHash<QString, int> other;      ///< Частоты других членов предложения
+  QHash<QString, int> subject;    // Частоты подлежащих
+  QHash<QString, int> predicate;  // Частоты сказуемых
+  QHash<QString, int> definition; // Частоты определений
+  QHash<QString, int> addition;   // Частоты дополнений
+  QHash<QString, int> adverbial;  // Частоты обстоятельств
+  QHash<QString, int> other;      // Частоты других членов предложения
 
   /**
    * @brief Увеличивает счётчик для указанной категории.
@@ -201,14 +201,16 @@ build_global_stats(const std::vector<SentenceResult> &analysis_results) {
 }
 
 /**
- * @brief Возвращает ключ для группировки слова (нижний регистр).
+ * @brief Приводит слово к нижнему регистру для использования в качестве ключа
+ *        группировки.
  * @param word Исходное слово.
  * @return Слово в нижнем регистре.
  */
 static QString normalizedWordKey(const QString &word) { return word.toLower(); }
 
 /**
- * @brief Добавляет вхождение сущности в агрегат по ключу (категория, слово).
+ * @brief Добавляет вхождение сущности в агрегат по ключу (категория, слово в
+ * нижнем регистре).
  * @param[in,out] itemsByKey Карта, где ключ — пара (категория, слово в нижнем
  * регистре), значение — агрегированный SearchItem.
  * @param sentence_number Номер предложения (1-based).
@@ -225,12 +227,14 @@ static void mergeEntityIntoSearchItems(
     return;
   }
 
+  // Приведение слова к нижнему регистру для группировки (регистронезависимость)
   QString wordKey = normalizedWordKey(word);
   auto key = std::make_pair(categoryRu, wordKey);
   SearchItem &item = itemsByKey[key];
 
   if (item.amount == 0) {
-    item.text = word;
+    // Сохраняем слово в нижнем регистре
+    item.text = wordKey;
     item.type = categoryRu;
   }
 
@@ -240,6 +244,11 @@ static void mergeEntityIntoSearchItems(
 
 /**
  * @brief Строит агрегированный список элементов для страницы поиска.
+ *
+ * Группировка выполняется по паре (категория, слово в нижнем регистре),
+ * что обеспечивает регистронезависимость. В результирующих SearchItem
+ * поле text содержит слово в нижнем регистре.
+ *
  * @param analysis_results Вектор результатов анализа предложений.
  * @return Вектор структур SearchItem.
  */
