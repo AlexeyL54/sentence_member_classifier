@@ -127,7 +127,7 @@ std::string generateSearchItemsHTML(const std::vector<SearchItem> &items) {
     html << "    <div class='item-header'>\n";
     html << "        <span class='text'>" << item.text.toUtf8().toStdString()
          << "</span>\n";
-    html << "        <span class='type'>" << item.text.toUtf8().toStdString()
+    html << "        <span class='type'>" << item.type.toUtf8().toStdString()
          << "</span>\n";
     html << "        <div>Появлений: " << item.amount << "</div>\n";
     html << "    </div>\n";

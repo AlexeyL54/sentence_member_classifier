@@ -445,6 +445,12 @@ ResultPage::ResultPage(QWidget *parent) : QMainWindow(parent) {
 }
 
 /**
+ * @brief Получить статус сохранения результатов
+ * @return true, если результаты сохранены, иначе - false
+ */
+bool ResultPage::getSaveStatus() { return isSaved; }
+
+/**
  * @brief Устанавливает данные для поиска.
  * @param items Вектор элементов для сохранения в файл.
  */

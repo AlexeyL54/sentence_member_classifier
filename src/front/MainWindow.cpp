@@ -347,9 +347,11 @@ bool MainWindow::saveResultFiles(const QString &directoryPath) {
   saveAnalysis(directoryPath.toStdString(), items, statistics);
 
   if (QFile::exists(searchFilePath) && QFile::exists(reviewFilePath)) {
-    QMessageBox::information(this, "Сохранение",
-                             "Результаты успешно сохранены в:\n" +
-                                 directoryPath);
+    QMessageBox::information(
+        this, "Сохранение",
+        "Результаты успешно сохранены в:\n" + directoryPath + "\n" + "- " +
+            QString::fromStdString(SEARCH_FILE) + "\n" + "- " +
+            QString::fromStdString(REVIEW_FILE) + "\n");
     return true;
   } else {
     QMessageBox::critical(this, "Ошибка сохранения",
@@ -387,38 +389,41 @@ bool MainWindow::confirmCyrillicPath(const QString &path) {
  * отменено
  */
 bool MainWindow::saveResultsOnClose() {
-  QMessageBox msgBox(this);
-  msgBox.setWindowTitle("Подтверждение");
-  msgBox.setText(
-      "Результаты анализа не сохранены. Хотите сохранить их перед выходом?");
-  msgBox.setIcon(QMessageBox::Question);
+  if (resultPage->getSaveStatus()) {
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Подтверждение");
+    msgBox.setText(
+        "Результаты анализа не сохранены. Хотите сохранить их перед выходом?");
+    msgBox.setIcon(QMessageBox::Question);
 
-  QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
-  QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
-  QPushButton *cancelButton =
-      msgBox.addButton("Отмена", QMessageBox::RejectRole);
-  msgBox.exec();
+    QPushButton *yesButton = msgBox.addButton("Да", QMessageBox::YesRole);
+    QPushButton *noButton = msgBox.addButton("Нет", QMessageBox::NoRole);
+    QPushButton *cancelButton =
+        msgBox.addButton("Отмена", QMessageBox::RejectRole);
+    msgBox.exec();
 
-  if (msgBox.clickedButton() == cancelButton) {
-    return false;
+    if (msgBox.clickedButton() == cancelButton) {
+      return false;
+    }
+
+    if (msgBox.clickedButton() == noButton) {
+      return true;
+    }
+
+    // Обработка сохранения
+    QString path = QFileDialog::getExistingDirectory(
+        this, "Выберите директорию для сохранения", QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (path.isEmpty()) {
+      return false;
+    }
+
+    if (hasCyrillicPath(path) && !confirmCyrillicPath(path)) {
+      return false;
+    }
+
+    return saveResultFiles(path);
   }
-
-  if (msgBox.clickedButton() == noButton) {
-    return true;
-  }
-
-  // Обработка сохранения
-  QString path = QFileDialog::getExistingDirectory(
-      this, "Выберите директорию для сохранения", QDir::homePath(),
-      QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-
-  if (path.isEmpty()) {
-    return false;
-  }
-
-  if (hasCyrillicPath(path) && !confirmCyrillicPath(path)) {
-    return false;
-  }
-
-  return saveResultFiles(path);
+  return true;
 }

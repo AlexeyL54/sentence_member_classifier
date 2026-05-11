@@ -124,6 +124,12 @@ public:
    */
   void setGlobalStats(const GlobalStats stats);
 
+  /**
+   * @brief Получить статус сохранения результатов
+   * @return true, если результаты сохранены, иначе - false
+   */
+  bool getSaveStatus();
+
 private:
   /**
    * @brief Инициализирует левую часть интерфейса с текстовым полем и кнопками.
