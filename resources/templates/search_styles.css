@@ -125,9 +125,18 @@ h1 {
     border-left: 4px solid #4CAF50;
 }
 
-.item.sentence-match {
+.item.exact-match .text {
+    color: #2E7D32;
+    font-weight: bold;
+}
+
+.item.partial-match {
     background: #fff8e1;
     border-left: 4px solid #FFC107;
+}
+
+.item.partial-match .text {
+    color: #F57C00;
 }
 
 .item.no-match {
@@ -135,11 +144,3 @@ h1 {
     border-left: 4px solid #999;
 }
 
-.item.exact-match .text {
-    color: #2E7D32;
-    font-weight: bold;
-}
-
-.item.sentence-match .text {
-    color: #F57C00;
-}

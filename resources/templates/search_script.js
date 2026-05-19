@@ -50,9 +50,9 @@ function getSearchState() {
  * @param {HTMLElement} item - DOM элемент
  * @param {string} searchText - Поисковый текст (нижний регистр)
  * @param {string} originalText - Оригинальный текст элемента (нижний регистр)
- * @returns {string} Тип совпадения: 'exact' | 'partial' | 'sentence' | 'typeOnly' | 'none'
+ * @returns {string} Тип совпадения: 'exact' | 'partial' | 'typeOnly' | 'none'
  */
-function classifyMatch(item, searchText, originalText) {
+function classifyMatch(searchText, originalText) {
   if (!searchText) return 'typeOnly';
 
   // Точное совпадение (полное соответствие слова)
@@ -72,14 +72,6 @@ function classifyMatch(item, searchText, originalText) {
   // Частичное совпадение (внутри слова)
   if (originalText.includes(searchText)) return 'partial';
 
-  // Совпадение в предложениях
-  const sentences = item.querySelectorAll('.sentence');
-  for (const sentence of sentences) {
-    if (sentence.textContent.toLowerCase().includes(searchText)) {
-      return 'sentence';
-    }
-  }
-
   return 'none';
 }
 
@@ -90,7 +82,7 @@ function classifyMatch(item, searchText, originalText) {
  */
 function applyMatchClasses(item, matchType) {
   // Удаляем все классы состояния
-  item.classList.remove('exact-match', 'partial-match', 'sentence-match', 'type-only');
+  item.classList.remove('exact-match', 'partial-match', 'type-only');
 
   switch (matchType) {
     case 'exact':
@@ -98,9 +90,6 @@ function applyMatchClasses(item, matchType) {
       break;
     case 'partial':
       item.classList.add('partial-match');
-      break;
-    case 'sentence':
-      item.classList.add('sentence-match');
       break;
     case 'typeOnly':
       item.classList.add('type-only');
@@ -122,42 +111,6 @@ function updateHeaderHighlight(item, searchText, originalText, matchType) {
   textSpan.innerHTML = shouldHighlight && searchText
     ? highlightText(originalText, searchText)
     : originalText;
-}
-
-/**
- * Сохраняет оригинальный текст предложения и обновляет подсветку
- * @param {HTMLElement} sentence - DOM элемент предложения
- * @param {string} searchText - Поисковый текст (нижний регистр)
- * @returns {boolean} Было ли обновление
- */
-function updateSentenceHighlight(sentence, searchText) {
-  let original = sentence.getAttribute('data-original');
-
-  if (!original) {
-    original = sentence.innerHTML;
-    sentence.setAttribute('data-original', original);
-  }
-
-  if (searchText && original.toLowerCase().includes(searchText)) {
-    sentence.innerHTML = highlightText(original, searchText);
-    return true;
-  }
-
-  sentence.innerHTML = original;
-  return false;
-}
-
-/**
- * Обновляет подсветку во всех предложениях элемента
- * @param {HTMLElement} item - DOM элемент
- * @param {string} searchText - Поисковый текст (нижний регистр)
- */
-function updateSentencesHighlight(item, searchText) {
-  const sentences = item.querySelectorAll('.sentence');
-
-  for (const sentence of sentences) {
-    updateSentenceHighlight(sentence, searchText);
-  }
 }
 
 /**
@@ -220,7 +173,7 @@ function formatStatistics(stats, searchText, searchType) {
   const hasSearch = searchText || searchType;
   if (!hasSearch) return '';
 
-  const totalFound = stats.exact + stats.partial + stats.sentence;
+  const totalFound = stats.exact + stats.partial;
 
   if (totalFound === 0 && stats.typeOnly === 0) {
     return '❌ Ничего не найдено';
@@ -229,7 +182,6 @@ function formatStatistics(stats, searchText, searchType) {
   const parts = [];
   if (stats.exact > 0) parts.push(`${stats.exact} точных совпадений`);
   if (stats.partial > 0) parts.push(`${stats.partial} частичных совпадений`);
-  if (stats.sentence > 0) parts.push(`${stats.sentence} совпадений в предложениях`);
   if (stats.typeOnly > 0 && !searchText) parts.push(`${stats.typeOnly} по типу`);
 
   return `✅ Найдено: ${parts.join(', ')}`;
@@ -256,9 +208,8 @@ function getSortPriority(matchType) {
   const priorities = {
     'exact': 0,
     'partial': 1,
-    'sentence': 2,
-    'typeOnly': 3,
-    'none': 4
+    'typeOnly': 2,
+    'none': 3
   };
   return priorities[matchType] ?? 4;
 }
@@ -310,13 +261,12 @@ function processSingleItem(item, searchText, searchType) {
     return { item, matchType: 'none', isVisible: false };
   }
 
-  const matchType = classifyMatch(item, searchText, originalText);
+  const matchType = classifyMatch(searchText, originalText);
   const isVisible = matchType !== 'none';
 
   setItemVisibility(item, isVisible);
   applyMatchClasses(item, matchType);
   updateHeaderHighlight(item, searchText, originalText, matchType);
-  updateSentencesHighlight(item, searchText);
 
   return { item, matchType, isVisible };
 }
@@ -402,22 +352,13 @@ function restoreOriginalOrder(container, items) {
  */
 function resetHighlighting(items) {
   for (const item of items) {
-    item.classList.remove('hidden', 'highlight', 'exact-match', 'partial-match', 'sentence-match', 'type-only');
+    item.classList.remove('hidden', 'highlight', 'exact-match', 'partial-match', 'type-only');
 
     // Восстанавливаем оригинальный текст заголовка
     const textSpan = item.querySelector('.text');
     const originalText = item.getAttribute('data-text');
     if (textSpan && originalText) {
       textSpan.innerHTML = originalText;
-    }
-
-    // Восстанавливаем оригинальный текст предложений
-    const sentences = item.querySelectorAll('.sentence');
-    for (const sentence of sentences) {
-      const original = sentence.getAttribute('data-original');
-      if (original) {
-        sentence.innerHTML = original;
-      }
     }
   }
 }
@@ -495,8 +436,6 @@ if (typeof module !== 'undefined' && module.exports) {
     classifyMatch,
     applyMatchClasses,
     updateHeaderHighlight,
-    updateSentenceHighlight,
-    updateSentencesHighlight,
     matchesType,
     setItemVisibility,
     collectStatistics,
