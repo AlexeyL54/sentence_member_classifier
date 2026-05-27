@@ -34,12 +34,13 @@ SimpleTokenizer::SimpleTokenizer(const string &vocab_path) {
 }
 
 /**
-@brief Проверяет, является ли символ (в виде Unistring) разделителем.
-Разделителем считается: пробельный символ ASCII или любой знак,
-не являющийся буквой или цифрой.
-@param uni_char Символ в виде Unistring.
-@return true, если символ является разделителем.
-*/
+ * @brief Проверяет, является ли символ (в виде Unistring) разделителем.
+ * Разделителем считается: пробельный символ ASCII или любой знак,
+ * не являющийся буквой или цифрой.
+ *
+ * @param uni_char Символ в виде Unistring.
+ * @return true, если символ является разделителем.
+ */
 static bool is_separator_char(const utf8::Unistring &uni_char) {
   string s = uni_char.to_string();
   if (s.empty())
@@ -60,18 +61,18 @@ static bool is_separator_char(const utf8::Unistring &uni_char) {
 }
 
 /**
-@brief Разбивает текст на список слов и отдельных знаков препинания.
-@param text Входной текст.
-@return vector<string> Вектор слов и знаков препинания.
-*/
+ * @brief Разбивает текст на список слов и отдельных знаков препинания.
+ *
+ * @param text Входной текст.
+ * @return vector<string> Вектор слов и знаков препинания.
+ */
 vector<string> SimpleTokenizer::extract_words_and_punct(const string &text) {
   vector<string> result;
 
-  // Используем новый TextSplitter для корректной токенизации
   utf8::Unistring uni_text(text);
   std::vector<utf8::TextToken> tokens = utf8::TextSplitter::tokenize(uni_text);
 
-  for (const auto &token : tokens) {
+  for (const utf8::TextToken &token : tokens) {
     // Пропускаем пробелы, но добавляем слова и пунктуацию
     if (!token.is_space) {
       result.push_back(token.text.to_string());
@@ -82,10 +83,11 @@ vector<string> SimpleTokenizer::extract_words_and_punct(const string &text) {
 }
 
 /**
-@brief Приводит слово к нижнему регистру с использованием Unistring.
-@param word Входное слово.
-@return string Слово в нижнем регистре.
-*/
+ * @brief Приводит слово к нижнему регистру с использованием Unistring.
+ *
+ * @param word Входное слово.
+ * @return string Слово в нижнем регистре.
+ */
 string SimpleTokenizer::normalize_word(const string &word) {
   if (word.empty())
     return word;
@@ -93,10 +95,11 @@ string SimpleTokenizer::normalize_word(const string &word) {
 }
 
 /**
-@brief Применяет алгоритм WordPiece к одному слову.
-@param word Входное слово.
-@return vector<string> Вектор подслов (субтокенов).
-*/
+ * @brief Применяет алгоритм WordPiece к одному слову.
+ *
+ * @param word Входное слово.
+ * @return vector<string> Вектор подслов (субтокенов).
+ */
 vector<string> SimpleTokenizer::wordpiece_split(const string &word) {
   vector<string> tokens;
 
@@ -153,11 +156,12 @@ vector<string> SimpleTokenizer::wordpiece_split(const string &word) {
 }
 
 /**
-@brief Основной метод разбиения текста на токены.
-Объединяет извлечение слов/знаков, нормализацию и WordPiece-разбиение.
-@param text Входной текст.
-@return vector<string> Вектор финальных токенов.
-*/
+ * @brief Основной метод разбиения текста на токены.
+ * Объединяет извлечение слов/знаков, нормализацию и WordPiece-разбиение.
+ *
+ * @param text Входной текст.
+ * @return vector<string> Вектор финальных токенов.
+ */
 vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
   vector<string> final_tokens;
   vector<string> raw_units = extract_words_and_punct(text);
@@ -178,18 +182,17 @@ vector<string> SimpleTokenizer::split_text_into_tokens(const string &text) {
   return final_tokens;
 }
 
-// --- Методы поиска ---
-
 /**
-@brief Находит позицию токена в исходном тексте, начиная с заданной байтовой
-позиции. Корректно работает с многобайтовыми символами благодаря Unistring.
-@param text Исходный текст.
-@param token Токен для поиска (возможно с префиксом ##).
-@param start_pos Начальная позиция поиска в байтах.
-@return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
-токена. Если токен не найден, возвращает {start_pos, start_pos} (пустой
-диапазон), чтобы не ломать поток.
-*/
+ * @brief Находит позицию токена в исходном тексте, начиная с заданной байтовой
+ * позиции. Корректно работает с многобайтовыми символами благодаря Unistring.
+ *
+ * @param text Исходный текст.
+ * @param token Токен для поиска (возможно с префиксом ##).
+ * @param start_pos Начальная позиция поиска в байтах.
+ * @return pair<size_t, size_t> Байтовые смещения (начало, конец) найденного
+ * токена. Если токен не найден, возвращает {start_pos, start_pos} (пустой
+ * диапазон), чтобы не ломать поток.
+ */
 pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
 
                                                          const string &token,
@@ -223,24 +226,15 @@ pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
   size_t found_char_idx = uni_text_lower.find(uni_search_lower, start_char_idx);
 
   if (found_char_idx == SIZE_MAX) {
-    // ИСПРАВЛЕНИЕ: Вместо возврата пустого диапазона, пробуем найти токен
-    // начиная с начала текста или пропускаем его
     cerr << "Warning: Token '" << token << "' not found at byte " << start_pos
          << ". Skipping." << endl;
     return {SIZE_MAX, SIZE_MAX};
-
-    /*size_t skip_pos = start_pos;
-    while (skip_pos < text.size() &&
-           !std::isspace(static_cast<unsigned char>(text[skip_pos]))) {
-      skip_pos++;
-    }
-    // Возвращаем диапазон до следующего пробела (пропускаем это слово)
-    return {start_pos, skip_pos};*/
   }
 
   size_t found_byte_start = offsets[found_char_idx];
   size_t found_char_end = found_char_idx + uni_search_lower.length();
   size_t found_byte_end;
+
   if (found_char_end >= offsets.size()) {
     found_byte_end = text.length();
   } else {
@@ -251,10 +245,11 @@ pair<size_t, size_t> SimpleTokenizer::find_token_in_text(const string &text,
 }
 
 /**
-@brief Находит ID токена в словаре с учётом регистра.
-@param token Строковое представление токена.
-@return int64_t ID токена или ID [UNK], если не найден.
-*/
+ * @brief Находит ID токена в словаре с учётом регистра.
+ *
+ * @param token Строковое представление токена.
+ * @return int64_t ID токена или ID [UNK], если не найден.
+ */
 int64_t SimpleTokenizer::find_token_in_vocab(const string &token) {
   // Прямой поиск
   auto it = vocab_map_.find(token);
@@ -270,16 +265,15 @@ int64_t SimpleTokenizer::find_token_in_vocab(const string &token) {
   return get_unk_token_id();
 }
 
-// --- Основная логика кодирования ---
-
 /**
-@brief Выполняет основную фазу кодирования: токенизация, поиск смещений,
-word_ids. Не включает паддинг и special-токены — это делает pad_encoding.
-@param text Исходный текст.
-@param raw_tokens Вектор токенов после предварительной разбивки.
-@param max_len Максимальная длина последовательности.
-@return CoreEncoding Промежуточный результат.
-*/
+ * @brief Выполняет основную фазу кодирования: токенизация, поиск смещений,
+ * word_ids. Не включает паддинг и special-токены — это делает pad_encoding.
+ *
+ * @param text Исходный текст.
+ * @param raw_tokens Вектор токенов после предварительной разбивки.
+ * @param max_len Максимальная длина последовательности.
+ * @return CoreEncoding Промежуточный результат.
+ */
 SimpleTokenizer::CoreEncoding
 SimpleTokenizer::build_encoding_core(const std::string &text,
                                      const std::vector<std::string> &raw_tokens,
@@ -344,10 +338,11 @@ SimpleTokenizer::build_encoding_core(const std::string &text,
 }
 
 /**
-@brief Добавляет специальные токены и паддинг к промежуточному результату.
-@param core Ссылка на CoreEncoding (изменяется на месте).
-@param max_len Максимальная длина выходной последовательности.
-*/
+ * @brief Добавляет специальные токены и паддинг к промежуточному результату.
+ *
+ * @param core Ссылка на CoreEncoding (изменяется на месте).
+ * @param max_len Максимальная длина выходной последовательности.
+ */
 void SimpleTokenizer::pad_encoding(CoreEncoding &core, size_t max_len) {
   // Добавляем токен [SEP] в конец
   if (core.input_ids.size() < max_len) {
@@ -367,19 +362,20 @@ void SimpleTokenizer::pad_encoding(CoreEncoding &core, size_t max_len) {
 }
 
 /**
-@brief Публичный метод encode: объединяет все этапы кодирования.
-@param text Исходный текст.
-@param max_len Максимальная длина выходной последовательности.
-@return EncodingResult Полный результат кодирования.
-*/
+ * @brief Публичный метод encode: объединяет все этапы кодирования.
+ *
+ * @param text Исходный текст.
+ * @param max_len Максимальная длина выходной последовательности.
+ * @return EncodingResult Полный результат кодирования.
+ */
 SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
                                                         size_t max_len) {
   EncodingResult result;
 
-  // 1. токенизация
+  // токенизация
   std::vector<std::string> raw_tokens = split_text_into_tokens(text);
 
-  // 2. ID, токены, смещения, word_ids
+  // ID, токены, смещения, word_ids
   SimpleTokenizer::CoreEncoding core =
       build_encoding_core(text, raw_tokens, max_len);
 
@@ -388,7 +384,7 @@ SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
     return result;
   }
 
-  // 3. паддинг и спец-токены
+  // паддинг и спец-токены
   pad_encoding(core, max_len);
 
   // 4. финальный результат с маской внимания
@@ -411,10 +407,11 @@ SimpleTokenizer::EncodingResult SimpleTokenizer::encode(const string &text,
 }
 
 /**
-@brief Декодирует последовательность ID токенов обратно в текст.
-@param ids Вектор ID токенов.
-@return string Восстановленный текст.
-*/
+ * @brief Декодирует последовательность ID токенов обратно в текст.
+ *
+ * @param ids Вектор ID токенов.
+ * @return string Восстановленный текст.
+ */
 string SimpleTokenizer::decode(const vector<int64_t> &ids) {
   string text;
 
@@ -445,11 +442,12 @@ string SimpleTokenizer::decode(const vector<int64_t> &ids) {
 }
 
 /**
-@brief Токенизирует текст с возвратом смещений (для ONNX).
-@param text Входной текст.
-@param max_len Максимальная длина последовательности.
-@return TokenizationResult Результат токенизации.
-*/
+ * @brief Токенизирует текст с возвратом смещений (для ONNX).
+ *
+ * @param text Входной текст.
+ * @param max_len Максимальная длина последовательности.
+ * @return TokenizationResult Результат токенизации.
+ */
 SimpleTokenizer::TokenizationResult
 SimpleTokenizer::tokenize_with_offsets(const string &text, size_t max_len) {
   SimpleTokenizer::EncodingResult enc = encode(text, max_len);
@@ -457,10 +455,11 @@ SimpleTokenizer::tokenize_with_offsets(const string &text, size_t max_len) {
 }
 
 /**
-@brief Токенизирует текст без дополнительной информации.
-@param text Входной текст.
-@return vector<string> Вектор токенов.
-*/
+ * @brief Токенизирует текст без дополнительной информации.
+ *
+ * @param text Входной текст.
+ * @return vector<string> Вектор токенов.
+ */
 vector<string> SimpleTokenizer::tokenize_text(const string &text) {
   return encode(text, 512).tokens;
 }

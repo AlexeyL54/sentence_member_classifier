@@ -30,7 +30,7 @@ public:
   /**
    * @brief Разбивает текст на предложения.
    * @param text Исходный текст.
-   * @return Вектор предложений (каждое предложение - это Unistring).
+   * @return Вектор предложений.
    */
   static std::vector<Unistring> splitIntoSentences(const Unistring &text);
 
@@ -61,15 +61,6 @@ public:
    * @return Очищенное слово.
    */
   static Unistring cleanWord(const Unistring &word);
-
-  /**
-   * @brief Извлекает токены-слова из вектора токенов (без пунктуации и
-   * пробелов).
-   * @param tokens Вектор всех токенов.
-   * @return Вектор токенов-слов.
-   */
-  static std::vector<TextToken>
-  extractWords(const std::vector<TextToken> &tokens);
 };
 
 } // namespace utf8

@@ -72,7 +72,7 @@ public:
   SentenceResult process_sentence(const std::string &sentence);
 
   /**
-   * @brief Разбивает текст на предложения (простая реализация)
+   * @brief Разбивает текст на предложения
    *
    * @param text Входной текст
    * @return std::vector<std::string> Предложения

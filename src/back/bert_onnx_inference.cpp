@@ -12,13 +12,19 @@
 
 namespace {
 
+/**
+ * @brief Структура, хранящая информацию о слове после объединения подслов.
+ *
+ * Используется как промежуточное представление между токенами и финальными
+ * сущностями.
+ */
 struct WordInfo {
-  std::string text;
-  size_t start;
-  size_t end;
-  std::vector<std::string> labels;
-  std::string main_label;
-  bool has_b_prefix;
+  std::string text; ///< Текст слова
+  size_t start;     ///< Начальная позиция слова в исходном тексте
+  size_t end;       ///< Конечная позиция слова в исходном тексте
+  std::vector<std::string> labels; ///< BIO-метки для каждого подслова слова
+  std::string main_label; ///< Основная метка слова (приоритет у B-* над I-*)
+  bool has_b_prefix;      ///< Флаг наличия B-* метки в слове
 };
 
 /**
@@ -123,11 +129,16 @@ BertOnnxInference::BertOnnxInference(
     : model_(std::move(model)), tokenizer_(std::move(tokenizer)),
       labels_(labels), max_len_(max_len) {}
 
+/**
+ * @brief Разбивает текст на предложения
+ *
+ * @param text Входной текст
+ * @return std::vector<std::string> Предложения
+ */
 std::vector<std::string>
 BertOnnxInference::split_into_sentences(const std::string &text) {
   std::vector<std::string> sentences;
 
-  // Используем новый TextSplitter для корректного разбиения на предложения
   utf8::Unistring uni_text(text);
   std::vector<utf8::Unistring> uni_sentences =
       utf8::TextSplitter::splitIntoSentences(uni_text);
@@ -139,6 +150,12 @@ BertOnnxInference::split_into_sentences(const std::string &text) {
   return sentences;
 }
 
+/**
+ * @brief Обрабатывает одно предложение
+ *
+ * @param sentence Текст предложения
+ * @return SentenceResult Результат обработки
+ */
 SentenceResult
 BertOnnxInference::process_sentence(const std::string &sentence) {
   SentenceResult result;
@@ -351,6 +368,15 @@ std::vector<Entity> group_words_into_phrases(
   return entities;
 }
 
+/**
+ * @brief Объединяет подслова в полные слова с метками
+ *
+ * @param tokens Токены
+ * @param token_labels Метки токенов
+ * @param offsets Смещения токенов
+ * @param original_text Исходный текст
+ * @return std::vector<Entity> Объединенные сущности
+ */
 std::vector<Entity> BertOnnxInference::merge_subwords(
     const std::vector<std::string> &tokens,
     const std::vector<int> &token_labels,
@@ -432,12 +458,9 @@ std::vector<SentenceResult>
 BertOnnxInference::extract_sentence_parts(const std::string &text) {
   std::vector<SentenceResult> results;
 
-  // Разбиваем на предложения
   std::vector<std::string> sentences = split_into_sentences(text);
 
   for (const std::string &sentence : sentences) {
-    // if (sentence.length() < 3)
-    // continue; // Пропускаем слишком короткие
 
     SentenceResult result = process_sentence(sentence);
     results.push_back(result);
