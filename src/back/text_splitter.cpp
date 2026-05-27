@@ -85,7 +85,6 @@ bool TextSplitter::isLetterOrDigit(const Unistring &ch) {
       return true;
   }
 
-  // Многобайтовые символы (кириллица и др.) считаем буквами
   // Если это не пробел и не пунктуация, то это часть слова
   if (!isSpace(ch) && !isPunctuation(ch)) {
     return true;
@@ -295,6 +294,11 @@ std::vector<TextToken> TextSplitter::tokenize(const Unistring &text) {
   return tokens;
 }
 
+/**
+ * @brief Разбивает текст на предложения.
+ * @param text Исходный текст.
+ * @return Вектор предложений.
+ */
 std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
   std::vector<Unistring> sentences;
   QString qstr = QString::fromStdString(text.to_string());
@@ -303,7 +307,6 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
     return sentences;
   }
 
-  // Регулярное выражение для предложений со знаками завершения
   QRegularExpression sentenceRegex("("
                                    "[^.!?…]*"
                                    "(?:"
