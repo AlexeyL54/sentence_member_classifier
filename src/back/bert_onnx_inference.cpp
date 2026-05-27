@@ -268,13 +268,6 @@ std::vector<WordInfo> group_tokens_into_words(
 }
 
 /**
- * @brief Группировка слов в фразы (сущности) с дополнительными правилами
- * @param words Вектор информации о словах
- * @param labels_map Карта меток
- * @param original_text Исходный текст
- * @return Вектор сущностей
- */
-/**
  * @brief Группировка слов в фразы (сущности)
  * @param words Вектор информации о словах
  * @param labels_map Карта меток

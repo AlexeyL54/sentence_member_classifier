@@ -303,7 +303,6 @@ std::vector<Unistring> TextSplitter::splitIntoSentences(const Unistring &text) {
     return sentences;
   }
 
-  // Регулярное выражение для предложений со знаками завершения
   QRegularExpression sentenceRegex("("
                                    "[^.!?…]*"
                                    "(?:"
